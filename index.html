@@ -5,691 +5,671 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Studio Legale - Gestione Pratiche</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(10px);} to {opacity:1;transform:translateY(0);}}
         .animate-fadein { animation: fadeIn 0.3s; }
     </style>
 </head>
 <body>
-    <div id="app"></div>
+<div id="app" class="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center">
+    <div class="text-white text-center">
+        <div class="text-6xl mb-4">⚖️</div>
+        <p class="text-xl">Caricamento...</p>
+    </div>
+</div>
 
-    <script type="module">
-        import React from 'https://esm.sh/react@18.2.0';
-        import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
-        import { createElement as h } from 'https://esm.sh/react@18.2.0';
+<script>
+// ─── SUPABASE CONFIG ───────────────────────────────────────────────
+const SUPABASE_URL = 'https://vwfubfydakocuxhepwkq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ziNieyV1K_9bPBNJu6GHUQ_j2kVEyn2';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        const { useState, useEffect } = React;
+// ─── STATE ────────────────────────────────────────────────────────
+let state = {
+    activeTab: 'dashboard',
+    pratiche: [],
+    avvocati: [],
+    searchTerm: '',
+    filterStato: 'tutti',
+    showModal: false,
+    showAvvocatoModal: false,
+    editingPratica: null,
+    editingAvvocato: null,
+    successMessage: '',
+    loading: false,
+    formData: { cliente:'', tipo_pratica:'civile', descrizione:'', stato:'aperta',
+        data_apertura: today(), data_udienza:'', avvocato:'', note:'' },
+    avvForm: { nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile' }
+};
 
-        // Icone SVG
-        const Icons = {
-            Calendar: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" }, 
-                h('rect', { x: "3", y: "4", width: "18", height: "18", rx: "2", ry: "2" }),
-                h('line', { x1: "16", y1: "2", x2: "16", y2: "6" }),
-                h('line', { x1: "8", y1: "2", x2: "8", y2: "6" }),
-                h('line', { x1: "3", y1: "10", x2: "21", y2: "10" })
-            ),
-            Search: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('circle', { cx: "11", cy: "11", r: "8" }),
-                h('line', { x1: "21", y1: "21", x2: "16.65", y2: "16.65" })
-            ),
-            FileText: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('path', { d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" }),
-                h('polyline', { points: "14 2 14 8 20 8" }),
-                h('line', { x1: "16", y1: "13", x2: "8", y2: "13" }),
-                h('line', { x1: "16", y1: "17", x2: "8", y2: "17" }),
-                h('polyline', { points: "10 9 9 9 8 9" })
-            ),
-            TrendingUp: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('polyline', { points: "23 6 13.5 15.5 8.5 10.5 1 18" }),
-                h('polyline', { points: "17 6 23 6 23 12" })
-            ),
-            Plus: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('line', { x1: "12", y1: "5", x2: "12", y2: "19" }),
-                h('line', { x1: "5", y1: "12", x2: "19", y2: "12" })
-            ),
-            Edit2: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('path', { d: "M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" })
-            ),
-            Trash2: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('polyline', { points: "3 6 5 6 21 6" }),
-                h('path', { d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" }),
-                h('line', { x1: "10", y1: "11", x2: "10", y2: "17" }),
-                h('line', { x1: "14", y1: "11", x2: "14", y2: "17" })
-            ),
-            X: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('line', { x1: "18", y1: "6", x2: "6", y2: "18" }),
-                h('line', { x1: "6", y1: "6", x2: "18", y2: "18" })
-            ),
-            Save: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('path', { d: "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" }),
-                h('polyline', { points: "17 21 17 13 7 13 7 21" }),
-                h('polyline', { points: "7 3 7 8 15 8" })
-            ),
-            AlertCircle: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('circle', { cx: "12", cy: "12", r: "10" }),
-                h('line', { x1: "12", y1: "8", x2: "12", y2: "12" }),
-                h('line', { x1: "12", y1: "16", x2: "12.01", y2: "16" })
-            ),
-            Clock: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('circle', { cx: "12", cy: "12", r: "10" }),
-                h('polyline', { points: "12 6 12 12 16 14" })
-            ),
-            CheckCircle: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('path', { d: "M22 11.08V12a10 10 0 1 1-5.93-9.14" }),
-                h('polyline', { points: "22 4 12 14.01 9 11.01" })
-            ),
-            Users: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('path', { d: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" }),
-                h('circle', { cx: "9", cy: "7", r: "4" }),
-                h('path', { d: "M23 21v-2a4 4 0 0 0-3-3.87" }),
-                h('path', { d: "M16 3.13a4 4 0 0 1 0 7.75" })
-            ),
-            Briefcase: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('rect', { x: "2", y: "7", width: "20", height: "14", rx: "2", ry: "2" }),
-                h('path', { d: "M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" })
-            ),
-            Download: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('path', { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }),
-                h('polyline', { points: "7 10 12 15 17 10" }),
-                h('line', { x1: "12", y1: "15", x2: "12", y2: "3" })
-            ),
-            Upload: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('path', { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }),
-                h('polyline', { points: "17 8 12 3 7 8" }),
-                h('line', { x1: "12", y1: "3", x2: "12", y2: "15" })
-            ),
-            Database: () => h('svg', { xmlns: "http://www.w3.org/2000/svg", width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" },
-                h('ellipse', { cx: "12", cy: "5", rx: "9", ry: "3" }),
-                h('path', { d: "M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" }),
-                h('path', { d: "M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" })
-            )
-        };
+function today() { return new Date().toISOString().split('T')[0]; }
 
-        // Storage API simulata per localStorage
-        const storage = {
-            async get(key) {
-                const val = localStorage.getItem(key);
-                return val ? { key, value: val } : null;
-            },
-            async set(key, value) {
-                localStorage.setItem(key, value);
-                return { key, value };
-            },
-            async delete(key) {
-                localStorage.removeItem(key);
-                return { key, deleted: true };
-            },
-            async list(prefix) {
-                const keys = Object.keys(localStorage).filter(k => k.startsWith(prefix));
-                return { keys };
-            }
-        };
+// ─── SUPABASE OPERATIONS ─────────────────────────────────────────
+async function loadPratiche() {
+    const { data, error } = await sb.from('pratiche').select('*').order('numero', { ascending: false });
+    if (!error) state.pratiche = data || [];
+}
 
-        window.storage = storage;
+async function loadAvvocati() {
+    const { data, error } = await sb.from('avvocati').select('*').order('cognome');
+    if (!error) state.avvocati = data || [];
+}
 
-        function StudioLegaleApp() {
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [pratiche, setPratiche] = useState([]);
-            const [avvocati, setAvvocati] = useState([]);
-            const [searchTerm, setSearchTerm] = useState('');
-            const [filterStato, setFilterStato] = useState('tutti');
-            const [showModal, setShowModal] = useState(false);
-            const [showAvvocatoModal, setShowAvvocatoModal] = useState(false);
-            const [editingPratica, setEditingPratica] = useState(null);
-            const [editingAvvocato, setEditingAvvocato] = useState(null);
-            const [successMessage, setSuccessMessage] = useState('');
-
-            const [formData, setFormData] = useState({
-                cliente: '', tipoPratica: 'civile', descrizione: '', stato: 'aperta',
-                dataApertura: new Date().toISOString().split('T')[0], dataUdienza: '', avvocato: '', note: ''
-            });
-
-            const [avvocatoFormData, setAvvocatoFormData] = useState({
-                nome: '', cognome: '', email: '', telefono: '', specializzazione: 'civile'
-            });
-
-            useEffect(() => { loadPratiche(); loadAvvocati(); }, []);
-
-            const loadPratiche = async () => {
-                try {
-                    const keys = await storage.list('pratica:');
-                    if (keys?.keys) {
-                        const loaded = [];
-                        for (const key of keys.keys) {
-                            const result = await storage.get(key);
-                            if (result) loaded.push(JSON.parse(result.value));
-                        }
-                        setPratiche(loaded.sort((a, b) => b.numero - a.numero));
-                    }
-                } catch (e) { console.log('Nessuna pratica'); }
-            };
-
-            const loadAvvocati = async () => {
-                try {
-                    const keys = await storage.list('avvocato:');
-                    if (keys?.keys) {
-                        const loaded = [];
-                        for (const key of keys.keys) {
-                            const result = await storage.get(key);
-                            if (result) loaded.push(JSON.parse(result.value));
-                        }
-                        setAvvocati(loaded.sort((a, b) => a.cognome.localeCompare(b.cognome)));
-                    }
-                } catch (e) { console.log('Nessun avvocato'); }
-            };
-
-            const savePratica = async (p) => {
-                try {
-                    await storage.set(`pratica:${p.numero}`, JSON.stringify(p));
-                    await loadPratiche();
-                    return true;
-                } catch (e) { return false; }
-            };
-
-            const saveAvvocato = async (a) => {
-                try {
-                    await storage.set(`avvocato:${a.id}`, JSON.stringify(a));
-                    await loadAvvocati();
-                    return true;
-                } catch (e) { return false; }
-            };
-
-            const deletePratica = async (num) => {
-                try {
-                    await storage.delete(`pratica:${num}`);
-                    await loadPratiche();
-                    showSuccess('Pratica eliminata');
-                } catch (e) {}
-            };
-
-            const deleteAvvocato = async (id) => {
-                const nome = avvocati.find(a => a.id === id)?.nomeCompleto;
-                if (pratiche.filter(p => p.avvocato === nome).length > 0) {
-                    alert('Impossibile eliminare: ci sono pratiche assegnate');
-                    return;
-                }
-                try {
-                    await storage.delete(`avvocato:${id}`);
-                    await loadAvvocati();
-                    showSuccess('Avvocato eliminato');
-                } catch (e) {}
-            };
-
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                const p = { ...formData, numero: editingPratica ? editingPratica.numero : Date.now(), 
-                    dataModifica: new Date().toISOString().split('T')[0] };
-                if (await savePratica(p)) {
-                    showSuccess(editingPratica ? 'Pratica aggiornata!' : 'Pratica creata!');
-                    resetForm(); setShowModal(false); setEditingPratica(null);
-                }
-            };
-
-            const handleAvvocatoSubmit = async (e) => {
-                e.preventDefault();
-                const a = { ...avvocatoFormData, id: editingAvvocato ? editingAvvocato.id : Date.now(),
-                    nomeCompleto: `${avvocatoFormData.nome} ${avvocatoFormData.cognome}`,
-                    dataCreazione: editingAvvocato ? editingAvvocato.dataCreazione : new Date().toISOString().split('T')[0] };
-                if (await saveAvvocato(a)) {
-                    showSuccess(editingAvvocato ? 'Avvocato aggiornato!' : 'Avvocato aggiunto!');
-                    resetAvvocatoForm(); setShowAvvocatoModal(false); setEditingAvvocato(null);
-                }
-            };
-
-            const resetForm = () => setFormData({ cliente: '', tipoPratica: 'civile', descrizione: '', 
-                stato: 'aperta', dataApertura: new Date().toISOString().split('T')[0], dataUdienza: '', avvocato: '', note: '' });
-
-            const resetAvvocatoForm = () => setAvvocatoFormData({ nome: '', cognome: '', email: '', telefono: '', specializzazione: 'civile' });
-
-            const showSuccess = (msg) => { setSuccessMessage(msg); setTimeout(() => setSuccessMessage(''), 3000); };
-
-            const esportaDati = () => {
-                const data = { pratiche, avvocati, dataEsportazione: new Date().toISOString(), versione: '1.0' };
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `studio-legale-backup-${new Date().toISOString().split('T')[0]}.json`;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-                showSuccess('Dati esportati!');
-            };
-
-            const importaDati = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async (ev) => {
-                    try {
-                        const data = JSON.parse(ev.target.result);
-                        if (!data.pratiche || !data.avvocati) { alert('File non valido'); return; }
-                        if (!confirm(`Importare ${data.pratiche.length} pratiche e ${data.avvocati.length} avvocati? Sovrascrive tutto!`)) return;
-                        for (const a of data.avvocati) await storage.set(`avvocato:${a.id}`, JSON.stringify(a));
-                        for (const p of data.pratiche) await storage.set(`pratica:${p.numero}`, JSON.stringify(p));
-                        await loadPratiche(); await loadAvvocati();
-                        showSuccess(`Importati ${data.pratiche.length} pratiche e ${data.avvocati.length} avvocati!`);
-                    } catch (er) { alert('Errore importazione'); }
-                };
-                reader.readAsText(file);
-                e.target.value = '';
-            };
-
-            const filtered = pratiche.filter(p => {
-                const search = p.cliente.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                    p.numero.toString().includes(searchTerm) || p.descrizione.toLowerCase().includes(searchTerm.toLowerCase());
-                const filt = filterStato === 'tutti' || p.stato === filterStato;
-                return search && filt;
-            });
-
-            const getStatoBadge = (s) => ({ aperta: 'bg-green-100 text-green-800', 'in-corso': 'bg-yellow-100 text-yellow-800', 
-                chiusa: 'bg-blue-100 text-blue-800' }[s] || 'bg-green-100 text-green-800');
-
-            const getStatoIcon = (s) => s === 'chiusa' ? h(Icons.CheckCircle, { className: 'w-4 h-4' }) : 
-                s === 'in-corso' ? h(Icons.Clock, { className: 'w-4 h-4' }) : h(Icons.AlertCircle, { className: 'w-4 h-4' });
-
-            const stats = { totali: pratiche.length, aperte: pratiche.filter(p => p.stato === 'aperta').length,
-                inCorso: pratiche.filter(p => p.stato === 'in-corso').length, chiuse: pratiche.filter(p => p.stato === 'chiusa').length };
-
-            const udienze = pratiche.filter(p => p.dataUdienza && new Date(p.dataUdienza) >= new Date() && p.stato !== 'chiusa')
-                .sort((a, b) => new Date(a.dataUdienza) - new Date(b.dataUdienza)).slice(0, 5);
-
-            const getAvvStats = (nome) => {
-                const ps = pratiche.filter(p => p.avvocato === nome);
-                return { totali: ps.length, aperte: ps.filter(p => p.stato === 'aperta').length,
-                    inCorso: ps.filter(p => p.stato === 'in-corso').length, chiuse: ps.filter(p => p.stato === 'chiusa').length };
-            };
-
-            const tabs = [
-                { id: 'dashboard', label: 'Dashboard', icon: Icons.TrendingUp },
-                { id: 'pratiche', label: 'Pratiche', icon: Icons.FileText },
-                { id: 'avvocati', label: 'Avvocati', icon: Icons.Users },
-                { id: 'calendario', label: 'Calendario', icon: Icons.Calendar },
-                { id: 'gestione', label: 'Gestione Dati', icon: Icons.Database }
-            ];
-
-            return h('div', { className: 'min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500' },
-                h('div', { className: 'max-w-7xl mx-auto p-4' },
-                    // Header
-                    h('div', { className: 'bg-white rounded-2xl shadow-2xl mb-6 overflow-hidden' },
-                        h('div', { className: 'bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-8' },
-                            h('h1', { className: 'text-4xl font-bold mb-2' }, '?? Studio Legale'),
-                            h('p', { className: 'text-blue-200' }, 'Sistema di Gestione Pratiche'),
-                            h('div', { className: 'mt-4 bg-white/10 rounded-full px-4 py-2 inline-block' },
-                                h('span', { className: 'text-sm' }, `?? ${avvocati.length} Avvocati | ?? ${pratiche.length} Pratiche`)
-                            )
-                        ),
-                        h('div', { className: 'flex bg-gray-50 border-b overflow-x-auto' },
-                            tabs.map(tab => h('button', { key: tab.id, onClick: () => setActiveTab(tab.id),
-                                className: `flex items-center gap-2 px-6 py-4 font-semibold transition-all ${activeTab === tab.id ? 
-                                'bg-white text-indigo-600 border-b-4 border-indigo-600' : 'text-gray-600 hover:bg-gray-100'}` },
-                                h(tab.icon, { className: 'w-5 h-5' }), tab.label
-                            ))
-                        )
-                    ),
-
-                    // Success Message
-                    successMessage && h('div', { className: 'bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg mb-6 shadow-lg animate-pulse' },
-                        h('p', { className: 'font-semibold' }, `? ${successMessage}`)
-                    ),
-
-                    // Dashboard
-                    activeTab === 'dashboard' && h('div', { className: 'space-y-6' },
-                        h('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-4' },
-                            [
-                                { label: 'Totale Pratiche', value: stats.totali, icon: Icons.FileText, color: 'indigo' },
-                                { label: 'Aperte', value: stats.aperte, icon: Icons.AlertCircle, color: 'green' },
-                                { label: 'In Corso', value: stats.inCorso, icon: Icons.Clock, color: 'yellow' },
-                                { label: 'Chiuse', value: stats.chiuse, icon: Icons.CheckCircle, color: 'blue' }
-                            ].map((s, i) => h('div', { key: i, className: 'bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow' },
-                                h('div', { className: 'flex items-center justify-between' },
-                                    h('div', null, h('p', { className: 'text-gray-500 text-sm' }, s.label),
-                                        h('p', { className: `text-3xl font-bold text-${s.color}-600` }, s.value)
-                                    ),
-                                    h(s.icon, { className: `w-12 h-12 text-${s.color}-500` })
-                                )
-                            ))
-                        ),
-                        h('div', { className: 'bg-white rounded-xl shadow-lg p-6' },
-                            h('h2', { className: 'text-2xl font-bold mb-4 text-gray-800' }, '?? Prossime Udienze'),
-                            udienze.length > 0 ? h('div', { className: 'space-y-3' },
-                                udienze.map(p => h('div', { key: p.numero, 
-                                    className: 'flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border-l-4 border-indigo-500' },
-                                    h('div', null,
-                                        h('p', { className: 'font-semibold text-gray-800' }, p.cliente),
-                                        h('p', { className: 'text-sm text-gray-600' }, p.descrizione),
-                                        h('p', { className: 'text-xs text-gray-500 mt-1' }, `?? ${p.avvocato}`)
-                                    ),
-                                    h('div', { className: 'text-right' },
-                                        h('p', { className: 'font-bold text-indigo-600' }, new Date(p.dataUdienza).toLocaleDateString('it-IT')),
-                                        h('p', { className: 'text-xs text-gray-500' }, `#${p.numero}`)
-                                    )
-                                ))
-                            ) : h('p', { className: 'text-gray-400 text-center py-8' }, 'Nessuna udienza programmata')
-                        )
-                    ),
-
-                    // Pratiche Tab (continua nel prossimo messaggio per limiti di lunghezza...)
-                    activeTab === 'pratiche' && h('div', { className: 'space-y-6' },
-                        h('div', { className: 'bg-white rounded-xl shadow-lg p-6' },
-                            h('div', { className: 'flex flex-col md:flex-row gap-4' },
-                                h('div', { className: 'flex-1 relative' },
-                                    h(Icons.Search, { className: 'absolute left-3 top-3 text-gray-400 w-5 h-5' }),
-                                    h('input', { type: 'text', placeholder: 'Cerca...', value: searchTerm, 
-                                        onChange: e => setSearchTerm(e.target.value),
-                                        className: 'w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none' })
-                                ),
-                                h('select', { value: filterStato, onChange: e => setFilterStato(e.target.value),
-                                    className: 'px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none' },
-                                    ['tutti', 'aperta', 'in-corso', 'chiusa'].map(s => 
-                                        h('option', { key: s, value: s }, s === 'tutti' ? 'Tutti gli stati' : s.charAt(0).toUpperCase() + s.slice(1))
-                                    )
-                                ),
-                                h('button', { onClick: () => { setEditingPratica(null); resetForm(); setShowModal(true); },
-                                    className: 'px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2' },
-                                    h(Icons.Plus, { className: 'w-5 h-5' }), 'Nuova Pratica'
-                                )
-                            )
-                        ),
-                        h('div', { className: 'space-y-4' },
-                            filtered.length > 0 ? filtered.map(p => h('div', { key: p.numero, 
-                                className: 'bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all' },
-                                h('div', { className: 'flex flex-col md:flex-row md:items-center justify-between gap-4' },
-                                    h('div', { className: 'flex-1' },
-                                        h('div', { className: 'flex items-center gap-3 mb-3' },
-                                            h('span', { className: 'text-2xl font-bold text-indigo-600' }, `#${p.numero}`),
-                                            h('span', { className: `px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${getStatoBadge(p.stato)}` },
-                                                getStatoIcon(p.stato), p.stato.toUpperCase()
-                                            ),
-                                            h('span', { className: 'px-3 py-1 bg-gray-100 rounded-full text-xs font-semibold' }, p.tipoPratica)
-                                        ),
-                                        h('h3', { className: 'text-xl font-bold text-gray-800 mb-2' }, p.cliente),
-                                        h('p', { className: 'text-gray-600 mb-2' }, p.descrizione),
-                                        h('div', { className: 'flex flex-wrap gap-4 text-sm text-gray-500' },
-                                            h('span', null, `?? Avvocato: ${p.avvocato}`),
-                                            h('span', null, `?? Apertura: ${new Date(p.dataApertura).toLocaleDateString('it-IT')}`),
-                                            p.dataUdienza && h('span', null, `?? Udienza: ${new Date(p.dataUdienza).toLocaleDateString('it-IT')}`)
-                                        )
-                                    ),
-                                    h('div', { className: 'flex gap-2' },
-                                        h('button', { onClick: () => { setEditingPratica(p); setFormData(p); setShowModal(true); },
-                                            className: 'px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2' },
-                                            h(Icons.Edit2, { className: 'w-4 h-4' }), 'Modifica'
-                                        ),
-                                        h('button', { onClick: () => confirm('Eliminare?') && deletePratica(p.numero),
-                                            className: 'px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2' },
-                                            h(Icons.Trash2, { className: 'w-4 h-4' }), 'Elimina'
-                                        )
-                                    )
-                                ),
-                                p.note && h('div', { className: 'mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded' },
-                                    h('p', { className: 'text-sm text-gray-700' }, h('strong', null, 'Note: '), p.note)
-                                )
-                            )) : h('div', { className: 'bg-white rounded-xl shadow-lg p-12 text-center' },
-                                h(Icons.FileText, { className: 'w-16 h-16 text-gray-300 mx-auto mb-4' }),
-                                h('p', { className: 'text-gray-400 text-lg' }, 'Nessuna pratica trovata')
-                            )
-                        )
-                    ),
-
-                    // Avvocati Tab
-                    activeTab === 'avvocati' && h('div', { className: 'space-y-6' },
-                        h('div', { className: 'bg-white rounded-xl shadow-lg p-6' },
-                            h('div', { className: 'flex justify-between items-center mb-6' },
-                                h('h2', { className: 'text-2xl font-bold text-gray-800' }, '?? Archivio Avvocati'),
-                                h('button', { onClick: () => { setEditingAvvocato(null); resetAvvocatoForm(); setShowAvvocatoModal(true); },
-                                    className: 'px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2' },
-                                    h(Icons.Plus, { className: 'w-5 h-5' }), 'Nuovo Avvocato'
-                                )
-                            ),
-                            avvocati.length > 0 ? h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
-                                avvocati.map(a => {
-                                    const st = getAvvStats(a.nomeCompleto);
-                                    return h('div', { key: a.id, className: 'bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border-2 border-indigo-100' },
-                                        h('div', { className: 'flex justify-between items-start mb-4' },
-                                            h('div', null,
-                                                h('h3', { className: 'text-xl font-bold text-gray-800' }, a.nomeCompleto),
-                                                h('p', { className: 'text-sm text-indigo-600 font-semibold' }, a.specializzazione)
-                                            ),
-                                            h(Icons.Briefcase, { className: 'w-8 h-8 text-indigo-500' })
-                                        ),
-                                        h('div', { className: 'space-y-2 mb-4' },
-                                            h('p', { className: 'text-sm text-gray-600' }, `?? ${a.email}`),
-                                            h('p', { className: 'text-sm text-gray-600' }, `?? ${a.telefono}`)
-                                        ),
-                                        h('div', { className: 'bg-white rounded-lg p-3 mb-4' },
-                                            h('p', { className: 'text-xs text-gray-500 mb-2' }, 'Pratiche assegnate:'),
-                                            h('div', { className: 'grid grid-cols-4 gap-2 text-center' },
-                                                [
-                                                    { label: 'Totali', val: st.totali, color: 'gray-800' },
-                                                    { label: 'Aperte', val: st.aperte, color: 'green-600' },
-                                                    { label: 'In Corso', val: st.inCorso, color: 'yellow-600' },
-                                                    { label: 'Chiuse', val: st.chiuse, color: 'blue-600' }
-                                                ].map((s, i) => h('div', { key: i },
-                                                    h('p', { className: `text-lg font-bold text-${s.color}` }, s.val),
-                                                    h('p', { className: 'text-xs text-gray-500' }, s.label)
-                                                ))
-                                            )
-                                        ),
-                                        h('div', { className: 'flex gap-2' },
-                                            h('button', { onClick: () => { setEditingAvvocato(a); setAvvocatoFormData({ nome: a.nome, cognome: a.cognome, email: a.email, telefono: a.telefono, specializzazione: a.specializzazione }); setShowAvvocatoModal(true); },
-                                                className: 'flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2' },
-                                                h(Icons.Edit2, { className: 'w-4 h-4' }), 'Modifica'
-                                            ),
-                                            h('button', { onClick: () => confirm('Eliminare?') && deleteAvvocato(a.id),
-                                                className: 'flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2' },
-                                                h(Icons.Trash2, { className: 'w-4 h-4' }), 'Elimina'
-                                            )
-                                        )
-                                    );
-                                })
-                            ) : h('div', { className: 'text-center py-12' },
-                                h(Icons.Users, { className: 'w-16 h-16 text-gray-300 mx-auto mb-4' }),
-                                h('p', { className: 'text-gray-400 text-lg' }, 'Nessun avvocato in archivio'),
-                                h('p', { className: 'text-gray-400 text-sm mt-2' }, 'Aggiungi il primo avvocato per iniziare')
-                            )
-                        )
-                    ),
-
-                    // Calendario Tab
-                    activeTab === 'calendario' && h('div', { className: 'bg-white rounded-xl shadow-lg p-6' },
-                        h('h2', { className: 'text-2xl font-bold mb-6 text-gray-800' }, '?? Calendario Udienze'),
-                        udienze.length > 0 ? h('div', { className: 'space-y-4' },
-                            udienze.map(p => h('div', { key: p.numero, className: 'p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-l-4 border-blue-500' },
-                                h('div', { className: 'flex justify-between items-start' },
-                                    h('div', null,
-                                        h('h3', { className: 'text-xl font-bold text-gray-800 mb-2' }, p.cliente),
-                                        h('p', { className: 'text-gray-600 mb-2' }, p.descrizione),
-                                        h('p', { className: 'text-sm text-gray-500' }, `Pratica #${p.numero}`),
-                                        h('p', { className: 'text-sm text-indigo-600 font-semibold mt-1' }, `?? ${p.avvocato}`)
-                                    ),
-                                    h('div', { className: 'text-right' },
-                                        h('p', { className: 'text-2xl font-bold text-blue-600' }, new Date(p.dataUdienza).toLocaleDateString('it-IT')),
-                                        h('p', { className: 'text-sm text-gray-500 mt-1' }, new Date(p.dataUdienza).toLocaleDateString('it-IT', { weekday: 'long' }))
-                                    )
-                                )
-                            ))
-                        ) : h('div', { className: 'text-center py-12' },
-                            h(Icons.Calendar, { className: 'w-16 h-16 text-gray-300 mx-auto mb-4' }),
-                            h('p', { className: 'text-gray-400 text-lg' }, 'Nessuna udienza programmata')
-                        )
-                    ),
-
-                    // Gestione Dati Tab
-                    activeTab === 'gestione' && h('div', { className: 'space-y-6' },
-                        h('div', { className: 'bg-white rounded-xl shadow-lg p-8' },
-                            h('h2', { className: 'text-2xl font-bold mb-6 text-gray-800 flex items-center gap-3' },
-                                h(Icons.Database, { className: 'w-8 h-8 text-indigo-600' }), 'Gestione Database'
-                            ),
-                            h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
-                                h('div', { className: 'bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border-2 border-green-200' },
-                                    h('div', { className: 'flex items-center gap-3 mb-4' },
-                                        h(Icons.Download, { className: 'w-10 h-10 text-green-600' }),
-                                        h('div', null, h('h3', { className: 'text-xl font-bold text-gray-800' }, 'Esporta Dati'),
-                                            h('p', { className: 'text-sm text-gray-600' }, 'Backup completo su file'))
-                                    ),
-                                    h('div', { className: 'bg-white rounded-lg p-4 mb-4' },
-                                        h('p', { className: 'text-sm text-gray-700 mb-2' }, `?? Pratiche: ${pratiche.length}`),
-                                        h('p', { className: 'text-sm text-gray-700' }, `?? Avvocati: ${avvocati.length}`)
-                                    ),
-                                    h('p', { className: 'text-sm text-gray-600 mb-4' }, 'Scarica tutti i dati in un file JSON.'),
-                                    h('button', { onClick: esportaDati,
-                                        className: 'w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2' },
-                                        h(Icons.Download, { className: 'w-5 h-5' }), 'Esporta Database'
-                                    )
-                                ),
-                                h('div', { className: 'bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-200' },
-                                    h('div', { className: 'flex items-center gap-3 mb-4' },
-                                        h(Icons.Upload, { className: 'w-10 h-10 text-blue-600' }),
-                                        h('div', null, h('h3', { className: 'text-xl font-bold text-gray-800' }, 'Importa Dati'),
-                                            h('p', { className: 'text-sm text-gray-600' }, 'Ripristina da backup'))
-                                    ),
-                                    h('div', { className: 'bg-white rounded-lg p-4 mb-4' },
-                                        h('p', { className: 'text-sm text-gray-700 mb-2' }, '?? Attenzione:'),
-                                        h('p', { className: 'text-xs text-gray-600' }, 'L\'importazione sovrascrive tutti i dati esistenti.')
-                                    ),
-                                    h('p', { className: 'text-sm text-gray-600 mb-4' }, 'Carica un file di backup precedente.'),
-                                    h('label', { className: 'w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer' },
-                                        h(Icons.Upload, { className: 'w-5 h-5' }), 'Seleziona File Backup',
-                                        h('input', { type: 'file', accept: '.json', onChange: importaDati, className: 'hidden' })
-                                    )
-                                )
-                            ),
-                            h('div', { className: 'mt-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border-2 border-purple-200' },
-                                h('h3', { className: 'text-lg font-bold text-gray-800 mb-3 flex items-center gap-2' },
-                                    h(Icons.Database, { className: 'w-6 h-6 text-purple-600' }), 'Informazioni Storage'
-                                ),
-                                h('div', { className: 'space-y-2 text-sm text-gray-700' },
-                                    h('p', null, '?? ', h('strong', null, 'Posizione: '), 'I dati sono salvati nel browser (localStorage)'),
-                                    h('p', null, '?? ', h('strong', null, 'Sicurezza: '), 'Solo tu puoi accedere ai tuoi dati'),
-                                    h('p', null, '?? ', h('strong', null, 'Persistenza: '), 'I dati rimangono salvati tra le sessioni'),
-                                    h('p', null, '? ', h('strong', null, 'Salvataggio: '), 'Automatico ad ogni creazione o modifica'),
-                                    h('p', { className: 'mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded' },
-                                        h('strong', null, '?? Consiglio: '), 'Esporta regolarmente i tuoi dati per avere sempre un backup di sicurezza!'
-                                    )
-                                )
-                            )
-                        )
-                    ),
-
-                    // Modal Pratica
-                    showModal && h('div', { className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50' },
-                        h('div', { className: 'bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto' },
-                            h('div', { className: 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center' },
-                                h('h2', { className: 'text-2xl font-bold' }, editingPratica ? '?? Modifica Pratica' : '? Nuova Pratica'),
-                                h('button', { onClick: () => { setShowModal(false); setEditingPratica(null); }, className: 'hover:bg-white/20 rounded-full p-2' },
-                                    h(Icons.X, { className: 'w-6 h-6' })
-                                )
-                            ),
-                            h('div', { className: 'p-6 space-y-4' },
-                                h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Cliente *'),
-                                    h('input', { type: 'text', required: true, value: formData.cliente, onChange: e => setFormData({...formData, cliente: e.target.value}),
-                                        className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none', placeholder: 'Nome del cliente' })
-                                ),
-                                h('div', { className: 'grid grid-cols-2 gap-4' },
-                                    h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Tipo Pratica *'),
-                                        h('select', { value: formData.tipoPratica, onChange: e => setFormData({...formData, tipoPratica: e.target.value}),
-                                            className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none' },
-                                            ['civile', 'penale', 'amministrativo', 'lavoro', 'famiglia'].map(t => h('option', { key: t, value: t }, t.charAt(0).toUpperCase() + t.slice(1)))
-                                        )
-                                    ),
-                                    h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Stato *'),
-                                        h('select', { value: formData.stato, onChange: e => setFormData({...formData, stato: e.target.value}),
-                                            className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none' },
-                                            [['aperta', 'Aperta'], ['in-corso', 'In Corso'], ['chiusa', 'Chiusa']].map(([v, l]) => h('option', { key: v, value: v }, l))
-                                        )
-                                    )
-                                ),
-                                h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Descrizione *'),
-                                    h('textarea', { required: true, value: formData.descrizione, onChange: e => setFormData({...formData, descrizione: e.target.value}),
-                                        className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none', rows: 3, placeholder: 'Descrizione' })
-                                ),
-                                h('div', { className: 'grid grid-cols-2 gap-4' },
-                                    h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Data Apertura *'),
-                                        h('input', { type: 'date', required: true, value: formData.dataApertura, onChange: e => setFormData({...formData, dataApertura: e.target.value}),
-                                            className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none' })
-                                    ),
-                                    h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Data Udienza'),
-                                        h('input', { type: 'date', value: formData.dataUdienza, onChange: e => setFormData({...formData, dataUdienza: e.target.value}),
-                                            className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none' })
-                                    )
-                                ),
-                                h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Avvocato Responsabile *'),
-                                    h('select', { required: true, value: formData.avvocato, onChange: e => setFormData({...formData, avvocato: e.target.value}),
-                                        className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none' },
-                                        h('option', { value: '' }, '-- Seleziona un avvocato --'),
-                                        avvocati.map(a => h('option', { key: a.id, value: a.nomeCompleto }, `${a.nomeCompleto} (${a.specializzazione})`))
-                                    )
-                                ),
-                                h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Note'),
-                                    h('textarea', { value: formData.note, onChange: e => setFormData({...formData, note: e.target.value}),
-                                        className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none', rows: 3, placeholder: 'Note...' })
-                                ),
-                                h('div', { className: 'flex gap-3 pt-4' },
-                                    h('button', { onClick: handleSubmit,
-                                        className: 'flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2' },
-                                        h(Icons.Save, { className: 'w-5 h-5' }), editingPratica ? 'Aggiorna' : 'Salva Pratica'
-                                    ),
-                                    h('button', { onClick: () => { setShowModal(false); setEditingPratica(null); },
-                                        className: 'px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors' }, 'Annulla'
-                                    )
-                                )
-                            )
-                        )
-                    ),
-
-                    // Modal Avvocato
-                    showAvvocatoModal && h('div', { className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50' },
-                        h('div', { className: 'bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto' },
-                            h('div', { className: 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center' },
-                                h('h2', { className: 'text-2xl font-bold' }, editingAvvocato ? '?? Modifica Avvocato' : '? Nuovo Avvocato'),
-                                h('button', { onClick: () => { setShowAvvocatoModal(false); setEditingAvvocato(null); }, className: 'hover:bg-white/20 rounded-full p-2' },
-                                    h(Icons.X, { className: 'w-6 h-6' })
-                                )
-                            ),
-                            h('div', { className: 'p-6 space-y-4' },
-                                h('div', { className: 'grid grid-cols-2 gap-4' },
-                                    h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Nome *'),
-                                        h('input', { type: 'text', required: true, value: avvocatoFormData.nome, onChange: e => setAvvocatoFormData({...avvocatoFormData, nome: e.target.value}),
-                                            className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none', placeholder: 'Nome' })
-                                    ),
-                                    h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Cognome *'),
-                                        h('input', { type: 'text', required: true, value: avvocatoFormData.cognome, onChange: e => setAvvocatoFormData({...avvocatoFormData, cognome: e.target.value}),
-                                            className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none', placeholder: 'Cognome' })
-                                    )
-                                ),
-                                h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Email *'),
-                                    h('input', { type: 'email', required: true, value: avvocatoFormData.email, onChange: e => setAvvocatoFormData({...avvocatoFormData, email: e.target.value}),
-                                        className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none', placeholder: 'email@esempio.it' })
-                                ),
-                                h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Telefono *'),
-                                    h('input', { type: 'tel', required: true, value: avvocatoFormData.telefono, onChange: e => setAvvocatoFormData({...avvocatoFormData, telefono: e.target.value}),
-                                        className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none', placeholder: '+39 333 1234567' })
-                                ),
-                                h('div', null, h('label', { className: 'block text-sm font-semibold text-gray-700 mb-2' }, 'Specializzazione *'),
-                                    h('select', { value: avvocatoFormData.specializzazione, onChange: e => setAvvocatoFormData({...avvocatoFormData, specializzazione: e.target.value}),
-                                        className: 'w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none' },
-                                        ['civile', 'penale', 'amministrativo', 'lavoro', 'famiglia'].map(s => h('option', { key: s, value: s }, s.charAt(0).toUpperCase() + s.slice(1)))
-                                    )
-                                ),
-                                h('div', { className: 'flex gap-3 pt-4' },
-                                    h('button', { onClick: handleAvvocatoSubmit,
-                                        className: 'flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2' },
-                                        h(Icons.Save, { className: 'w-5 h-5' }), editingAvvocato ? 'Aggiorna' : 'Salva Avvocato'
-                                    ),
-                                    h('button', { onClick: () => { setShowAvvocatoModal(false); setEditingAvvocato(null); },
-                                        className: 'px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors' }, 'Annulla'
-                                    )
-                                )
-                            )
-                        )
-                    )
-                )
-            );
+async function savePratica(pratica) {
+    try {
+        if (pratica.id) {
+            const { error } = await sb.from('pratiche').update(pratica).eq('id', pratica.id);
+            if (error) throw error;
+        } else {
+            pratica.numero = Date.now();
+            pratica.data_modifica = today();
+            const { error } = await sb.from('pratiche').insert([pratica]);
+            if (error) throw error;
         }
+        await loadPratiche();
+        return true;
+    } catch(e) { alert('Errore: ' + e.message); return false; }
+}
 
-        const root = ReactDOM.createRoot(document.getElementById('app'));
-        root.render(React.createElement(StudioLegaleApp));
-    </script>
+async function deletePratica(id) {
+    const { error } = await sb.from('pratiche').delete().eq('id', id);
+    if (!error) { await loadPratiche(); showSuccess('Pratica eliminata!'); }
+    else alert('Errore eliminazione: ' + error.message);
+}
+
+async function saveAvvocato(avv) {
+    try {
+        avv.nome_completo = avv.nome + ' ' + avv.cognome;
+        if (avv.id) {
+            const { error } = await sb.from('avvocati').update(avv).eq('id', avv.id);
+            if (error) throw error;
+        } else {
+            avv.data_creazione = today();
+            const { error } = await sb.from('avvocati').insert([avv]);
+            if (error) throw error;
+        }
+        await loadAvvocati();
+        return true;
+    } catch(e) { alert('Errore: ' + e.message); return false; }
+}
+
+async function deleteAvvocato(id) {
+    const nome = state.avvocati.find(a => a.id === id)?.nome_completo;
+    if (state.pratiche.filter(p => p.avvocato === nome).length > 0) {
+        alert('Impossibile eliminare: ci sono pratiche assegnate a questo avvocato!');
+        return;
+    }
+    const { error } = await sb.from('avvocati').delete().eq('id', id);
+    if (!error) { await loadAvvocati(); showSuccess('Avvocato eliminato!'); }
+    else alert('Errore: ' + error.message);
+}
+
+// ─── EXPORT / IMPORT ─────────────────────────────────────────────
+function esportaDati() {
+    const data = { pratiche: state.pratiche, avvocati: state.avvocati,
+        dataEsportazione: new Date().toISOString(), versione: '2.0' };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `studio-legale-backup-${today()}.json`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    showSuccess('Dati esportati!');
+}
+
+function importaDati(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        try {
+            const data = JSON.parse(ev.target.result);
+            if (!data.pratiche || !data.avvocati) { alert('File non valido'); return; }
+            if (!confirm(`Importare ${data.pratiche.length} pratiche e ${data.avvocati.length} avvocati?\nQuesto aggiungerà i dati al database.`)) return;
+            for (const a of data.avvocati) {
+                delete a.id; delete a.created_at;
+                await sb.from('avvocati').insert([a]);
+            }
+            for (const p of data.pratiche) {
+                delete p.id; delete p.created_at;
+                await sb.from('pratiche').insert([p]);
+            }
+            await loadPratiche(); await loadAvvocati();
+            showSuccess(`Importati ${data.pratiche.length} pratiche e ${data.avvocati.length} avvocati!`);
+        } catch(er) { alert('Errore importazione: ' + er.message); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+}
+
+// ─── UI HELPERS ───────────────────────────────────────────────────
+function showSuccess(msg) {
+    state.successMessage = msg;
+    render();
+    setTimeout(() => { state.successMessage = ''; render(); }, 3000);
+}
+
+function getStatoBadge(s) {
+    return { aperta:'bg-green-100 text-green-800', 'in-corso':'bg-yellow-100 text-yellow-800',
+        chiusa:'bg-blue-100 text-blue-800' }[s] || 'bg-green-100 text-green-800';
+}
+
+function getStatoIcon(s) {
+    if (s === 'chiusa') return '✅';
+    if (s === 'in-corso') return '🕐';
+    return '🔔';
+}
+
+function getAvvStats(nome) {
+    const ps = state.pratiche.filter(p => p.avvocato === nome);
+    return { totali: ps.length, aperte: ps.filter(p=>p.stato==='aperta').length,
+        inCorso: ps.filter(p=>p.stato==='in-corso').length, chiuse: ps.filter(p=>p.stato==='chiusa').length };
+}
+
+function getUdienze() {
+    return state.pratiche.filter(p => p.data_udienza && new Date(p.data_udienza) >= new Date() && p.stato !== 'chiusa')
+        .sort((a,b) => new Date(a.data_udienza) - new Date(b.data_udienza)).slice(0,5);
+}
+
+function getFiltered() {
+    return state.pratiche.filter(p => {
+        const s = state.searchTerm.toLowerCase();
+        const match = p.cliente.toLowerCase().includes(s) || 
+            (p.numero||'').toString().includes(s) || p.descrizione.toLowerCase().includes(s);
+        const filt = state.filterStato === 'tutti' || p.stato === state.filterStato;
+        return match && filt;
+    });
+}
+
+function fmtDate(d) { return d ? new Date(d).toLocaleDateString('it-IT') : ''; }
+function fmtDay(d) { return d ? new Date(d).toLocaleDateString('it-IT', {weekday:'long'}) : ''; }
+
+// ─── RENDER ───────────────────────────────────────────────────────
+function render() {
+    const stats = { totali: state.pratiche.length,
+        aperte: state.pratiche.filter(p=>p.stato==='aperta').length,
+        inCorso: state.pratiche.filter(p=>p.stato==='in-corso').length,
+        chiuse: state.pratiche.filter(p=>p.stato==='chiusa').length };
+    const udienze = getUdienze();
+    const filtered = getFiltered();
+
+    document.getElementById('app').innerHTML = `
+    <div class="max-w-7xl mx-auto p-4 w-full">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-2xl mb-6 overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-8">
+                <h1 class="text-4xl font-bold mb-2">⚖️ Studio Legale</h1>
+                <p class="text-blue-200">Sistema di Gestione Pratiche</p>
+                <div class="mt-4 bg-white/10 rounded-full px-4 py-2 inline-flex items-center gap-2">
+                    <span class="text-sm">👥 ${state.avvocati.length} Avvocati</span>
+                    <span class="text-white/50">|</span>
+                    <span class="text-sm">📁 ${state.pratiche.length} Pratiche</span>
+                    <span class="text-white/50">|</span>
+                    <span class="text-sm text-green-300">🟢 Supabase</span>
+                </div>
+            </div>
+            <div class="flex bg-gray-50 border-b overflow-x-auto">
+                ${[
+                    {id:'dashboard', label:'Dashboard', icon:'📊'},
+                    {id:'pratiche', label:'Pratiche', icon:'📁'},
+                    {id:'avvocati', label:'Avvocati', icon:'👥'},
+                    {id:'calendario', label:'Calendario', icon:'📅'},
+                    {id:'gestione', label:'Gestione Dati', icon:'🗄️'}
+                ].map(t => `
+                    <button onclick="switchTab('${t.id}')" class="flex items-center gap-2 px-6 py-4 font-semibold transition-all whitespace-nowrap
+                        ${state.activeTab===t.id ? 'bg-white text-indigo-600 border-b-4 border-indigo-600' : 'text-gray-600 hover:bg-gray-100'}">
+                        ${t.icon} ${t.label}
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+
+        ${state.successMessage ? `
+        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg mb-6 shadow-lg">
+            <p class="font-semibold">✅ ${state.successMessage}</p>
+        </div>` : ''}
+
+        <!-- DASHBOARD -->
+        ${state.activeTab === 'dashboard' ? `
+        <div class="space-y-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                ${[
+                    {label:'Totale Pratiche', val:stats.totali, icon:'📁', color:'indigo'},
+                    {label:'Aperte', val:stats.aperte, icon:'🔔', color:'green'},
+                    {label:'In Corso', val:stats.inCorso, icon:'🕐', color:'yellow'},
+                    {label:'Chiuse', val:stats.chiuse, icon:'✅', color:'blue'}
+                ].map(s => `
+                    <div class="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">${s.label}</p>
+                                <p class="text-3xl font-bold text-${s.color}-600">${s.val}</p>
+                            </div>
+                            <span class="text-4xl">${s.icon}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">📅 Prossime Udienze</h2>
+                ${udienze.length > 0 ? udienze.map(p => `
+                    <div class="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border-l-4 border-indigo-500 mb-3">
+                        <div>
+                            <p class="font-semibold text-gray-800">${p.cliente}</p>
+                            <p class="text-sm text-gray-600">${p.descrizione}</p>
+                            <p class="text-xs text-gray-500 mt-1">👤 ${p.avvocato}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-indigo-600">${fmtDate(p.data_udienza)}</p>
+                            <p class="text-xs text-gray-500">#${p.numero}</p>
+                        </div>
+                    </div>
+                `).join('') : '<p class="text-gray-400 text-center py-8">Nessuna udienza programmata</p>'}
+            </div>
+        </div>` : ''}
+
+        <!-- PRATICHE -->
+        ${state.activeTab === 'pratiche' ? `
+        <div class="space-y-6">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-1 relative">
+                        <span class="absolute left-3 top-3 text-gray-400">🔍</span>
+                        <input type="text" placeholder="Cerca cliente, numero, descrizione..."
+                            value="${state.searchTerm}"
+                            oninput="state.searchTerm=this.value;render()"
+                            class="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
+                    </div>
+                    <select onchange="state.filterStato=this.value;render()"
+                        class="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                        <option value="tutti" ${state.filterStato==='tutti'?'selected':''}>Tutti gli stati</option>
+                        <option value="aperta" ${state.filterStato==='aperta'?'selected':''}>Aperte</option>
+                        <option value="in-corso" ${state.filterStato==='in-corso'?'selected':''}>In Corso</option>
+                        <option value="chiusa" ${state.filterStato==='chiusa'?'selected':''}>Chiuse</option>
+                    </select>
+                    <button onclick="openPraticaModal(null)"
+                        class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+                        ➕ Nuova Pratica
+                    </button>
+                </div>
+            </div>
+            <div class="space-y-4">
+                ${filtered.length > 0 ? filtered.map(p => `
+                    <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-3 flex-wrap">
+                                    <span class="text-2xl font-bold text-indigo-600">#${p.numero}</span>
+                                    <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)}">
+                                        ${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}
+                                    </span>
+                                    <span class="px-3 py-1 bg-gray-100 rounded-full text-xs font-semibold">${p.tipo_pratica}</span>
+                                </div>
+                                <h3 class="text-xl font-bold text-gray-800 mb-2">${p.cliente}</h3>
+                                <p class="text-gray-600 mb-2">${p.descrizione}</p>
+                                <div class="flex flex-wrap gap-4 text-sm text-gray-500">
+                                    <span>👤 ${p.avvocato}</span>
+                                    <span>📅 ${fmtDate(p.data_apertura)}</span>
+                                    ${p.data_udienza ? `<span>⚖️ Udienza: ${fmtDate(p.data_udienza)}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})"
+                                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">✏️ Modifica</button>
+                                <button onclick="confirmDeletePratica('${p.id}')"
+                                    class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">🗑️ Elimina</button>
+                            </div>
+                        </div>
+                        ${p.note ? `<div class="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                            <p class="text-sm text-gray-700"><strong>Note:</strong> ${p.note}</p>
+                        </div>` : ''}
+                    </div>
+                `).join('') : `
+                    <div class="bg-white rounded-xl shadow-lg p-12 text-center">
+                        <div class="text-6xl mb-4">📁</div>
+                        <p class="text-gray-400 text-lg">Nessuna pratica trovata</p>
+                    </div>`}
+            </div>
+        </div>` : ''}
+
+        <!-- AVVOCATI -->
+        ${state.activeTab === 'avvocati' ? `
+        <div class="space-y-6">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">👥 Archivio Avvocati</h2>
+                    <button onclick="openAvvocatoModal(null)"
+                        class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+                        ➕ Nuovo Avvocato
+                    </button>
+                </div>
+                ${state.avvocati.length > 0 ? `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${state.avvocati.map(a => {
+                        const st = getAvvStats(a.nome_completo);
+                        return `
+                        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border-2 border-indigo-100">
+                            <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 class="text-xl font-bold text-gray-800">${a.nome_completo}</h3>
+                                    <p class="text-sm text-indigo-600 font-semibold">${a.specializzazione}</p>
+                                </div>
+                                <span class="text-3xl">💼</span>
+                            </div>
+                            <div class="space-y-2 mb-4">
+                                <p class="text-sm text-gray-600">📧 ${a.email}</p>
+                                <p class="text-sm text-gray-600">📱 ${a.telefono}</p>
+                            </div>
+                            <div class="bg-white rounded-lg p-3 mb-4">
+                                <p class="text-xs text-gray-500 mb-2">Pratiche assegnate:</p>
+                                <div class="grid grid-cols-4 gap-2 text-center">
+                                    <div><p class="text-lg font-bold text-gray-800">${st.totali}</p><p class="text-xs text-gray-500">Totali</p></div>
+                                    <div><p class="text-lg font-bold text-green-600">${st.aperte}</p><p class="text-xs text-gray-500">Aperte</p></div>
+                                    <div><p class="text-lg font-bold text-yellow-600">${st.inCorso}</p><p class="text-xs text-gray-500">In Corso</p></div>
+                                    <div><p class="text-lg font-bold text-blue-600">${st.chiuse}</p><p class="text-xs text-gray-500">Chiuse</p></div>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})"
+                                    class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">✏️ Modifica</button>
+                                <button onclick="confirmDeleteAvvocato('${a.id}')"
+                                    class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">🗑️ Elimina</button>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>` : `
+                <div class="text-center py-12">
+                    <div class="text-6xl mb-4">👥</div>
+                    <p class="text-gray-400 text-lg">Nessun avvocato in archivio</p>
+                    <p class="text-gray-400 text-sm mt-2">Aggiungi il primo avvocato per iniziare</p>
+                </div>`}
+            </div>
+        </div>` : ''}
+
+        <!-- CALENDARIO -->
+        ${state.activeTab === 'calendario' ? `
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">📅 Calendario Udienze</h2>
+            ${udienze.length > 0 ? udienze.map(p => `
+                <div class="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-l-4 border-blue-500 mb-4">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800 mb-2">${p.cliente}</h3>
+                            <p class="text-gray-600 mb-2">${p.descrizione}</p>
+                            <p class="text-sm text-gray-500">Pratica #${p.numero}</p>
+                            <p class="text-sm text-indigo-600 font-semibold mt-1">👤 ${p.avvocato}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-2xl font-bold text-blue-600">${fmtDate(p.data_udienza)}</p>
+                            <p class="text-sm text-gray-500 mt-1">${fmtDay(p.data_udienza)}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('') : `
+            <div class="text-center py-12">
+                <div class="text-6xl mb-4">📅</div>
+                <p class="text-gray-400 text-lg">Nessuna udienza programmata</p>
+            </div>`}
+        </div>` : ''}
+
+        <!-- GESTIONE DATI -->
+        ${state.activeTab === 'gestione' ? `
+        <div class="space-y-6">
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">🗄️ Gestione Database</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border-2 border-green-200">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-4xl">📥</span>
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">Esporta Dati</h3>
+                                <p class="text-sm text-gray-600">Backup completo su file</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 mb-4">
+                            <p class="text-sm text-gray-700 mb-2">📊 <strong>Pratiche:</strong> ${state.pratiche.length}</p>
+                            <p class="text-sm text-gray-700">👥 <strong>Avvocati:</strong> ${state.avvocati.length}</p>
+                        </div>
+                        <button onclick="esportaDati()"
+                            class="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+                            📥 Esporta Database
+                        </button>
+                    </div>
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-200">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-4xl">📤</span>
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">Importa Dati</h3>
+                                <p class="text-sm text-gray-600">Ripristina da backup</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 mb-4">
+                            <p class="text-sm text-gray-700 mb-2">⚠️ <strong>Attenzione:</strong></p>
+                            <p class="text-xs text-gray-600">I dati importati verranno aggiunti al database Supabase.</p>
+                        </div>
+                        <label class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer">
+                            📤 Seleziona File Backup
+                            <input type="file" accept=".json" onchange="importaDati(event)" class="hidden"/>
+                        </label>
+                    </div>
+                </div>
+                <div class="mt-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border-2 border-purple-200">
+                    <h3 class="text-lg font-bold text-gray-800 mb-3">🗄️ Informazioni Storage</h3>
+                    <div class="space-y-2 text-sm text-gray-700">
+                        <p>📍 <strong>Database:</strong> Supabase PostgreSQL (Cloud)</p>
+                        <p>🌍 <strong>Server:</strong> West EU - Ireland</p>
+                        <p>🔐 <strong>Sicurezza:</strong> Dati protetti su server dedicato</p>
+                        <p>💾 <strong>Persistenza:</strong> Dati accessibili da qualsiasi dispositivo</p>
+                        <p>⚡ <strong>Salvataggio:</strong> Automatico ad ogni operazione</p>
+                        <p class="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                            <strong>💡 Consiglio:</strong> Esporta regolarmente i tuoi dati per avere un backup locale di sicurezza!
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>` : ''}
+
+        <!-- MODAL PRATICA -->
+        ${state.showModal ? `
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">${state.editingPratica ? '✏️ Modifica Pratica' : '➕ Nuova Pratica'}</h2>
+                    <button onclick="state.showModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Cliente *</label>
+                        <input type="text" value="${state.formData.cliente}" oninput="state.formData.cliente=this.value"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="Nome del cliente"/>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo Pratica *</label>
+                            <select onchange="state.formData.tipo_pratica=this.value"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                                ${['civile','penale','amministrativo','lavoro','famiglia'].map(t => 
+                                    `<option value="${t}" ${state.formData.tipo_pratica===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Stato *</label>
+                            <select onchange="state.formData.stato=this.value"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                                ${[['aperta','Aperta'],['in-corso','In Corso'],['chiusa','Chiusa']].map(([v,l]) => 
+                                    `<option value="${v}" ${state.formData.stato===v?'selected':''}>${l}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Descrizione *</label>
+                        <textarea oninput="state.formData.descrizione=this.value" rows="3"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"
+                            placeholder="Descrizione della pratica">${state.formData.descrizione}</textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Data Apertura *</label>
+                            <input type="date" value="${state.formData.data_apertura}" oninput="state.formData.data_apertura=this.value"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Data Udienza</label>
+                            <input type="date" value="${state.formData.data_udienza||''}" oninput="state.formData.data_udienza=this.value"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Avvocato Responsabile *</label>
+                        <select onchange="state.formData.avvocato=this.value"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                            <option value="">-- Seleziona un avvocato --</option>
+                            ${state.avvocati.map(a => 
+                                `<option value="${a.nome_completo}" ${state.formData.avvocato===a.nome_completo?'selected':''}>${a.nome_completo} (${a.specializzazione})</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Note</label>
+                        <textarea oninput="state.formData.note=this.value" rows="3"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"
+                            placeholder="Note aggiuntive...">${state.formData.note||''}</textarea>
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button onclick="submitPratica()"
+                            class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+                            💾 ${state.editingPratica ? 'Aggiorna' : 'Salva Pratica'}
+                        </button>
+                        <button onclick="state.showModal=false;render()"
+                            class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">Annulla</button>
+                    </div>
+                </div>
+            </div>
+        </div>` : ''}
+
+        <!-- MODAL AVVOCATO -->
+        ${state.showAvvocatoModal ? `
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">${state.editingAvvocato ? '✏️ Modifica Avvocato' : '➕ Nuovo Avvocato'}</h2>
+                    <button onclick="state.showAvvocatoModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Nome *</label>
+                            <input type="text" value="${state.avvForm.nome}" oninput="state.avvForm.nome=this.value"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="Nome"/>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Cognome *</label>
+                            <input type="text" value="${state.avvForm.cognome}" oninput="state.avvForm.cognome=this.value"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="Cognome"/>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
+                        <input type="email" value="${state.avvForm.email}" oninput="state.avvForm.email=this.value"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="email@esempio.it"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Telefono *</label>
+                        <input type="tel" value="${state.avvForm.telefono}" oninput="state.avvForm.telefono=this.value"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="+39 333 1234567"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Specializzazione *</label>
+                        <select onchange="state.avvForm.specializzazione=this.value"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                            ${['civile','penale','amministrativo','lavoro','famiglia'].map(s => 
+                                `<option value="${s}" ${state.avvForm.specializzazione===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button onclick="submitAvvocato()"
+                            class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+                            💾 ${state.editingAvvocato ? 'Aggiorna' : 'Salva Avvocato'}
+                        </button>
+                        <button onclick="state.showAvvocatoModal=false;render()"
+                            class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">Annulla</button>
+                    </div>
+                </div>
+            </div>
+        </div>` : ''}
+    </div>`;
+}
+
+// ─── HANDLERS ────────────────────────────────────────────────────
+function switchTab(tab) { state.activeTab = tab; render(); }
+
+function openPraticaModal(p) {
+    state.editingPratica = p;
+    state.formData = p ? {...p} : { cliente:'', tipo_pratica:'civile', descrizione:'', stato:'aperta',
+        data_apertura:today(), data_udienza:'', avvocato:'', note:'' };
+    state.showModal = true;
+    render();
+}
+
+function openAvvocatoModal(a) {
+    state.editingAvvocato = a;
+    state.avvForm = a ? { nome:a.nome, cognome:a.cognome, email:a.email, telefono:a.telefono, specializzazione:a.specializzazione }
+        : { nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile' };
+    state.showAvvocatoModal = true;
+    render();
+}
+
+async function submitPratica() {
+    if (!state.formData.cliente || !state.formData.descrizione || !state.formData.avvocato) {
+        alert('Compila tutti i campi obbligatori (*)'); return;
+    }
+    const pratica = { ...state.formData };
+    if (state.editingPratica) pratica.id = state.editingPratica.id;
+    pratica.data_modifica = today();
+    const ok = await savePratica(pratica);
+    if (ok) {
+        state.showModal = false;
+        state.editingPratica = null;
+        showSuccess(state.editingPratica ? 'Pratica aggiornata!' : 'Pratica salvata su Supabase!');
+        render();
+    }
+}
+
+async function submitAvvocato() {
+    if (!state.avvForm.nome || !state.avvForm.cognome || !state.avvForm.email || !state.avvForm.telefono) {
+        alert('Compila tutti i campi obbligatori (*)'); return;
+    }
+    const avv = { ...state.avvForm };
+    if (state.editingAvvocato) avv.id = state.editingAvvocato.id;
+    const ok = await saveAvvocato(avv);
+    if (ok) {
+        state.showAvvocatoModal = false;
+        state.editingAvvocato = null;
+        showSuccess(state.editingAvvocato ? 'Avvocato aggiornato!' : 'Avvocato salvato su Supabase!');
+        render();
+    }
+}
+
+function confirmDeletePratica(id) {
+    if (confirm('Sei sicuro di voler eliminare questa pratica?')) deletePratica(id);
+}
+
+function confirmDeleteAvvocato(id) {
+    if (confirm('Sei sicuro di voler eliminare questo avvocato?')) deleteAvvocato(id);
+}
+
+// ─── INIT ────────────────────────────────────────────────────────
+async function init() {
+    render();
+    await Promise.all([loadPratiche(), loadAvvocati()]);
+    render();
+}
+
+init();
+</script>
 </body>
 </html>
