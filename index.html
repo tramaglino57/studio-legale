@@ -56,15 +56,25 @@ async function loadAvvocati() {
     if (!error) state.avvocati = data || [];
 }
 
+function cleanPratica(pratica) {
+    // Converte stringhe vuote in null per i campi data opzionali
+    const cleaned = { ...pratica };
+    if (!cleaned.data_udienza || cleaned.data_udienza === '') cleaned.data_udienza = null;
+    if (!cleaned.data_modifica || cleaned.data_modifica === '') cleaned.data_modifica = null;
+    if (!cleaned.note || cleaned.note === '') cleaned.note = null;
+    return cleaned;
+}
+
 async function savePratica(pratica) {
     try {
-        if (pratica.id) {
-            const { error } = await sb.from('pratiche').update(pratica).eq('id', pratica.id);
+        const p = cleanPratica(pratica);
+        if (p.id) {
+            const { error } = await sb.from('pratiche').update(p).eq('id', p.id);
             if (error) throw error;
         } else {
-            pratica.numero = Date.now();
-            pratica.data_modifica = today();
-            const { error } = await sb.from('pratiche').insert([pratica]);
+            p.numero = Date.now();
+            p.data_modifica = today();
+            const { error } = await sb.from('pratiche').insert([p]);
             if (error) throw error;
         }
         await loadPratiche();
@@ -673,3 +683,4 @@ init();
 </script>
 </body>
 </html>
+
