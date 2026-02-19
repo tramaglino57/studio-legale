@@ -304,16 +304,14 @@ function render() {
         <div class="bg-white rounded-2xl shadow-2xl mb-6 overflow-hidden no-print">
             <div class="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-8">
                 <div class="flex justify-between items-center">
-                    <div class="flex items-center gap-4">
-                        <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="Logo SLS" class="w-36 h-36 object-contain bg-white rounded-lg p-2">
-                        <div>
-                            <h1 class="text-4xl font-bold mb-2">SLS Studio Legale</h1>
-                            <p class="text-blue-200">Sistema di Gestione Pratiche</p>
-                            <div class="mt-4 bg-white/10 rounded-full px-4 py-2 inline-flex items-center gap-2">
-                                <span class="text-sm">👤 ${state.user.nome_completo}</span>
-                                <span class="text-white/50">|</span>
-                                <span class="text-sm">${state.user.ruolo === 'amministratore' ? '👑 Admin' : '⚖️ Avvocato'}</span>
-                            </div>
+                    <div class="text-center flex-1">
+                        <h1 class="text-4xl font-bold mb-4">SLS Studio Legale</h1>
+                        <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="Logo SLS" class="w-96 h-96 mx-auto mb-4 object-contain">
+                        <p class="text-blue-200 mb-2">Sistema di Gestione Pratiche</p>
+                        <div class="bg-white/10 rounded-full px-4 py-2 inline-flex items-center gap-2">
+                            <span class="text-sm">👤 ${state.user.nome_completo}</span>
+                            <span class="text-white/50">|</span>
+                            <span class="text-sm">${state.user.ruolo === 'amministratore' ? '👑 Admin' : '⚖️ Avvocato'}</span>
                         </div>
                     </div>
                     <button onclick="logout()" class="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition-all">
