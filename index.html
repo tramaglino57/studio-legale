@@ -19,7 +19,7 @@
 <body>
 <div id="app" class="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center">
     <div class="text-white text-center">
-        <div class="text-6xl mb-4">⚖️</div>
+        <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="SLS Studio Legale" class="w-32 h-32 mx-auto mb-4 object-contain animate-pulse">
         <p class="text-xl">Caricamento...</p>
     </div>
 </div>
@@ -304,13 +304,16 @@ function render() {
         <div class="bg-white rounded-2xl shadow-2xl mb-6 overflow-hidden no-print">
             <div class="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-8">
                 <div class="flex justify-between items-center">
-                    <div>
-                        <h1 class="text-4xl font-bold mb-2">⚖️ SLS Studio Legale</h1>
-                        <p class="text-blue-200">Sistema di Gestione Pratiche</p>
-                        <div class="mt-4 bg-white/10 rounded-full px-4 py-2 inline-flex items-center gap-2">
-                            <span class="text-sm">👤 ${state.user.nome_completo}</span>
-                            <span class="text-white/50">|</span>
-                            <span class="text-sm">${state.user.ruolo === 'amministratore' ? '👑 Admin' : '⚖️ Avvocato'}</span>
+                    <div class="flex items-center gap-4">
+                        <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="Logo SLS" class="w-16 h-16 object-contain bg-white rounded-lg p-2">
+                        <div>
+                            <h1 class="text-4xl font-bold mb-2">SLS Studio Legale</h1>
+                            <p class="text-blue-200">Sistema di Gestione Pratiche</p>
+                            <div class="mt-4 bg-white/10 rounded-full px-4 py-2 inline-flex items-center gap-2">
+                                <span class="text-sm">👤 ${state.user.nome_completo}</span>
+                                <span class="text-white/50">|</span>
+                                <span class="text-sm">${state.user.ruolo === 'amministratore' ? '👑 Admin' : '⚖️ Avvocato'}</span>
+                            </div>
                         </div>
                     </div>
                     <button onclick="logout()" class="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition-all">
@@ -351,7 +354,7 @@ function renderLogin() {
     <div class="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <div class="text-center mb-8">
-                <div class="text-6xl mb-4">⚖️</div>
+                <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="SLS Studio Legale" class="w-40 h-40 mx-auto mb-4 object-contain">
                 <h1 class="text-3xl font-bold text-gray-800 mb-2">SLS Studio Legale</h1>
                 <p class="text-gray-600">Sistema di Gestione Pratiche</p>
             </div>
