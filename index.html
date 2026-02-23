@@ -4,29 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SLS Studio Legale - Gestione Pratiche</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.39.3/umd/supabase.min.js"></script>
     <style>
         @keyframes fadeIn { from {opacity:0;transform:translateY(10px);} to {opacity:1;transform:translateY(0);}}
         .animate-fadein { animation: fadeIn 0.3s; }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+        .animate-pulse { animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite; }
         @media print {
             .no-print { display: none !important; }
             body { background: white !important; }
             .print-full { width: 100% !important; max-width: 100% !important; padding: 20px !important; }
         }
         .scaduta { background-color: #fee2e2 !important; border-left: 4px solid #dc2626 !important; }
-        .priorita-bassa { background-color: #dbeafe; }
+        .priorita-bassa { background-color: #dbeafe; color: #1e40af; }
         .priorita-media { background-color: #3b82f6; color: white; }
         .priorita-alta { background-color: #1e3a8a; color: white; }
         .stato-svolgimento { background-color: #fef3c7; color: #92400e; }
         .stato-fatto { background-color: #d1fae5; color: #065f46; }
         .stato-bloccato { background-color: #fee2e2; color: #991b1b; }
+        .bg-gradient-indigo { background: linear-gradient(135deg, #1e3a8a 0%, #4338ca 100%); }
+        .bg-gradient-purple { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+        .bg-gradient-app { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%); }
+        select, input, textarea { font-size: 16px; }
     </style>
 </head>
 <body>
-<div id="app" class="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center">
+<div id="app" class="min-h-screen bg-gradient-app flex items-center justify-center">
     <div class="text-white text-center">
-        <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="SLS Studio Legale" class="w-72 h-72 mx-auto mb-4 object-contain animate-pulse">
+        <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="SLS Studio Legale" class="w-64 h-64 mx-auto mb-4 object-contain animate-pulse">
         <p class="text-xl">Caricamento...</p>
     </div>
 </div>
@@ -46,20 +52,15 @@ let state = {
     utenti: [],
     noteAggiornamento: [],
     searchTerm: '',
-    searchSemplici: '',
     filterStato: 'tutti',
-    filterStatoSemplici: 'tutti',
     filterTipo: 'tutti',
     filterPriorita: 'tutti',
     filterAvvocato: 'tutti',
-    filterAvvocatoSemplici: 'tutti',
     showModal: false,
-    showModalSemplici: false,
     showAvvocatoModal: false,
     showUtenteModal: false,
     showNoteModal: false,
     editingPratica: null,
-    editingSemplici: null,
     editingAvvocato: null,
     editingUtente: null,
     viewingPratica: null,
@@ -67,7 +68,6 @@ let state = {
     formData: { cliente:'', tipo_pratica:'civile', descrizione:'', stato:'svolgimento',
         data_apertura: today(), data_aggiornamento_attivita:'', timeline:'', scadenza:'',
         priorita:'media', rgnr:'', avvocato:'', nota_aggiornamento:'' },
-    formSemplici: { avvocato:'', pratica:'', rgnr:'', stato:'svolgimento' },
     avvForm: { nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile' },
     utenteForm: { username:'', password:'', nome_completo:'', email:'', ruolo:'avvocato' },
     noteForm: { nota:'' }
@@ -75,30 +75,24 @@ let state = {
 
 function today() { return new Date().toISOString().split('T')[0]; }
 function isAdmin() { return state.user?.ruolo === 'amministratore'; }
-function isAvvocato() { return state.user?.ruolo === 'avvocato'; }
 
-function getInizialiAvvocato(nomeCompleto) {
-    if (!nomeCompleto) return '';
-    return nomeCompleto.split(' ').map(n => n[0]).join('.').toUpperCase();
+function getInizialiAvvocato(n) {
+    if (!n) return '';
+    return n.split(' ').map(x => x[0]).join('.').toUpperCase();
 }
 
-function isPraticaScaduta(pratica) {
-    if (!pratica.scadenza || pratica.stato === 'fatto') return false;
-    return new Date(pratica.scadenza) <= new Date() && pratica.stato === 'svolgimento';
+function isPraticaScaduta(p) {
+    if (!p.scadenza || p.stato !== 'svolgimento') return false;
+    return new Date(p.scadenza) <= new Date();
 }
 
 async function loadAll() {
-    await Promise.all([loadPratiche(), loadPraticheSemplici(), loadAvvocati(), isAdmin() && loadUtenti()].filter(Boolean));
+    await Promise.all([loadPratiche(), loadAvvocati(), isAdmin() ? loadUtenti() : Promise.resolve()]);
 }
 
 async function loadPratiche() {
     const { data, error } = await sb.from('pratiche').select('*').order('numero', { ascending: false });
     if (!error) state.pratiche = data || [];
-}
-
-async function loadPraticheSemplici() {
-    const { data, error } = await sb.from('pratiche_semplici').select('*').order('created_at', { ascending: false });
-    if (!error) state.praticheSemplici = data || [];
 }
 
 async function loadAvvocati() {
@@ -118,26 +112,23 @@ async function loadNote(praticaId) {
 }
 
 function cleanPratica(p) {
-    const cleaned = {...p};
-    if (!cleaned.data_aggiornamento_attivita || cleaned.data_aggiornamento_attivita === '') cleaned.data_aggiornamento_attivita = null;
-    if (!cleaned.timeline || cleaned.timeline === '') cleaned.timeline = null;
-    if (!cleaned.scadenza || cleaned.scadenza === '') cleaned.scadenza = null;
-    if (!cleaned.data_modifica || cleaned.data_modifica === '') cleaned.data_modifica = null;
-    if (!cleaned.nota_aggiornamento || cleaned.nota_aggiornamento === '') cleaned.nota_aggiornamento = null;
-    if (!cleaned.rgnr || cleaned.rgnr === '') cleaned.rgnr = null;
-    return cleaned;
+    const c = {...p};
+    ['data_aggiornamento_attivita','timeline','scadenza','data_modifica','nota_aggiornamento','rgnr'].forEach(k => {
+        if (!c[k] || c[k] === '') c[k] = null;
+    });
+    return c;
 }
 
-async function savePratica(pratica) {
+async function savePratica(p) {
     try {
-        const p = cleanPratica(pratica);
-        if (p.id) {
-            const { error } = await sb.from('pratiche').update(p).eq('id', p.id);
+        const cl = cleanPratica(p);
+        if (cl.id) {
+            const { error } = await sb.from('pratiche').update(cl).eq('id', cl.id);
             if (error) throw error;
         } else {
-            p.numero = Date.now();
-            p.data_modifica = today();
-            const { error } = await sb.from('pratiche').insert([p]);
+            cl.numero = Date.now();
+            cl.data_modifica = today();
+            const { error } = await sb.from('pratiche').insert([cl]);
             if (error) throw error;
         }
         await loadPratiche();
@@ -147,14 +138,10 @@ async function savePratica(pratica) {
 
 async function aggiungiNota(praticaId, nota) {
     try {
-        const n = {
-            pratica_id: praticaId,
-            data_nota: today(),
-            nota: nota,
-            autore: state.user.nome_completo,
-            autore_id: state.user.id
-        };
-        const { error } = await sb.from('note_aggiornamento').insert([n]);
+        const { error } = await sb.from('note_aggiornamento').insert([{
+            pratica_id: praticaId, data_nota: today(), nota,
+            autore: state.user.nome_completo, autore_id: state.user.id
+        }]);
         if (error) throw error;
         await loadNote(praticaId);
         return true;
@@ -164,60 +151,8 @@ async function aggiungiNota(praticaId, nota) {
 async function deletePratica(id) {
     if (!isAdmin()) { alert('Solo gli amministratori possono eliminare pratiche'); return; }
     const { error } = await sb.from('pratiche').delete().eq('id', id);
-    if (!error) { await loadPratiche(); showSuccess('Pratica eliminata!'); }
+    if (!error) { await loadPratiche(); showSuccess('Pratica eliminata!'); render(); }
     else alert('Errore: ' + error.message);
-}
-
-async function savePraticaSemplice(ps) {
-    try {
-        if (ps.id) {
-            const { error } = await sb.from('pratiche_semplici').update(ps).eq('id', ps.id);
-            if (error) throw error;
-        } else {
-            const { error } = await sb.from('pratiche_semplici').insert([ps]);
-            if (error) throw error;
-        }
-        await loadPraticheSemplici();
-        return true;
-    } catch(e) { alert('Errore: ' + e.message); return false; }
-}
-
-async function deletePraticaSemplice(id) {
-    const { error } = await sb.from('pratiche_semplici').delete().eq('id', id);
-    if (!error) { await loadPraticheSemplici(); showSuccess('Pratica eliminata!'); }
-    else alert('Errore: ' + error.message);
-}
-
-async function importaCSV(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-        try {
-            const text = ev.target.result;
-            const lines = text.split('\n').filter(l => l.trim());
-            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-            
-            let importate = 0;
-            for (let i = 1; i < lines.length; i++) {
-                const values = lines[i].split(',').map(v => v.trim());
-                const ps = {
-                    avvocato: values[headers.indexOf('avvocato')] || '',
-                    pratica: values[headers.indexOf('pratica')] || '',
-                    rgnr: values[headers.indexOf('rgnr')] || '',
-                    stato: (values[headers.indexOf('stato')] || 'svolgimento').toLowerCase()
-                };
-                if (ps.avvocato && ps.pratica) {
-                    await sb.from('pratiche_semplici').insert([ps]);
-                    importate++;
-                }
-            }
-            await loadPraticheSemplici();
-            showSuccess(`Importate ${importate} pratiche da CSV!`);
-        } catch(er) { alert('Errore importazione CSV: ' + er.message); }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
 }
 
 async function saveAvvocato(avv) {
@@ -239,11 +174,10 @@ async function saveAvvocato(avv) {
 async function deleteAvvocato(id) {
     const nome = state.avvocati.find(a => a.id === id)?.nome_completo;
     if (state.pratiche.filter(p => p.avvocato === nome).length > 0) {
-        alert('Impossibile eliminare: ci sono pratiche assegnate!');
-        return;
+        alert('Impossibile eliminare: ci sono pratiche assegnate!'); return;
     }
     const { error } = await sb.from('avvocati').delete().eq('id', id);
-    if (!error) { await loadAvvocati(); showSuccess('Avvocato eliminato!'); }
+    if (!error) { await loadAvvocati(); showSuccess('Avvocato eliminato!'); render(); }
     else alert('Errore: ' + error.message);
 }
 
@@ -251,7 +185,7 @@ async function saveUtente(u) {
     try {
         if (u.id) {
             const upd = {...u};
-            if (!upd.password || upd.password === '') delete upd.password;
+            if (!upd.password) delete upd.password;
             const { error } = await sb.from('utenti').update(upd).eq('id', u.id);
             if (error) throw error;
         } else {
@@ -264,44 +198,30 @@ async function saveUtente(u) {
 }
 
 async function deleteUtente(id) {
-    if (id === state.user.id) { alert('Non puoi eliminare il tuo stesso account!'); return; }
+    if (id === state.user.id) { alert('Non puoi eliminare il tuo account!'); return; }
     const { error } = await sb.from('utenti').delete().eq('id', id);
-    if (!error) { await loadUtenti(); showSuccess('Utente eliminato!'); }
+    if (!error) { await loadUtenti(); showSuccess('Utente eliminato!'); render(); }
     else alert('Errore: ' + error.message);
 }
 
 async function login(username, password) {
     const { data, error } = await sb.from('utenti').select('*')
         .eq('username', username).eq('password', password).eq('attivo', true).single();
-    if (error || !data) {
-        alert('Username o password errati!');
-        return false;
-    }
+    if (error || !data) { alert('Username o password errati!'); return false; }
     state.user = data;
     await loadAll();
-    checkScadenze();
+    const scadute = state.pratiche.filter(p => isPraticaScaduta(p));
+    if (scadute.length > 0 && isAdmin()) {
+        setTimeout(() => alert(`⚠️ ATTENZIONE: Ci sono ${scadute.length} pratica/e scaduta/e in svolgimento!`), 800);
+    }
     render();
     return true;
 }
 
-function logout() {
-    state.user = null;
-    state.activeTab = 'dashboard';
-    render();
-}
-
-function checkScadenze() {
-    const scadute = state.pratiche.filter(p => isPraticaScaduta(p));
-    if (scadute.length > 0 && isAdmin()) {
-        setTimeout(() => {
-            alert(`⚠️ ATTENZIONE: Ci sono ${scadute.length} pratica/e scaduta/e in svolgimento!`);
-        }, 1000);
-    }
-}
+function logout() { state.user = null; state.activeTab = 'dashboard'; render(); }
 
 function esportaDati() {
-    const data = { pratiche: state.pratiche, avvocati: state.avvocati,
-        dataEsportazione: new Date().toISOString(), versione: '2.0' };
+    const data = { pratiche: state.pratiche, avvocati: state.avvocati, dataEsportazione: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -312,140 +232,104 @@ function esportaDati() {
 }
 
 function importaDati(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+    const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = async (ev) => {
         try {
             const data = JSON.parse(ev.target.result);
             if (!confirm(`Importare ${data.pratiche?.length||0} pratiche e ${data.avvocati?.length||0} avvocati?`)) return;
-            for (const a of (data.avvocati||[])) {
-                delete a.id; delete a.created_at;
-                await sb.from('avvocati').insert([a]);
-            }
-            for (const p of (data.pratiche||[])) {
-                delete p.id; delete p.created_at;
-                await sb.from('pratiche').insert([p]);
-            }
+            for (const a of (data.avvocati||[])) { delete a.id; delete a.created_at; await sb.from('avvocati').insert([a]); }
+            for (const p of (data.pratiche||[])) { delete p.id; delete p.created_at; await sb.from('pratiche').insert([p]); }
             await loadAll();
-            showSuccess(`Importati ${data.pratiche?.length||0} pratiche e ${data.avvocati?.length||0} avvocati!`);
+            showSuccess(`Importati ${data.pratiche?.length||0} pratiche!`);
         } catch(er) { alert('Errore: ' + er.message); }
     };
-    reader.readAsText(file);
-    e.target.value = '';
-}
-
-function stampa() {
-    window.print();
+    reader.readAsText(file); e.target.value = '';
 }
 
 function showSuccess(msg) {
-    state.successMessage = msg;
-    render();
+    state.successMessage = msg; render();
     setTimeout(() => { state.successMessage = ''; render(); }, 3000);
 }
 
-function getStatoBadge(s) {
-    return { svolgimento:'stato-svolgimento', fatto:'stato-fatto', bloccato:'stato-bloccato' }[s] || 'stato-svolgimento';
-}
-
-function getStatoIcon(s) {
-    if (s === 'fatto') return '✅';
-    if (s === 'bloccato') return '🚫';
-    return '🔄';
-}
-
-function getPrioritaBadge(p) {
-    return { bassa:'priorita-bassa', media:'priorita-media', alta:'priorita-alta' }[p] || 'priorita-media';
-}
+function getStatoBadge(s) { return {svolgimento:'stato-svolgimento',fatto:'stato-fatto',bloccato:'stato-bloccato'}[s]||'stato-svolgimento'; }
+function getStatoIcon(s) { return {fatto:'✅',bloccato:'🚫'}[s]||'🔄'; }
+function getPrioritaBadge(p) { return {bassa:'priorita-bassa',media:'priorita-media',alta:'priorita-alta'}[p]||'priorita-media'; }
 
 function getAvvStats(nome) {
     const ps = state.pratiche.filter(p => p.avvocato === nome);
-    return { totali: ps.length, svolgimento: ps.filter(p=>p.stato==='svolgimento').length,
-        fatto: ps.filter(p=>p.stato==='fatto').length, bloccato: ps.filter(p=>p.stato==='bloccato').length };
+    return { totali:ps.length, svolgimento:ps.filter(p=>p.stato==='svolgimento').length,
+        fatto:ps.filter(p=>p.stato==='fatto').length, bloccato:ps.filter(p=>p.stato==='bloccato').length };
 }
 
 function getFiltered() {
     return state.pratiche.filter(p => {
         const s = state.searchTerm.toLowerCase();
-        const match = p.cliente.toLowerCase().includes(s) || 
-            p.descrizione.toLowerCase().includes(s) || (p.rgnr||'').toLowerCase().includes(s);
-        const filtStato = state.filterStato === 'tutti' || p.stato === state.filterStato;
-        const filtTipo = state.filterTipo === 'tutti' || p.tipo_pratica === state.filterTipo;
-        const filtPriorita = state.filterPriorita === 'tutti' || p.priorita === state.filterPriorita;
-        const filtAvv = state.filterAvvocato === 'tutti' || p.avvocato === state.filterAvvocato;
-        return match && filtStato && filtTipo && filtPriorita && filtAvv;
+        const match = p.cliente.toLowerCase().includes(s) || p.descrizione.toLowerCase().includes(s) || (p.rgnr||'').toLowerCase().includes(s);
+        return match &&
+            (state.filterStato === 'tutti' || p.stato === state.filterStato) &&
+            (state.filterTipo === 'tutti' || p.tipo_pratica === state.filterTipo) &&
+            (state.filterPriorita === 'tutti' || p.priorita === state.filterPriorita) &&
+            (state.filterAvvocato === 'tutti' || p.avvocato === state.filterAvvocato);
     });
 }
 
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('it-IT') : ''; }
 
 function render() {
-    if (!state.user) {
-        renderLogin();
-        return;
-    }
-    
-    const stats = { totali: state.pratiche.length,
+    if (!state.user) { renderLogin(); return; }
+    const stats = {
+        totali: state.pratiche.length,
         svolgimento: state.pratiche.filter(p=>p.stato==='svolgimento').length,
         fatto: state.pratiche.filter(p=>p.stato==='fatto').length,
         bloccato: state.pratiche.filter(p=>p.stato==='bloccato').length,
-        scadute: state.pratiche.filter(p=>isPraticaScaduta(p)).length };
+        scadute: state.pratiche.filter(p=>isPraticaScaduta(p)).length
+    };
     const filtered = getFiltered();
-
     const tabs = [
-        { id:'dashboard', label:'Dashboard', icon:'📊', show: true },
-        { id:'pratiche', label:'Pratiche', icon:'📁', show: true },
-        { id:'avvocati', label:'Avvocati', icon:'👥', show: isAdmin() },
-        { id:'utenti', label:'Utenti', icon:'🔐', show: isAdmin() },
-        { id:'gestione', label:'Gestione Dati', icon:'🗄️', show: isAdmin() }
-    ].filter(t => t.show);
+        {id:'dashboard', label:'Dashboard', icon:'📊', show:true},
+        {id:'pratiche', label:'Pratiche', icon:'📁', show:true},
+        {id:'avvocati', label:'Avvocati', icon:'👥', show:isAdmin()},
+        {id:'utenti', label:'Utenti', icon:'🔐', show:isAdmin()},
+        {id:'gestione', label:'Gestione Dati', icon:'🗄️', show:isAdmin()}
+    ].filter(t=>t.show);
 
     document.getElementById('app').innerHTML = `
     <div class="max-w-7xl mx-auto p-4 w-full print-full">
         <div class="bg-white rounded-2xl shadow-2xl mb-6 overflow-hidden no-print">
-            <div class="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-8">
-                <div class="flex justify-between items-center">
-                    <div class="text-center flex-1">
-                        <h1 class="text-4xl font-bold mb-4">SLS Studio Legale</h1>
-                        <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="Logo SLS" class="w-96 h-96 mx-auto mb-4 object-contain">
-                        <p class="text-blue-200 mb-2">Sistema di Gestione Pratiche</p>
-                        <div class="bg-white/10 rounded-full px-4 py-2 inline-flex items-center gap-2">
-                            <span class="text-sm">👤 ${state.user.nome_completo}</span>
-                            <span class="text-white/50">|</span>
-                            <span class="text-sm">${state.user.ruolo === 'amministratore' ? '👑 Admin' : '⚖️ Avvocato'}</span>
-                        </div>
+            <div class="bg-gradient-indigo text-white p-6 relative">
+                <div class="text-center">
+                    <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="Logo SLS" class="w-48 h-48 mx-auto mb-2 object-contain">
+                    <h1 class="text-3xl font-bold mb-1">SLS Studio Legale</h1>
+                    <p class="text-blue-200 text-sm mb-2">Sistema di Gestione Pratiche</p>
+                    <div class="inline-flex items-center gap-2 bg-white bg-opacity-20 rounded-full px-4 py-1 text-sm">
+                        <span>👤 ${state.user.nome_completo}</span>
+                        <span class="opacity-50">|</span>
+                        <span>${state.user.ruolo==='amministratore'?'👑 Admin':'⚖️ Avvocato'}</span>
                     </div>
-                    <button onclick="logout()" class="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition-all absolute top-8 right-8">
-                        🚪 Esci
-                    </button>
                 </div>
+                <button onclick="logout()" class="absolute top-4 right-4 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg text-sm transition-all">
+                    🚪 Esci
+                </button>
             </div>
             <div class="flex bg-gray-50 border-b overflow-x-auto">
                 ${tabs.map(t => `
-                    <button onclick="switchTab('${t.id}')" class="flex items-center gap-2 px-6 py-4 font-semibold transition-all whitespace-nowrap
-                        ${state.activeTab===t.id ? 'bg-white text-indigo-600 border-b-4 border-indigo-600' : 'text-gray-600 hover:bg-gray-100'}">
+                    <button onclick="switchTab('${t.id}')" class="flex items-center gap-2 px-5 py-4 font-semibold transition-all whitespace-nowrap text-sm
+                        ${state.activeTab===t.id?'bg-white text-indigo-600 border-b-4 border-indigo-600':'text-gray-600 hover:bg-gray-100'}">
                         ${t.icon} ${t.label}
                     </button>
                 `).join('')}
             </div>
         </div>
 
-        ${state.successMessage ? `
-        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg mb-6 shadow-lg no-print">
-            <p class="font-semibold">✅ ${state.successMessage}</p>
-        </div>` : ''}
+        ${state.successMessage ? `<div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg mb-4 no-print"><p class="font-semibold">✅ ${state.successMessage}</p></div>` : ''}
+        ${stats.scadute > 0 ? `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-4 no-print animate-pulse"><p class="font-semibold">⚠️ ATTENZIONE: ${stats.scadute} pratica/e scaduta/e in svolgimento!</p></div>` : ''}
 
-        ${stats.scadute > 0 ? `
-        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6 shadow-lg no-print animate-pulse">
-            <p class="font-semibold">⚠️ ATTENZIONE: ${stats.scadute} pratica/e scaduta/e in svolgimento!</p>
-        </div>` : ''}
-
-        ${state.activeTab === 'dashboard' ? renderDashboard(stats) : ''}
-        ${state.activeTab === 'pratiche' ? renderPratiche(filtered) : ''}
-        ${state.activeTab === 'avvocati' ? renderAvvocati() : ''}
-        ${state.activeTab === 'utenti' ? renderUtenti() : ''}
-        ${state.activeTab === 'gestione' ? renderGestione() : ''}
+        ${state.activeTab==='dashboard' ? renderDashboard(stats) : ''}
+        ${state.activeTab==='pratiche' ? renderPratiche(filtered) : ''}
+        ${state.activeTab==='avvocati' ? renderAvvocati() : ''}
+        ${state.activeTab==='utenti' ? renderUtenti() : ''}
+        ${state.activeTab==='gestione' ? renderGestione() : ''}
 
         ${state.showModal ? renderModalPratica() : ''}
         ${state.showAvvocatoModal ? renderModalAvvocato() : ''}
@@ -456,230 +340,155 @@ function render() {
 
 function renderLogin() {
     document.getElementById('app').innerHTML = `
-    <div class="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center p-4">
+    <div class="min-h-screen bg-gradient-app flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <div class="text-center mb-8">
-                <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="SLS Studio Legale" class="w-96 h-96 mx-auto mb-4 object-contain">
-                <h1 class="text-3xl font-bold text-gray-800 mb-2">SLS Studio Legale</h1>
-                <p class="text-gray-600">Sistema di Gestione Pratiche</p>
+                <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="SLS Studio Legale" class="w-64 h-64 mx-auto mb-4 object-contain">
+                <h1 class="text-3xl font-bold text-gray-800 mb-1">SLS Studio Legale</h1>
+                <p class="text-gray-500">Sistema di Gestione Pratiche</p>
             </div>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Username</label>
-                    <input type="text" id="loginUsername" 
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"
-                        placeholder="Il tuo username"/>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Username</label>
+                    <input type="text" id="loginUsername" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="Il tuo username"/>
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-                    <input type="password" id="loginPassword"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"
-                        placeholder="La tua password"
-                        onkeypress="if(event.key==='Enter') doLogin()"/>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+                    <input type="password" id="loginPassword" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="La tua password" onkeypress="if(event.key==='Enter')doLogin()"/>
                 </div>
-                <button onclick="doLogin()"
-                    class="w-full px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+                <button onclick="doLogin()" class="w-full px-6 py-3 bg-gradient-purple text-white rounded-lg font-semibold hover:shadow-lg transition-all">
                     🔐 Accedi
                 </button>
             </div>
-            <div class="mt-6 text-center text-sm text-gray-500">
-                <p>👤 Admin predefinito: <strong>admin</strong> / <strong>admin123</strong></p>
-            </div>
+            <p class="mt-6 text-center text-xs text-gray-400">👤 Admin: <strong>admin</strong> / <strong>admin123</strong></p>
         </div>
     </div>`;
 }
 
 function renderDashboard(stats) {
-    return `
-    <div class="space-y-6">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            ${[
-                {label:'Totale Pratiche', val:stats.totali, icon:'📁', color:'indigo'},
-                {label:'In Svolgimento', val:stats.svolgimento, icon:'🔄', color:'yellow'},
-                {label:'Fatto', val:stats.fatto, icon:'✅', color:'green'},
-                {label:'Bloccato', val:stats.bloccato, icon:'🚫', color:'red'}
-            ].map(s => `
-                <div class="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-gray-500 text-sm">${s.label}</p>
-                            <p class="text-3xl font-bold text-${s.color}-600">${s.val}</p>
-                        </div>
-                        <span class="text-4xl">${s.icon}</span>
+    return `<div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+        ${[
+            {label:'Totale Pratiche',val:stats.totali,icon:'📁',color:'indigo'},
+            {label:'In Svolgimento',val:stats.svolgimento,icon:'🔄',color:'yellow'},
+            {label:'Fatto',val:stats.fatto,icon:'✅',color:'green'},
+            {label:'Bloccato',val:stats.bloccato,icon:'🚫',color:'red'}
+        ].map(s=>`
+            <div class="bg-white rounded-xl p-6 shadow-lg">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">${s.label}</p>
+                        <p class="text-3xl font-bold text-${s.color}-600">${s.val}</p>
                     </div>
+                    <span class="text-4xl">${s.icon}</span>
                 </div>
-            `).join('')}
-        </div>
+            </div>`).join('')}
     </div>`;
 }
 
 function renderPratiche(filtered) {
-    const tipiPratica = ['tutti', 'civile', 'penale', 'amministrativo', 'lavoro', 'famiglia', 'tributario', 'tribunale', 'cgt', 'tribunale_cgt1', 'tribunale_cgt2', 'cassazione', 'mediazione'];
-    const avvocatiList = ['tutti', ...new Set(state.pratiche.map(p => p.avvocato))];
-    
+    const tipi = ['tutti','civile','penale','amministrativo','lavoro','famiglia','tributario','tribunale','cgt','tribunale_cgt1','tribunale_cgt2','cassazione','mediazione'];
+    const avvs = ['tutti', ...new Set(state.pratiche.map(p=>p.avvocato).filter(Boolean))];
     return `
-    <div class="space-y-6">
-        <div class="bg-white rounded-xl shadow-lg p-6 no-print">
-            <div class="space-y-4">
-                <div class="flex flex-col md:flex-row gap-4 items-center">
+    <div class="space-y-4">
+        <div class="bg-white rounded-xl shadow-lg p-4 no-print">
+            <div class="flex flex-col gap-3">
+                <div class="flex gap-3">
                     <div class="flex-1 relative">
                         <span class="absolute left-3 top-3 text-gray-400">🔍</span>
-                        <input type="text" placeholder="Cerca cliente, descrizione, RGNR..."
-                            value="${state.searchTerm}"
+                        <input type="text" placeholder="Cerca cliente, descrizione, RGNR..." value="${state.searchTerm}"
                             oninput="state.searchTerm=this.value;render()"
-                            class="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
+                            class="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                     </div>
-                    <div class="flex gap-2">
-                        <button onclick="state.viewMode='cards';render()" 
-                            class="px-4 py-3 ${state.viewMode==='cards'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg transition-all">
-                            📋 Card
-                        </button>
-                        <button onclick="state.viewMode='table';render()"
-                            class="px-4 py-3 ${state.viewMode==='table'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg transition-all">
-                            📊 Tabella
-                        </button>
-                    </div>
-                    ${isAdmin() ? `
-                    <button onclick="openPraticaModal(null)"
-                        class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all whitespace-nowrap">
-                        ➕ Nuova Pratica
-                    </button>` : ''}
+                    <button onclick="state.viewMode='cards';render()" class="px-3 py-2 ${state.viewMode==='cards'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg">📋</button>
+                    <button onclick="state.viewMode='table';render()" class="px-3 py-2 ${state.viewMode==='table'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg">📊</button>
+                    ${isAdmin()?`<button onclick="openPraticaModal(null)" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold whitespace-nowrap">➕ Nuova</button>`:''}
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <select onchange="state.filterStato=this.value;render()"
-                        class="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                <div class="grid grid-cols-2 gap-2 md:grid-cols-5">
+                    <select onchange="state.filterStato=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none text-sm">
                         <option value="tutti" ${state.filterStato==='tutti'?'selected':''}>Tutti stati</option>
                         <option value="svolgimento" ${state.filterStato==='svolgimento'?'selected':''}>Svolgimento</option>
                         <option value="fatto" ${state.filterStato==='fatto'?'selected':''}>Fatto</option>
                         <option value="bloccato" ${state.filterStato==='bloccato'?'selected':''}>Bloccato</option>
                     </select>
-                    <select onchange="state.filterTipo=this.value;render()"
-                        class="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        ${tipiPratica.map(t => `<option value="${t}" ${state.filterTipo===t?'selected':''}>${t === 'tutti' ? 'Tutti i tipi' : t.charAt(0).toUpperCase()+t.slice(1).replace('_',' ')}</option>`).join('')}
+                    <select onchange="state.filterTipo=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none text-sm">
+                        ${tipi.map(t=>`<option value="${t}" ${state.filterTipo===t?'selected':''}>${t==='tutti'?'Tutti tipi':t.replace('_',' ')}</option>`).join('')}
                     </select>
-                    <select onchange="state.filterPriorita=this.value;render()"
-                        class="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        <option value="tutti" ${state.filterPriorita==='tutti'?'selected':''}>Tutte priorità</option>
+                    <select onchange="state.filterPriorita=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none text-sm">
+                        <option value="tutti">Tutte priorità</option>
                         <option value="bassa" ${state.filterPriorita==='bassa'?'selected':''}>Bassa</option>
                         <option value="media" ${state.filterPriorita==='media'?'selected':''}>Media</option>
                         <option value="alta" ${state.filterPriorita==='alta'?'selected':''}>Alta</option>
                     </select>
-                    <select onchange="state.filterAvvocato=this.value;render()"
-                        class="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        ${avvocatiList.map(a => `<option value="${a}" ${state.filterAvvocato===a?'selected':''}>${a === 'tutti' ? 'Tutti avvocati' : getInizialiAvvocato(a)}</option>`).join('')}
+                    <select onchange="state.filterAvvocato=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none text-sm">
+                        ${avvs.map(a=>`<option value="${a}" ${state.filterAvvocato===a?'selected':''}>${a==='tutti'?'Tutti avvocati':getInizialiAvvocato(a)}</option>`).join('')}
                     </select>
-                    <button onclick="stampa()" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all">
-                        🖨️ Stampa
-                    </button>
+                    <button onclick="window.print()" class="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm">🖨️ Stampa</button>
                 </div>
             </div>
         </div>
-        
-        ${state.viewMode === 'table' ? renderPraticheTable(filtered) : renderPraticheCards(filtered)}
+        ${state.viewMode==='table' ? renderPraticheTable(filtered) : renderPraticheCards(filtered)}
     </div>`;
 }
 
 function renderPraticheCards(filtered) {
-    return `
-    <div class="space-y-4">
-        ${filtered.length > 0 ? filtered.map(p => {
-            const scaduta = isPraticaScaduta(p);
-            return `
-            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all ${scaduta?'scaduta':''}">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    if (!filtered.length) return `<div class="bg-white rounded-xl shadow-lg p-12 text-center"><div class="text-6xl mb-4">📁</div><p class="text-gray-400 text-lg">Nessuna pratica trovata</p></div>`;
+    return `<div class="space-y-3">
+        ${filtered.map(p => {
+            const sc = isPraticaScaduta(p);
+            return `<div class="bg-white rounded-xl shadow-lg p-5 ${sc?'scaduta':''}">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div class="flex-1">
-                        <div class="flex items-center gap-3 mb-3 flex-wrap">
-                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)}">
-                                ${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}
-                            </span>
-                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getPrioritaBadge(p.priorita)}">
-                                ${p.priorita.toUpperCase()}
-                            </span>
-                            <span class="px-3 py-1 bg-gray-100 rounded-full text-xs font-semibold">${p.tipo_pratica}</span>
-                            ${p.rgnr ? `<span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">RGNR: ${p.rgnr}</span>` : ''}
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
+                            <span class="px-2 py-1 bg-gray-100 rounded-full text-xs">${p.tipo_pratica}</span>
+                            ${p.rgnr?`<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">RGNR: ${p.rgnr}</span>`:''}
                         </div>
-                        <h3 class="text-xl font-bold text-gray-800 mb-2">${p.cliente}</h3>
-                        <p class="text-gray-600 mb-2">${p.descrizione}</p>
-                        <div class="flex flex-wrap gap-4 text-sm text-gray-500">
+                        <h3 class="text-lg font-bold text-gray-800">${p.cliente}</h3>
+                        <p class="text-gray-600 text-sm mb-2">${p.descrizione}</p>
+                        <div class="flex flex-wrap gap-3 text-xs text-gray-500">
                             <span>👤 ${getInizialiAvvocato(p.avvocato)}</span>
-                            <span>📅 Apertura: ${fmtDate(p.data_apertura)}</span>
-                            ${p.scadenza ? `<span class="${scaduta?'text-red-600 font-bold':''}">⏰ Scadenza: ${fmtDate(p.scadenza)}</span>` : ''}
-                            ${p.timeline ? `<span>📍 Timeline: ${fmtDate(p.timeline)}</span>` : ''}
-                            ${p.data_aggiornamento_attivita ? `<span>🔄 Agg.Attività: ${fmtDate(p.data_aggiornamento_attivita)}</span>` : ''}
+                            <span>📅 ${fmtDate(p.data_apertura)}</span>
+                            ${p.scadenza?`<span class="${sc?'text-red-600 font-bold':''}">⏰ ${fmtDate(p.scadenza)}</span>`:''}
+                            ${p.timeline?`<span>📍 ${fmtDate(p.timeline)}</span>`:''}
+                            ${p.data_aggiornamento_attivita?`<span>🔄 ${fmtDate(p.data_aggiornamento_attivita)}</span>`:''}
                         </div>
                     </div>
                     <div class="flex gap-2 no-print">
-                        <button onclick="viewPratica('${p.id}')"
-                            class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">👁️ Vedi</button>
-                        ${isAdmin() ? `
-                        <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})"
-                            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">✏️</button>
-                        <button onclick="confirmDeletePratica('${p.id}')"
-                            class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">🗑️</button>
-                        ` : `
-                        <button onclick="openNoteModal('${p.id}')"
-                            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">📝 Nota</button>
-                        `}
+                        <button onclick="viewPratica('${p.id}')" class="px-3 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600">👁️ Vedi</button>
+                        ${isAdmin()?`
+                        <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">✏️</button>
+                        <button onclick="if(confirm('Eliminare?'))deletePratica('${p.id}')" class="px-3 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">🗑️</button>
+                        `:`<button onclick="openNoteModal('${p.id}')" class="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">📝 Nota</button>`}
                     </div>
                 </div>
             </div>`;
-        }).join('') : `
-            <div class="bg-white rounded-xl shadow-lg p-12 text-center">
-                <div class="text-6xl mb-4">📁</div>
-                <p class="text-gray-400 text-lg">Nessuna pratica trovata</p>
-            </div>`}
+        }).join('')}
     </div>`;
 }
 
 function renderPraticheTable(filtered) {
-    return `
-    <div class="bg-white rounded-xl shadow-lg overflow-x-auto">
-        <table class="w-full">
+    return `<div class="bg-white rounded-xl shadow-lg overflow-x-auto">
+        <table class="w-full text-sm">
             <thead class="bg-gray-100">
-                <tr>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Cliente</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Tipo</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Stato</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Priorità</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Scadenza</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Timeline</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Avv.</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Agg.Attività</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold no-print">Azioni</th>
-                </tr>
+                <tr>${['Cliente','Tipo','Stato','Priorità','Scadenza','Timeline','Avv.','Agg.','Azioni'].map(h=>`<th class="px-3 py-3 text-left font-semibold">${h}</th>`).join('')}</tr>
             </thead>
             <tbody>
-                ${filtered.map(p => {
-                    const scaduta = isPraticaScaduta(p);
-                    return `
-                    <tr class="border-b hover:bg-gray-50 ${scaduta?'bg-red-50':''}">
-                        <td class="px-4 py-3">
-                            <div class="font-semibold">${p.cliente}</div>
-                            <div class="text-xs text-gray-500">${p.descrizione.substring(0,50)}...</div>
-                        </td>
-                        <td class="px-4 py-3 text-sm">${p.tipo_pratica}</td>
-                        <td class="px-4 py-3">
-                            <span class="px-2 py-1 rounded text-xs font-semibold ${getStatoBadge(p.stato)}">
-                                ${p.stato}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3">
-                            <span class="px-2 py-1 rounded text-xs font-semibold ${getPrioritaBadge(p.priorita)}">
-                                ${p.priorita}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-sm ${scaduta?'text-red-600 font-bold':''}">${fmtDate(p.scadenza)||'-'}</td>
-                        <td class="px-4 py-3 text-sm ${p.stato==='fatto'?'text-green-600 font-bold':''}">${fmtDate(p.timeline)||'-'}</td>
-                        <td class="px-4 py-3 text-sm font-semibold">${getInizialiAvvocato(p.avvocato)}</td>
-                        <td class="px-4 py-3 text-sm">${fmtDate(p.data_aggiornamento_attivita)||'-'}</td>
-                        <td class="px-4 py-3 no-print">
+                ${filtered.map(p=>{
+                    const sc=isPraticaScaduta(p);
+                    return `<tr class="border-b hover:bg-gray-50 ${sc?'bg-red-50':''}">
+                        <td class="px-3 py-3"><div class="font-semibold">${p.cliente}</div><div class="text-xs text-gray-400">${p.descrizione.substring(0,40)}...</div></td>
+                        <td class="px-3 py-2">${p.tipo_pratica}</td>
+                        <td class="px-3 py-2"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatoBadge(p.stato)}">${p.stato}</span></td>
+                        <td class="px-3 py-2"><span class="px-2 py-1 rounded text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${p.priorita}</span></td>
+                        <td class="px-3 py-2 ${sc?'text-red-600 font-bold':''}">${fmtDate(p.scadenza)||'-'}</td>
+                        <td class="px-3 py-2">${fmtDate(p.timeline)||'-'}</td>
+                        <td class="px-3 py-2 font-semibold">${getInizialiAvvocato(p.avvocato)}</td>
+                        <td class="px-3 py-2">${fmtDate(p.data_aggiornamento_attivita)||'-'}</td>
+                        <td class="px-3 py-2 no-print">
                             <div class="flex gap-1">
                                 <button onclick="viewPratica('${p.id}')" class="px-2 py-1 bg-green-500 text-white rounded text-xs">👁️</button>
-                                ${isAdmin() ? `
-                                <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">✏️</button>
-                                ` : `
-                                <button onclick="openNoteModal('${p.id}')" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">📝</button>
-                                `}
+                                ${isAdmin()?`<button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">✏️</button>`:`<button onclick="openNoteModal('${p.id}')" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">📝</button>`}
                             </div>
                         </td>
                     </tr>`;
@@ -690,259 +499,137 @@ function renderPraticheTable(filtered) {
 }
 
 function renderAvvocati() {
-    return `
-    <div class="space-y-6">
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">👥 Archivio Avvocati</h2>
-                <div class="flex gap-2">
-                    <button onclick="stampa()" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all no-print">
-                        🖨️ Stampa
-                    </button>
-                    <button onclick="openAvvocatoModal(null)"
-                        class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all no-print">
-                        ➕ Nuovo Avvocato
-                    </button>
-                </div>
+    return `<div class="bg-white rounded-xl shadow-lg p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">👥 Archivio Avvocati</h2>
+            <div class="flex gap-2">
+                <button onclick="window.print()" class="px-4 py-2 bg-gray-600 text-white rounded-lg no-print">🖨️ Stampa</button>
+                <button onclick="openAvvocatoModal(null)" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold no-print">➕ Nuovo</button>
             </div>
-            ${state.avvocati.length > 0 ? `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                ${state.avvocati.map(a => {
-                    const st = getAvvStats(a.nome_completo);
-                    return `
-                    <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border-2 border-indigo-100">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 class="text-xl font-bold text-gray-800">${a.nome_completo}</h3>
-                                <p class="text-sm text-indigo-600 font-semibold">${a.specializzazione}</p>
-                            </div>
-                            <span class="text-3xl">💼</span>
-                        </div>
-                        <div class="space-y-2 mb-4">
-                            <p class="text-sm text-gray-600">📧 ${a.email}</p>
-                            <p class="text-sm text-gray-600">📱 ${a.telefono}</p>
-                        </div>
-                        <div class="bg-white rounded-lg p-3 mb-4">
-                            <p class="text-xs text-gray-500 mb-2">Pratiche assegnate:</p>
-                            <div class="grid grid-cols-4 gap-2 text-center">
-                                <div><p class="text-lg font-bold text-gray-800">${st.totali}</p><p class="text-xs text-gray-500">Totali</p></div>
-                                <div><p class="text-lg font-bold text-yellow-600">${st.svolgimento}</p><p class="text-xs text-gray-500">Svolgimento</p></div>
-                                <div><p class="text-lg font-bold text-green-600">${st.fatto}</p><p class="text-xs text-gray-500">Fatto</p></div>
-                                <div><p class="text-lg font-bold text-red-600">${st.bloccato}</p><p class="text-xs text-gray-500">Bloccato</p></div>
-                            </div>
-                        </div>
-                        <div class="flex gap-2 no-print">
-                            <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})"
-                                class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">✏️ Modifica</button>
-                            <button onclick="confirmDeleteAvvocato('${a.id}')"
-                                class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">🗑️ Elimina</button>
-                        </div>
-                    </div>`;
-                }).join('')}
-            </div>` : `
-            <div class="text-center py-12">
-                <div class="text-6xl mb-4">👥</div>
-                <p class="text-gray-400 text-lg">Nessun avvocato in archivio</p>
-            </div>`}
         </div>
+        ${state.avvocati.length?`<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${state.avvocati.map(a=>{
+                const st=getAvvStats(a.nome_completo);
+                return `<div class="bg-indigo-50 rounded-xl p-5 border-2 border-indigo-100">
+                    <div class="flex justify-between mb-3">
+                        <div><h3 class="text-lg font-bold text-gray-800">${a.nome_completo}</h3><p class="text-sm text-indigo-600">${a.specializzazione}</p></div>
+                        <span class="text-3xl">💼</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-1">📧 ${a.email}</p>
+                    <p class="text-sm text-gray-600 mb-3">📱 ${a.telefono}</p>
+                    <div class="bg-white rounded-lg p-3 mb-3 grid grid-cols-4 gap-2 text-center">
+                        <div><p class="text-lg font-bold">${st.totali}</p><p class="text-xs text-gray-400">Totali</p></div>
+                        <div><p class="text-lg font-bold text-yellow-600">${st.svolgimento}</p><p class="text-xs text-gray-400">Svolgimento</p></div>
+                        <div><p class="text-lg font-bold text-green-600">${st.fatto}</p><p class="text-xs text-gray-400">Fatto</p></div>
+                        <div><p class="text-lg font-bold text-red-600">${st.bloccato}</p><p class="text-xs text-gray-400">Bloccato</p></div>
+                    </div>
+                    <div class="flex gap-2 no-print">
+                        <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="flex-1 px-3 py-2 bg-blue-500 text-white rounded-lg text-sm">✏️ Modifica</button>
+                        <button onclick="if(confirm('Eliminare?'))deleteAvvocato('${a.id}')" class="flex-1 px-3 py-2 bg-red-500 text-white rounded-lg text-sm">🗑️ Elimina</button>
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>`:`<div class="text-center py-12"><div class="text-6xl mb-4">👥</div><p class="text-gray-400">Nessun avvocato in archivio</p></div>`}
     </div>`;
 }
 
 function renderUtenti() {
-    return `
-    <div class="space-y-6">
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">🔐 Gestione Utenti</h2>
-                <button onclick="openUtenteModal(null)"
-                    class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
-                    ➕ Nuovo Utente
-                </button>
-            </div>
-            ${state.utenti.length > 0 ? `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                ${state.utenti.map(u => `
-                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-100">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 class="text-xl font-bold text-gray-800">${u.nome_completo}</h3>
-                                <p class="text-sm ${u.ruolo==='amministratore'?'text-red-600':'text-indigo-600'} font-semibold">
-                                    ${u.ruolo==='amministratore'?'👑 Amministratore':'⚖️ Avvocato'}
-                                </p>
-                            </div>
-                            <span class="text-3xl">${u.ruolo==='amministratore'?'👑':'👤'}</span>
-                        </div>
-                        <div class="space-y-2 mb-4">
-                            <p class="text-sm text-gray-600">🔑 Username: <strong>${u.username}</strong></p>
-                            <p class="text-sm text-gray-600">📧 ${u.email}</p>
-                            <p class="text-sm ${u.attivo?'text-green-600':'text-red-600'}">
-                                ${u.attivo?'✅ Attivo':'❌ Disattivato'}
-                            </p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="openUtenteModal(${JSON.stringify(u).replace(/"/g,'&quot;')})"
-                                class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">✏️ Modifica</button>
-                            <button onclick="confirmDeleteUtente('${u.id}')"
-                                class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">🗑️ Elimina</button>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>` : ''}
+    return `<div class="bg-white rounded-xl shadow-lg p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">🔐 Gestione Utenti</h2>
+            <button onclick="openUtenteModal(null)" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold">➕ Nuovo Utente</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${state.utenti.map(u=>`<div class="bg-blue-50 rounded-xl p-5 border-2 border-blue-100">
+                <div class="flex justify-between mb-3">
+                    <div><h3 class="text-lg font-bold text-gray-800">${u.nome_completo}</h3>
+                    <p class="text-sm ${u.ruolo==='amministratore'?'text-red-600':'text-indigo-600'} font-semibold">${u.ruolo==='amministratore'?'👑 Amministratore':'⚖️ Avvocato'}</p></div>
+                    <span class="text-3xl">${u.ruolo==='amministratore'?'👑':'👤'}</span>
+                </div>
+                <p class="text-sm text-gray-600 mb-1">🔑 <strong>${u.username}</strong></p>
+                <p class="text-sm text-gray-600 mb-1">📧 ${u.email}</p>
+                <p class="text-sm mb-3 ${u.attivo?'text-green-600':'text-red-600'}">${u.attivo?'✅ Attivo':'❌ Disattivato'}</p>
+                <div class="flex gap-2">
+                    <button onclick="openUtenteModal(${JSON.stringify(u).replace(/"/g,'&quot;')})" class="flex-1 px-3 py-2 bg-blue-500 text-white rounded-lg text-sm">✏️ Modifica</button>
+                    <button onclick="if(confirm('Eliminare?'))deleteUtente('${u.id}')" class="flex-1 px-3 py-2 bg-red-500 text-white rounded-lg text-sm">🗑️ Elimina</button>
+                </div>
+            </div>`).join('')}
         </div>
     </div>`;
 }
 
 function renderGestione() {
-    return `
-    <div class="space-y-6">
-        <div class="bg-white rounded-xl shadow-lg p-8">
-            <h2 class="text-2xl font-bold mb-6 text-gray-800">🗄️ Gestione Database</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border-2 border-green-200">
-                    <div class="flex items-center gap-3 mb-4">
-                        <span class="text-4xl">📥</span>
-                        <div>
-                            <h3 class="text-xl font-bold text-gray-800">Esporta Dati</h3>
-                            <p class="text-sm text-gray-600">Backup completo su file</p>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-lg p-4 mb-4">
-                        <p class="text-sm text-gray-700 mb-2">📊 <strong>Pratiche:</strong> ${state.pratiche.length}</p>
-                        <p class="text-sm text-gray-700">👥 <strong>Avvocati:</strong> ${state.avvocati.length}</p>
-                    </div>
-                    <button onclick="esportaDati()"
-                        class="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
-                        📥 Esporta Database
-                    </button>
-                </div>
-                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-200">
-                    <div class="flex items-center gap-3 mb-4">
-                        <span class="text-4xl">📤</span>
-                        <div>
-                            <h3 class="text-xl font-bold text-gray-800">Importa Dati</h3>
-                            <p class="text-sm text-gray-600">Ripristina da backup</p>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-lg p-4 mb-4">
-                        <p class="text-sm text-gray-700 mb-2">⚠️ <strong>Attenzione:</strong></p>
-                        <p class="text-xs text-gray-600">I dati verranno aggiunti al database.</p>
-                    </div>
-                    <label class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer">
-                        📤 Seleziona File Backup
-                        <input type="file" accept=".json" onchange="importaDati(event)" class="hidden"/>
-                    </label>
-                </div>
+    return `<div class="bg-white rounded-xl shadow-lg p-6">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800">🗄️ Gestione Database</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-green-50 rounded-xl p-6 border-2 border-green-200">
+                <h3 class="text-xl font-bold mb-2">📥 Esporta Dati</h3>
+                <p class="text-sm text-gray-600 mb-4">Pratiche: <strong>${state.pratiche.length}</strong> | Avvocati: <strong>${state.avvocati.length}</strong></p>
+                <button onclick="esportaDati()" class="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700">📥 Esporta Backup</button>
+            </div>
+            <div class="bg-blue-50 rounded-xl p-6 border-2 border-blue-200">
+                <h3 class="text-xl font-bold mb-2">📤 Importa Dati</h3>
+                <p class="text-sm text-gray-600 mb-4">⚠️ I dati verranno aggiunti al database esistente.</p>
+                <label class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center justify-center gap-2 cursor-pointer">
+                    📤 Seleziona Backup JSON
+                    <input type="file" accept=".json" onchange="importaDati(event)" class="hidden"/>
+                </label>
             </div>
         </div>
     </div>`;
 }
 
 function renderModalPratica() {
-    const canEdit = isAdmin() || !state.editingPratica;
-    return `
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8">
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${state.editingPratica ? '✏️ Modifica Pratica' : '➕ Nuova Pratica'}</h2>
-                <button onclick="state.showModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
+    const tipi = ['civile','penale','amministrativo','lavoro','famiglia','tributario','tribunale','cgt','tribunale_cgt1','tribunale_cgt2','cassazione','mediazione'];
+    return `<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full my-4">
+            <div class="bg-gradient-indigo text-white p-5 flex justify-between items-center rounded-t-2xl">
+                <h2 class="text-xl font-bold">${state.editingPratica?'✏️ Modifica Pratica':'➕ Nuova Pratica'}</h2>
+                <button onclick="state.showModal=false;render()" class="text-2xl hover:opacity-70">✕</button>
             </div>
-            <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Cliente *</label>
-                    <input type="text" value="${state.formData.cliente}" ${canEdit?'':'disabled'}
-                        oninput="state.formData.cliente=this.value"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}" />
+            <div class="p-5 space-y-3 max-h-screen overflow-y-auto">
+                <div><label class="block text-sm font-semibold text-gray-700 mb-1">Cliente *</label>
+                    <input type="text" value="${state.formData.cliente}" oninput="state.formData.cliente=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-sm font-semibold text-gray-700 mb-1">Tipo *</label>
+                        <select onchange="state.formData.tipo_pratica=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none">
+                            ${tipi.map(t=>`<option value="${t}" ${state.formData.tipo_pratica===t?'selected':''}>${t.replace('_',' ')}</option>`).join('')}
+                        </select></div>
+                    <div><label class="block text-sm font-semibold text-gray-700 mb-1">RGNR</label>
+                        <input type="text" value="${state.formData.rgnr||''}" oninput="state.formData.rgnr=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none"/></div>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo Pratica *</label>
-                        <select ${canEdit?'':'disabled'} onchange="state.formData.tipo_pratica=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">
-                            ${['civile','penale','amministrativo','lavoro','famiglia','tributario','tribunale','cgt','tribunale_cgt1','tribunale_cgt2','cassazione','mediazione'].map(t => 
-                                `<option value="${t}" ${state.formData.tipo_pratica===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1).replace('_',' ')}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">RGNR</label>
-                        <input type="text" value="${state.formData.rgnr||''}" ${canEdit?'':'disabled'}
-                            oninput="state.formData.rgnr=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}" />
-                    </div>
+                <div><label class="block text-sm font-semibold text-gray-700 mb-1">Descrizione *</label>
+                    <textarea oninput="state.formData.descrizione=this.value" rows="3" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none">${state.formData.descrizione}</textarea></div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div><label class="block text-sm font-semibold text-gray-700 mb-1">Stato *</label>
+                        <select onchange="state.formData.stato=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none">
+                            ${[['svolgimento','Svolgimento'],['fatto','Fatto'],['bloccato','Bloccato']].map(([v,l])=>`<option value="${v}" ${state.formData.stato===v?'selected':''}>${l}</option>`).join('')}
+                        </select></div>
+                    <div><label class="block text-sm font-semibold text-gray-700 mb-1">Priorità *</label>
+                        <select onchange="state.formData.priorita=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none">
+                            ${[['bassa','Bassa'],['media','Media'],['alta','Alta']].map(([v,l])=>`<option value="${v}" ${state.formData.priorita===v?'selected':''}>${l}</option>`).join('')}
+                        </select></div>
+                    <div><label class="block text-sm font-semibold text-gray-700 mb-1">Apertura *</label>
+                        <input type="date" value="${state.formData.data_apertura}" oninput="state.formData.data_apertura=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none"/></div>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Descrizione *</label>
-                    <textarea ${canEdit?'':'disabled'} oninput="state.formData.descrizione=this.value" rows="3"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">${state.formData.descrizione}</textarea>
+                <div class="grid grid-cols-3 gap-3">
+                    <div><label class="block text-sm font-semibold text-gray-700 mb-1">Scadenza</label>
+                        <input type="date" value="${state.formData.scadenza||''}" oninput="state.formData.scadenza=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none"/></div>
+                    <div><label class="block text-sm font-semibold text-gray-700 mb-1">Timeline</label>
+                        <input type="date" value="${state.formData.timeline||''}" oninput="state.formData.timeline=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none"/></div>
+                    <div><label class="block text-sm font-semibold text-gray-700 mb-1">Agg.Attività</label>
+                        <input type="date" value="${state.formData.data_aggiornamento_attivita||''}" oninput="state.formData.data_aggiornamento_attivita=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none"/></div>
                 </div>
-                <div class="grid grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Stato *</label>
-                        <select ${canEdit?'':'disabled'} onchange="state.formData.stato=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">
-                            ${[['svolgimento','Svolgimento'],['fatto','Fatto'],['bloccato','Bloccato']].map(([v,l]) => 
-                                `<option value="${v}" ${state.formData.stato===v?'selected':''}>${l}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Priorità *</label>
-                        <select ${canEdit?'':'disabled'} onchange="state.formData.priorita=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">
-                            ${[['bassa','Bassa'],['media','Media'],['alta','Alta']].map(([v,l]) => 
-                                `<option value="${v}" ${state.formData.priorita===v?'selected':''}>${l}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Data Apertura *</label>
-                        <input type="date" ${canEdit?'':'disabled'} value="${state.formData.data_apertura}" 
-                            oninput="state.formData.data_apertura=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}"/>
-                    </div>
-                </div>
-                <div class="grid grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Scadenza</label>
-                        <input type="date" value="${state.formData.scadenza||''}" 
-                            oninput="state.formData.scadenza=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Timeline</label>
-                        <input type="date" value="${state.formData.timeline||''}" 
-                            oninput="state.formData.timeline=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Agg.to Attività</label>
-                        <input type="date" value="${state.formData.data_aggiornamento_attivita||''}" 
-                            oninput="state.formData.data_aggiornamento_attivita=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Avvocato Responsabile *</label>
-                    <select ${canEdit?'':'disabled'} onchange="state.formData.avvocato=this.value"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">
+                <div><label class="block text-sm font-semibold text-gray-700 mb-1">Avvocato *</label>
+                    <select onchange="state.formData.avvocato=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none">
                         <option value="">-- Seleziona --</option>
-                        ${state.avvocati.map(a => 
-                            `<option value="${a.nome_completo}" ${state.formData.avvocato===a.nome_completo?'selected':''}>${a.nome_completo}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Nota Aggiornamento</label>
-                    <textarea oninput="state.formData.nota_aggiornamento=this.value" rows="3"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">${state.formData.nota_aggiornamento||''}</textarea>
-                </div>
-                <div class="flex gap-3 pt-4">
-                    <button onclick="submitPratica()" ${canEdit?'':'disabled'}
-                        class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all ${canEdit?'':'opacity-50 cursor-not-allowed'}">
-                        💾 ${state.editingPratica ? 'Aggiorna' : 'Salva'}
-                    </button>
-                    <button onclick="state.showModal=false;render()"
-                        class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">Annulla</button>
+                        ${state.avvocati.map(a=>`<option value="${a.nome_completo}" ${state.formData.avvocato===a.nome_completo?'selected':''}>${a.nome_completo}</option>`).join('')}
+                    </select></div>
+                <div><label class="block text-sm font-semibold text-gray-700 mb-1">Nota Aggiornamento</label>
+                    <textarea oninput="state.formData.nota_aggiornamento=this.value" rows="2" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none">${state.formData.nota_aggiornamento||''}</textarea></div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="submitPratica()" class="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700">💾 ${state.editingPratica?'Aggiorna':'Salva'}</button>
+                    <button onclick="state.showModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold">Annulla</button>
                 </div>
             </div>
         </div>
@@ -950,52 +637,30 @@ function renderModalPratica() {
 }
 
 function renderModalAvvocato() {
-    return `
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${state.editingAvvocato ? '✏️ Modifica Avvocato' : '➕ Nuovo Avvocato'}</h2>
-                <button onclick="state.showAvvocatoModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
+    return `<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+            <div class="bg-gradient-indigo text-white p-5 flex justify-between items-center rounded-t-2xl">
+                <h2 class="text-xl font-bold">${state.editingAvvocato?'✏️ Modifica Avvocato':'➕ Nuovo Avvocato'}</h2>
+                <button onclick="state.showAvvocatoModal=false;render()" class="text-2xl hover:opacity-70">✕</button>
             </div>
-            <div class="p-6 space-y-4">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nome *</label>
-                        <input type="text" value="${state.avvForm.nome}" oninput="state.avvForm.nome=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Cognome *</label>
-                        <input type="text" value="${state.avvForm.cognome}" oninput="state.avvForm.cognome=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                    </div>
+            <div class="p-5 space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-sm font-semibold mb-1">Nome *</label>
+                        <input type="text" value="${state.avvForm.nome}" oninput="state.avvForm.nome=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none"/></div>
+                    <div><label class="block text-sm font-semibold mb-1">Cognome *</label>
+                        <input type="text" value="${state.avvForm.cognome}" oninput="state.avvForm.cognome=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none"/></div>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-                    <input type="email" value="${state.avvForm.email}" oninput="state.avvForm.email=this.value"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Telefono *</label>
-                    <input type="tel" value="${state.avvForm.telefono}" oninput="state.avvForm.telefono=this.value"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Specializzazione *</label>
-                    <select onchange="state.avvForm.specializzazione=this.value"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        ${['civile','penale','amministrativo','lavoro','famiglia','tributario'].map(s => 
-                            `<option value="${s}" ${state.avvForm.specializzazione===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-                <div class="flex gap-3 pt-4">
-                    <button onclick="submitAvvocato()"
-                        class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
-                        💾 ${state.editingAvvocato ? 'Aggiorna' : 'Salva'}
-                    </button>
-                    <button onclick="state.showAvvocatoModal=false;render()"
-                        class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">Annulla</button>
+                <div><label class="block text-sm font-semibold mb-1">Email *</label>
+                    <input type="email" value="${state.avvForm.email}" oninput="state.avvForm.email=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none"/></div>
+                <div><label class="block text-sm font-semibold mb-1">Telefono *</label>
+                    <input type="tel" value="${state.avvForm.telefono}" oninput="state.avvForm.telefono=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none"/></div>
+                <div><label class="block text-sm font-semibold mb-1">Specializzazione</label>
+                    <select onchange="state.avvForm.specializzazione=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none">
+                        ${['civile','penale','amministrativo','lavoro','famiglia','tributario'].map(s=>`<option value="${s}" ${state.avvForm.specializzazione===s?'selected':''}>${s}</option>`).join('')}
+                    </select></div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="submitAvvocato()" class="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold">💾 ${state.editingAvvocato?'Aggiorna':'Salva'}</button>
+                    <button onclick="state.showAvvocatoModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg">Annulla</button>
                 </div>
             </div>
         </div>
@@ -1003,53 +668,29 @@ function renderModalAvvocato() {
 }
 
 function renderModalUtente() {
-    return `
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${state.editingUtente ? '✏️ Modifica Utente' : '➕ Nuovo Utente'}</h2>
-                <button onclick="state.showUtenteModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
+    return `<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+            <div class="bg-gradient-indigo text-white p-5 flex justify-between items-center rounded-t-2xl">
+                <h2 class="text-xl font-bold">${state.editingUtente?'✏️ Modifica Utente':'➕ Nuovo Utente'}</h2>
+                <button onclick="state.showUtenteModal=false;render()" class="text-2xl hover:opacity-70">✕</button>
             </div>
-            <div class="p-6 space-y-4">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Username *</label>
-                    <input type="text" value="${state.utenteForm.username}" ${state.editingUtente?'disabled':''}
-                        oninput="state.utenteForm.username=this.value"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${state.editingUtente?'bg-gray-100':''}"/>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Password ${state.editingUtente?'(lascia vuoto per non modificare)':'*'}</label>
-                    <input type="password" value="${state.utenteForm.password||''}" 
-                        oninput="state.utenteForm.password=this.value"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Nome Completo *</label>
-                    <input type="text" value="${state.utenteForm.nome_completo}" 
-                        oninput="state.utenteForm.nome_completo=this.value"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-                    <input type="email" value="${state.utenteForm.email}" 
-                        oninput="state.utenteForm.email=this.value"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Ruolo *</label>
-                    <select onchange="state.utenteForm.ruolo=this.value"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+            <div class="p-5 space-y-3">
+                <div><label class="block text-sm font-semibold mb-1">Username *</label>
+                    <input type="text" value="${state.utenteForm.username}" ${state.editingUtente?'disabled':''} oninput="state.utenteForm.username=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none ${state.editingUtente?'bg-gray-100':''}"/></div>
+                <div><label class="block text-sm font-semibold mb-1">Password ${state.editingUtente?'(vuoto = non cambiare)':'*'}</label>
+                    <input type="password" value="" oninput="state.utenteForm.password=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none"/></div>
+                <div><label class="block text-sm font-semibold mb-1">Nome Completo *</label>
+                    <input type="text" value="${state.utenteForm.nome_completo}" oninput="state.utenteForm.nome_completo=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none"/></div>
+                <div><label class="block text-sm font-semibold mb-1">Email *</label>
+                    <input type="email" value="${state.utenteForm.email}" oninput="state.utenteForm.email=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none"/></div>
+                <div><label class="block text-sm font-semibold mb-1">Ruolo *</label>
+                    <select onchange="state.utenteForm.ruolo=this.value" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none">
                         <option value="avvocato" ${state.utenteForm.ruolo==='avvocato'?'selected':''}>⚖️ Avvocato</option>
                         <option value="amministratore" ${state.utenteForm.ruolo==='amministratore'?'selected':''}>👑 Amministratore</option>
-                    </select>
-                </div>
-                <div class="flex gap-3 pt-4">
-                    <button onclick="submitUtente()"
-                        class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
-                        💾 ${state.editingUtente ? 'Aggiorna' : 'Crea Utente'}
-                    </button>
-                    <button onclick="state.showUtenteModal=false;render()"
-                        class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">Annulla</button>
+                    </select></div>
+                <div class="flex gap-3 pt-2">
+                    <button onclick="submitUtente()" class="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold">💾 ${state.editingUtente?'Aggiorna':'Crea'}</button>
+                    <button onclick="state.showUtenteModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg">Annulla</button>
                 </div>
             </div>
         </div>
@@ -1058,44 +699,29 @@ function renderModalUtente() {
 
 function renderModalNote() {
     const p = state.viewingPratica;
-    return `
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
-                <div class="text-center mb-4">
-                    <h2 class="text-xl font-bold mb-2">${p?.cliente}</h2>
-                    <p class="text-sm text-blue-200">${p?.descrizione}</p>
-                </div>
-                <button onclick="state.showNoteModal=false;render()" 
-                    class="absolute top-6 right-6 hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
+    return `<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-screen overflow-y-auto">
+            <div class="bg-gradient-indigo text-white p-5 relative rounded-t-2xl">
+                <h2 class="text-lg font-bold">${p?.cliente}</h2>
+                <p class="text-sm opacity-75">${p?.descrizione}</p>
+                <button onclick="state.showNoteModal=false;render()" class="absolute top-4 right-4 text-2xl hover:opacity-70">✕</button>
             </div>
-            <div class="p-6">
-                ${!isAdmin() ? `
-                <div class="mb-6">
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Aggiungi Nota Aggiornamento</label>
-                    <textarea oninput="state.noteForm.nota=this.value" rows="3"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none mb-3"
-                        placeholder="Scrivi qui la nota di aggiornamento...">${state.noteForm.nota||''}</textarea>
-                    <button onclick="submitNota()"
-                        class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
-                        ➕ Aggiungi Nota
-                    </button>
-                </div>` : ''}
-                
-                <h3 class="text-xl font-bold text-gray-800 mb-4">📜 Storico Note</h3>
-                ${state.noteAggiornamento.length > 0 ? `
-                <div class="space-y-3">
-                    ${state.noteAggiornamento.map(n => `
-                        <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-l-4 border-blue-500">
-                            <div class="flex justify-between items-start mb-2">
-                                <p class="text-sm text-gray-600">👤 <strong>${n.autore}</strong></p>
-                                <p class="text-sm text-gray-500">📅 ${fmtDate(n.data_nota)}</p>
-                            </div>
-                            <p class="text-gray-800">${n.nota}</p>
+            <div class="p-5">
+                ${!isAdmin()?`<div class="mb-5">
+                    <label class="block text-sm font-semibold mb-1">Aggiungi Nota</label>
+                    <textarea oninput="state.noteForm.nota=this.value" rows="3" class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none mb-2" placeholder="Scrivi qui la nota...">${state.noteForm.nota||''}</textarea>
+                    <button onclick="submitNota()" class="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold">➕ Aggiungi</button>
+                </div>`:''}
+                <h3 class="text-lg font-bold text-gray-800 mb-3">📜 Storico Note</h3>
+                ${state.noteAggiornamento.length?`<div class="space-y-3">
+                    ${state.noteAggiornamento.map(n=>`<div class="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                        <div class="flex justify-between text-sm text-gray-500 mb-1">
+                            <span>👤 <strong>${n.autore}</strong></span>
+                            <span>📅 ${fmtDate(n.data_nota)}</span>
                         </div>
-                    `).join('')}
-                </div>` : `
-                <p class="text-gray-400 text-center py-8">Nessuna nota ancora inserita</p>`}
+                        <p class="text-gray-800">${n.nota}</p>
+                    </div>`).join('')}
+                </div>`:`<p class="text-gray-400 text-center py-8">Nessuna nota ancora inserita</p>`}
             </div>
         </div>
     </div>`;
@@ -1104,8 +730,8 @@ function renderModalNote() {
 function switchTab(tab) { state.activeTab = tab; render(); }
 
 async function doLogin() {
-    const u = document.getElementById('loginUsername').value;
-    const p = document.getElementById('loginPassword').value;
+    const u = document.getElementById('loginUsername')?.value;
+    const p = document.getElementById('loginPassword')?.value;
     if (!u || !p) { alert('Inserisci username e password'); return; }
     await login(u, p);
 }
@@ -1115,38 +741,31 @@ function openPraticaModal(p) {
     state.formData = p ? {...p} : { cliente:'', tipo_pratica:'civile', descrizione:'', stato:'svolgimento',
         data_apertura:today(), data_aggiornamento_attivita:'', timeline:'', scadenza:'',
         priorita:'media', rgnr:'', avvocato:'', nota_aggiornamento:'' };
-    state.showModal = true;
-    render();
+    state.showModal = true; render();
 }
 
 function openAvvocatoModal(a) {
     state.editingAvvocato = a;
-    state.avvForm = a ? { nome:a.nome, cognome:a.cognome, email:a.email, telefono:a.telefono, specializzazione:a.specializzazione }
-        : { nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile' };
-    state.showAvvocatoModal = true;
-    render();
+    state.avvForm = a ? {nome:a.nome,cognome:a.cognome,email:a.email,telefono:a.telefono,specializzazione:a.specializzazione}
+        : {nome:'',cognome:'',email:'',telefono:'',specializzazione:'civile'};
+    state.showAvvocatoModal = true; render();
 }
 
 function openUtenteModal(u) {
     state.editingUtente = u;
-    state.utenteForm = u ? { username:u.username, password:'', nome_completo:u.nome_completo, email:u.email, ruolo:u.ruolo }
-        : { username:'', password:'', nome_completo:'', email:'', ruolo:'avvocato' };
-    state.showUtenteModal = true;
-    render();
+    state.utenteForm = u ? {username:u.username,password:'',nome_completo:u.nome_completo,email:u.email,ruolo:u.ruolo}
+        : {username:'',password:'',nome_completo:'',email:'',ruolo:'avvocato'};
+    state.showUtenteModal = true; render();
 }
 
 async function openNoteModal(praticaId) {
-    const p = state.pratiche.find(pr => pr.id === praticaId);
-    state.viewingPratica = p;
-    state.noteForm = { nota: '' };
+    state.viewingPratica = state.pratiche.find(pr=>pr.id===praticaId);
+    state.noteForm = {nota:''};
     await loadNote(praticaId);
-    state.showNoteModal = true;
-    render();
+    state.showNoteModal = true; render();
 }
 
-async function viewPratica(praticaId) {
-    await openNoteModal(praticaId);
-}
+async function viewPratica(praticaId) { await openNoteModal(praticaId); }
 
 async function submitPratica() {
     if (!state.formData.cliente || !state.formData.descrizione || !state.formData.avvocato) {
@@ -1156,12 +775,7 @@ async function submitPratica() {
     if (state.editingPratica) p.id = state.editingPratica.id;
     p.data_modifica = today();
     const ok = await savePratica(p);
-    if (ok) {
-        state.showModal = false;
-        state.editingPratica = null;
-        showSuccess('Pratica salvata!');
-        render();
-    }
+    if (ok) { state.showModal = false; state.editingPratica = null; showSuccess('Pratica salvata!'); render(); }
 }
 
 async function submitAvvocato() {
@@ -1171,59 +785,32 @@ async function submitAvvocato() {
     const a = {...state.avvForm};
     if (state.editingAvvocato) a.id = state.editingAvvocato.id;
     const ok = await saveAvvocato(a);
-    if (ok) {
-        state.showAvvocatoModal = false;
-        state.editingAvvocato = null;
-        showSuccess('Avvocato salvato!');
-        render();
-    }
+    if (ok) { state.showAvvocatoModal = false; state.editingAvvocato = null; showSuccess('Avvocato salvato!'); render(); }
 }
 
 async function submitUtente() {
     if (!state.utenteForm.username || !state.utenteForm.nome_completo || !state.utenteForm.email) {
-        alert('Compila tutti i campi obbligatori (*)'); return;
+        alert('Compila tutti i campi (*)'); return;
     }
-    if (!state.editingUtente && !state.utenteForm.password) {
-        alert('Inserisci una password'); return;
-    }
+    if (!state.editingUtente && !state.utenteForm.password) { alert('Inserisci una password'); return; }
     const u = {...state.utenteForm};
     if (state.editingUtente) u.id = state.editingUtente.id;
     u.attivo = true;
     const ok = await saveUtente(u);
-    if (ok) {
-        state.showUtenteModal = false;
-        state.editingUtente = null;
-        showSuccess('Utente salvato!');
-        render();
-    }
+    if (ok) { state.showUtenteModal = false; state.editingUtente = null; showSuccess('Utente salvato!'); render(); }
 }
 
 async function submitNota() {
     if (!state.noteForm.nota) { alert('Scrivi una nota!'); return; }
     const ok = await aggiungiNota(state.viewingPratica.id, state.noteForm.nota);
-    if (ok) {
-        state.noteForm = { nota: '' };
-        showSuccess('Nota aggiunta!');
-        render();
-    }
-}
-
-function confirmDeletePratica(id) {
-    if (confirm('Eliminare questa pratica?')) deletePratica(id);
-}
-
-function confirmDeleteAvvocato(id) {
-    if (confirm('Eliminare questo avvocato?')) deleteAvvocato(id);
-}
-
-function confirmDeleteUtente(id) {
-    if (confirm('Eliminare questo utente?')) deleteUtente(id);
+    if (ok) { state.noteForm = {nota:''}; showSuccess('Nota aggiunta!'); render(); }
 }
 
 render();
 </script>
 </body>
 </html>
+
 
 
 
