@@ -14,6 +14,13 @@
             body { background: white !important; }
             .print-full { width: 100% !important; max-width: 100% !important; padding: 20px !important; }
         }
+        .scaduta { background-color: #fee2e2 !important; border-left: 4px solid #dc2626 !important; }
+        .priorita-bassa { background-color: #dbeafe; }
+        .priorita-media { background-color: #3b82f6; color: white; }
+        .priorita-alta { background-color: #1e3a8a; color: white; }
+        .stato-svolgimento { background-color: #fef3c7; color: #92400e; }
+        .stato-fatto { background-color: #d1fae5; color: #065f46; }
+        .stato-bloccato { background-color: #fee2e2; color: #991b1b; }
     </style>
 </head>
 <body>
@@ -32,6 +39,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let state = {
     user: null,
     activeTab: 'dashboard',
+    viewMode: 'cards',
     pratiche: [],
     avvocati: [],
     utenti: [],
@@ -39,6 +47,7 @@ let state = {
     searchTerm: '',
     filterStato: 'tutti',
     filterTipo: 'tutti',
+    filterPriorita: 'tutti',
     filterAvvocato: 'tutti',
     showModal: false,
     showAvvocatoModal: false,
@@ -49,8 +58,9 @@ let state = {
     editingUtente: null,
     viewingPratica: null,
     successMessage: '',
-    formData: { cliente:'', tipo_pratica:'civile', descrizione:'', stato:'aperta',
-        data_apertura: today(), data_aggiornamento_attivita:'', avvocato:'', nota_aggiornamento:'' },
+    formData: { cliente:'', tipo_pratica:'civile', descrizione:'', stato:'svolgimento',
+        data_apertura: today(), data_aggiornamento_attivita:'', timeline:'', scadenza:'',
+        priorita:'media', rgnr:'', avvocato:'', nota_aggiornamento:'' },
     avvForm: { nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile' },
     utenteForm: { username:'', password:'', nome_completo:'', email:'', ruolo:'avvocato' },
     noteForm: { nota:'' }
@@ -59,6 +69,16 @@ let state = {
 function today() { return new Date().toISOString().split('T')[0]; }
 function isAdmin() { return state.user?.ruolo === 'amministratore'; }
 function isAvvocato() { return state.user?.ruolo === 'avvocato'; }
+
+function getInizialiAvvocato(nomeCompleto) {
+    if (!nomeCompleto) return '';
+    return nomeCompleto.split(' ').map(n => n[0]).join('.').toUpperCase();
+}
+
+function isPraticaScaduta(pratica) {
+    if (!pratica.scadenza || pratica.stato === 'fatto') return false;
+    return new Date(pratica.scadenza) <= new Date() && pratica.stato === 'svolgimento';
+}
 
 async function loadAll() {
     await Promise.all([loadPratiche(), loadAvvocati(), isAdmin() && loadUtenti()].filter(Boolean));
@@ -88,8 +108,11 @@ async function loadNote(praticaId) {
 function cleanPratica(p) {
     const cleaned = {...p};
     if (!cleaned.data_aggiornamento_attivita || cleaned.data_aggiornamento_attivita === '') cleaned.data_aggiornamento_attivita = null;
+    if (!cleaned.timeline || cleaned.timeline === '') cleaned.timeline = null;
+    if (!cleaned.scadenza || cleaned.scadenza === '') cleaned.scadenza = null;
     if (!cleaned.data_modifica || cleaned.data_modifica === '') cleaned.data_modifica = null;
     if (!cleaned.nota_aggiornamento || cleaned.nota_aggiornamento === '') cleaned.nota_aggiornamento = null;
+    if (!cleaned.rgnr || cleaned.rgnr === '') cleaned.rgnr = null;
     return cleaned;
 }
 
@@ -192,6 +215,7 @@ async function login(username, password) {
     }
     state.user = data;
     await loadAll();
+    checkScadenze();
     render();
     return true;
 }
@@ -200,6 +224,15 @@ function logout() {
     state.user = null;
     state.activeTab = 'dashboard';
     render();
+}
+
+function checkScadenze() {
+    const scadute = state.pratiche.filter(p => isPraticaScaduta(p));
+    if (scadute.length > 0 && isAdmin()) {
+        setTimeout(() => {
+            alert(`⚠️ ATTENZIONE: Ci sono ${scadute.length} pratica/e scaduta/e in svolgimento!`);
+        }, 1000);
+    }
 }
 
 function esportaDati() {
@@ -249,31 +282,35 @@ function showSuccess(msg) {
 }
 
 function getStatoBadge(s) {
-    return { aperta:'bg-green-100 text-green-800', 'in-corso':'bg-yellow-100 text-yellow-800',
-        chiusa:'bg-blue-100 text-blue-800' }[s] || 'bg-green-100 text-green-800';
+    return { svolgimento:'stato-svolgimento', fatto:'stato-fatto', bloccato:'stato-bloccato' }[s] || 'stato-svolgimento';
 }
 
 function getStatoIcon(s) {
-    if (s === 'chiusa') return '✅';
-    if (s === 'in-corso') return '🕐';
-    return '🔔';
+    if (s === 'fatto') return '✅';
+    if (s === 'bloccato') return '🚫';
+    return '🔄';
+}
+
+function getPrioritaBadge(p) {
+    return { bassa:'priorita-bassa', media:'priorita-media', alta:'priorita-alta' }[p] || 'priorita-media';
 }
 
 function getAvvStats(nome) {
     const ps = state.pratiche.filter(p => p.avvocato === nome);
-    return { totali: ps.length, aperte: ps.filter(p=>p.stato==='aperta').length,
-        inCorso: ps.filter(p=>p.stato==='in-corso').length, chiuse: ps.filter(p=>p.stato==='chiusa').length };
+    return { totali: ps.length, svolgimento: ps.filter(p=>p.stato==='svolgimento').length,
+        fatto: ps.filter(p=>p.stato==='fatto').length, bloccato: ps.filter(p=>p.stato==='bloccato').length };
 }
 
 function getFiltered() {
     return state.pratiche.filter(p => {
         const s = state.searchTerm.toLowerCase();
         const match = p.cliente.toLowerCase().includes(s) || 
-            (p.numero||'').toString().includes(s) || p.descrizione.toLowerCase().includes(s);
+            p.descrizione.toLowerCase().includes(s) || (p.rgnr||'').toLowerCase().includes(s);
         const filtStato = state.filterStato === 'tutti' || p.stato === state.filterStato;
         const filtTipo = state.filterTipo === 'tutti' || p.tipo_pratica === state.filterTipo;
+        const filtPriorita = state.filterPriorita === 'tutti' || p.priorita === state.filterPriorita;
         const filtAvv = state.filterAvvocato === 'tutti' || p.avvocato === state.filterAvvocato;
-        return match && filtStato && filtTipo && filtAvv;
+        return match && filtStato && filtTipo && filtPriorita && filtAvv;
     });
 }
 
@@ -286,9 +323,10 @@ function render() {
     }
     
     const stats = { totali: state.pratiche.length,
-        aperte: state.pratiche.filter(p=>p.stato==='aperta').length,
-        inCorso: state.pratiche.filter(p=>p.stato==='in-corso').length,
-        chiuse: state.pratiche.filter(p=>p.stato==='chiusa').length };
+        svolgimento: state.pratiche.filter(p=>p.stato==='svolgimento').length,
+        fatto: state.pratiche.filter(p=>p.stato==='fatto').length,
+        bloccato: state.pratiche.filter(p=>p.stato==='bloccato').length,
+        scadute: state.pratiche.filter(p=>isPraticaScaduta(p)).length };
     const filtered = getFiltered();
 
     const tabs = [
@@ -314,7 +352,7 @@ function render() {
                             <span class="text-sm">${state.user.ruolo === 'amministratore' ? '👑 Admin' : '⚖️ Avvocato'}</span>
                         </div>
                     </div>
-                    <button onclick="logout()" class="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition-all">
+                    <button onclick="logout()" class="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition-all absolute top-8 right-8">
                         🚪 Esci
                     </button>
                 </div>
@@ -332,6 +370,11 @@ function render() {
         ${state.successMessage ? `
         <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg mb-6 shadow-lg no-print">
             <p class="font-semibold">✅ ${state.successMessage}</p>
+        </div>` : ''}
+
+        ${stats.scadute > 0 ? `
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6 shadow-lg no-print animate-pulse">
+            <p class="font-semibold">⚠️ ATTENZIONE: ${stats.scadute} pratica/e scaduta/e in svolgimento!</p>
         </div>` : ''}
 
         ${state.activeTab === 'dashboard' ? renderDashboard(stats) : ''}
@@ -388,9 +431,9 @@ function renderDashboard(stats) {
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             ${[
                 {label:'Totale Pratiche', val:stats.totali, icon:'📁', color:'indigo'},
-                {label:'Aperte', val:stats.aperte, icon:'🔔', color:'green'},
-                {label:'In Corso', val:stats.inCorso, icon:'🕐', color:'yellow'},
-                {label:'Chiuse', val:stats.chiuse, icon:'✅', color:'blue'}
+                {label:'In Svolgimento', val:stats.svolgimento, icon:'🔄', color:'yellow'},
+                {label:'Fatto', val:stats.fatto, icon:'✅', color:'green'},
+                {label:'Bloccato', val:stats.bloccato, icon:'🚫', color:'red'}
             ].map(s => `
                 <div class="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
                     <div class="flex items-center justify-between">
@@ -407,20 +450,30 @@ function renderDashboard(stats) {
 }
 
 function renderPratiche(filtered) {
-    const tipiPratica = ['tutti', 'civile', 'penale', 'amministrativo', 'lavoro', 'famiglia', 'tributario'];
+    const tipiPratica = ['tutti', 'civile', 'penale', 'amministrativo', 'lavoro', 'famiglia', 'tributario', 'tribunale', 'cgt', 'tribunale_cgt1', 'tribunale_cgt2', 'cassazione', 'mediazione'];
     const avvocatiList = ['tutti', ...new Set(state.pratiche.map(p => p.avvocato))];
     
     return `
     <div class="space-y-6">
         <div class="bg-white rounded-xl shadow-lg p-6 no-print">
             <div class="space-y-4">
-                <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex flex-col md:flex-row gap-4 items-center">
                     <div class="flex-1 relative">
                         <span class="absolute left-3 top-3 text-gray-400">🔍</span>
-                        <input type="text" placeholder="Cerca cliente, numero, descrizione..."
+                        <input type="text" placeholder="Cerca cliente, descrizione, RGNR..."
                             value="${state.searchTerm}"
                             oninput="state.searchTerm=this.value;render()"
                             class="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="state.viewMode='cards';render()" 
+                            class="px-4 py-3 ${state.viewMode==='cards'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg transition-all">
+                            📋 Card
+                        </button>
+                        <button onclick="state.viewMode='table';render()"
+                            class="px-4 py-3 ${state.viewMode==='table'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg transition-all">
+                            📊 Tabella
+                        </button>
                     </div>
                     ${isAdmin() ? `
                     <button onclick="openPraticaModal(null)"
@@ -428,69 +481,147 @@ function renderPratiche(filtered) {
                         ➕ Nuova Pratica
                     </button>` : ''}
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <select onchange="state.filterStato=this.value;render()"
                         class="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        <option value="tutti" ${state.filterStato==='tutti'?'selected':''}>Tutti gli stati</option>
-                        <option value="aperta" ${state.filterStato==='aperta'?'selected':''}>Aperte</option>
-                        <option value="in-corso" ${state.filterStato==='in-corso'?'selected':''}>In Corso</option>
-                        <option value="chiusa" ${state.filterStato==='chiusa'?'selected':''}>Chiuse</option>
+                        <option value="tutti" ${state.filterStato==='tutti'?'selected':''}>Tutti stati</option>
+                        <option value="svolgimento" ${state.filterStato==='svolgimento'?'selected':''}>Svolgimento</option>
+                        <option value="fatto" ${state.filterStato==='fatto'?'selected':''}>Fatto</option>
+                        <option value="bloccato" ${state.filterStato==='bloccato'?'selected':''}>Bloccato</option>
                     </select>
                     <select onchange="state.filterTipo=this.value;render()"
                         class="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        ${tipiPratica.map(t => `<option value="${t}" ${state.filterTipo===t?'selected':''}>${t === 'tutti' ? 'Tutti i tipi' : t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
+                        ${tipiPratica.map(t => `<option value="${t}" ${state.filterTipo===t?'selected':''}>${t === 'tutti' ? 'Tutti i tipi' : t.charAt(0).toUpperCase()+t.slice(1).replace('_',' ')}</option>`).join('')}
+                    </select>
+                    <select onchange="state.filterPriorita=this.value;render()"
+                        class="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                        <option value="tutti" ${state.filterPriorita==='tutti'?'selected':''}>Tutte priorità</option>
+                        <option value="bassa" ${state.filterPriorita==='bassa'?'selected':''}>Bassa</option>
+                        <option value="media" ${state.filterPriorita==='media'?'selected':''}>Media</option>
+                        <option value="alta" ${state.filterPriorita==='alta'?'selected':''}>Alta</option>
                     </select>
                     <select onchange="state.filterAvvocato=this.value;render()"
                         class="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        ${avvocatiList.map(a => `<option value="${a}" ${state.filterAvvocato===a?'selected':''}>${a === 'tutti' ? 'Tutti gli avvocati' : a}</option>`).join('')}
+                        ${avvocatiList.map(a => `<option value="${a}" ${state.filterAvvocato===a?'selected':''}>${a === 'tutti' ? 'Tutti avvocati' : getInizialiAvvocato(a)}</option>`).join('')}
                     </select>
+                    <button onclick="stampa()" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all">
+                        🖨️ Stampa
+                    </button>
                 </div>
-                <button onclick="stampa()" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all">
-                    🖨️ Stampa Report
-                </button>
             </div>
         </div>
-        <div class="space-y-4">
-            ${filtered.length > 0 ? filtered.map(p => `
-                <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all">
-                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-3 mb-3 flex-wrap">
-                                <span class="text-2xl font-bold text-indigo-600">#${p.numero}</span>
-                                <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)}">
-                                    ${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}
-                                </span>
-                                <span class="px-3 py-1 bg-gray-100 rounded-full text-xs font-semibold">${p.tipo_pratica}</span>
-                            </div>
-                            <h3 class="text-xl font-bold text-gray-800 mb-2">${p.cliente}</h3>
-                            <p class="text-gray-600 mb-2">${p.descrizione}</p>
-                            <div class="flex flex-wrap gap-4 text-sm text-gray-500">
-                                <span>👤 ${p.avvocato}</span>
-                                <span>📅 Apertura: ${fmtDate(p.data_apertura)}</span>
-                                ${p.data_aggiornamento_attivita ? `<span>📍 Agg.Attività: ${fmtDate(p.data_aggiornamento_attivita)}</span>` : ''}
-                            </div>
+        
+        ${state.viewMode === 'table' ? renderPraticheTable(filtered) : renderPraticheCards(filtered)}
+    </div>`;
+}
+
+function renderPraticheCards(filtered) {
+    return `
+    <div class="space-y-4">
+        ${filtered.length > 0 ? filtered.map(p => {
+            const scaduta = isPraticaScaduta(p);
+            return `
+            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all ${scaduta?'scaduta':''}">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-3 flex-wrap">
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)}">
+                                ${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}
+                            </span>
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getPrioritaBadge(p.priorita)}">
+                                ${p.priorita.toUpperCase()}
+                            </span>
+                            <span class="px-3 py-1 bg-gray-100 rounded-full text-xs font-semibold">${p.tipo_pratica}</span>
+                            ${p.rgnr ? `<span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">RGNR: ${p.rgnr}</span>` : ''}
                         </div>
-                        <div class="flex gap-2 no-print">
-                            <button onclick="viewPratica('${p.id}')"
-                                class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">👁️ Vedi</button>
-                            ${isAdmin() ? `
-                            <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})"
-                                class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">✏️ Modifica</button>
-                            <button onclick="confirmDeletePratica('${p.id}')"
-                                class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">🗑️</button>
-                            ` : `
-                            <button onclick="openNoteModal('${p.id}')"
-                                class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">📝 Aggiungi Nota</button>
-                            `}
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">${p.cliente}</h3>
+                        <p class="text-gray-600 mb-2">${p.descrizione}</p>
+                        <div class="flex flex-wrap gap-4 text-sm text-gray-500">
+                            <span>👤 ${getInizialiAvvocato(p.avvocato)}</span>
+                            <span>📅 Apertura: ${fmtDate(p.data_apertura)}</span>
+                            ${p.scadenza ? `<span class="${scaduta?'text-red-600 font-bold':''}">⏰ Scadenza: ${fmtDate(p.scadenza)}</span>` : ''}
+                            ${p.timeline ? `<span>📍 Timeline: ${fmtDate(p.timeline)}</span>` : ''}
+                            ${p.data_aggiornamento_attivita ? `<span>🔄 Agg.Attività: ${fmtDate(p.data_aggiornamento_attivita)}</span>` : ''}
                         </div>
                     </div>
+                    <div class="flex gap-2 no-print">
+                        <button onclick="viewPratica('${p.id}')"
+                            class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">👁️ Vedi</button>
+                        ${isAdmin() ? `
+                        <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})"
+                            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">✏️</button>
+                        <button onclick="confirmDeletePratica('${p.id}')"
+                            class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">🗑️</button>
+                        ` : `
+                        <button onclick="openNoteModal('${p.id}')"
+                            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">📝 Nota</button>
+                        `}
+                    </div>
                 </div>
-            `).join('') : `
-                <div class="bg-white rounded-xl shadow-lg p-12 text-center">
-                    <div class="text-6xl mb-4">📁</div>
-                    <p class="text-gray-400 text-lg">Nessuna pratica trovata</p>
-                </div>`}
-        </div>
+            </div>`;
+        }).join('') : `
+            <div class="bg-white rounded-xl shadow-lg p-12 text-center">
+                <div class="text-6xl mb-4">📁</div>
+                <p class="text-gray-400 text-lg">Nessuna pratica trovata</p>
+            </div>`}
+    </div>`;
+}
+
+function renderPraticheTable(filtered) {
+    return `
+    <div class="bg-white rounded-xl shadow-lg overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-4 py-3 text-left text-sm font-semibold">Cliente</th>
+                    <th class="px-4 py-3 text-left text-sm font-semibold">Tipo</th>
+                    <th class="px-4 py-3 text-left text-sm font-semibold">Stato</th>
+                    <th class="px-4 py-3 text-left text-sm font-semibold">Priorità</th>
+                    <th class="px-4 py-3 text-left text-sm font-semibold">Scadenza</th>
+                    <th class="px-4 py-3 text-left text-sm font-semibold">Timeline</th>
+                    <th class="px-4 py-3 text-left text-sm font-semibold">Avv.</th>
+                    <th class="px-4 py-3 text-left text-sm font-semibold">Agg.Attività</th>
+                    <th class="px-4 py-3 text-left text-sm font-semibold no-print">Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${filtered.map(p => {
+                    const scaduta = isPraticaScaduta(p);
+                    return `
+                    <tr class="border-b hover:bg-gray-50 ${scaduta?'bg-red-50':''}">
+                        <td class="px-4 py-3">
+                            <div class="font-semibold">${p.cliente}</div>
+                            <div class="text-xs text-gray-500">${p.descrizione.substring(0,50)}...</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm">${p.tipo_pratica}</td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-1 rounded text-xs font-semibold ${getStatoBadge(p.stato)}">
+                                ${p.stato}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-1 rounded text-xs font-semibold ${getPrioritaBadge(p.priorita)}">
+                                ${p.priorita}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm ${scaduta?'text-red-600 font-bold':''}">${fmtDate(p.scadenza)||'-'}</td>
+                        <td class="px-4 py-3 text-sm ${p.stato==='fatto'?'text-green-600 font-bold':''}">${fmtDate(p.timeline)||'-'}</td>
+                        <td class="px-4 py-3 text-sm font-semibold">${getInizialiAvvocato(p.avvocato)}</td>
+                        <td class="px-4 py-3 text-sm">${fmtDate(p.data_aggiornamento_attivita)||'-'}</td>
+                        <td class="px-4 py-3 no-print">
+                            <div class="flex gap-1">
+                                <button onclick="viewPratica('${p.id}')" class="px-2 py-1 bg-green-500 text-white rounded text-xs">👁️</button>
+                                ${isAdmin() ? `
+                                <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">✏️</button>
+                                ` : `
+                                <button onclick="openNoteModal('${p.id}')" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">📝</button>
+                                `}
+                            </div>
+                        </td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>
     </div>`;
 }
 
@@ -531,9 +662,9 @@ function renderAvvocati() {
                             <p class="text-xs text-gray-500 mb-2">Pratiche assegnate:</p>
                             <div class="grid grid-cols-4 gap-2 text-center">
                                 <div><p class="text-lg font-bold text-gray-800">${st.totali}</p><p class="text-xs text-gray-500">Totali</p></div>
-                                <div><p class="text-lg font-bold text-green-600">${st.aperte}</p><p class="text-xs text-gray-500">Aperte</p></div>
-                                <div><p class="text-lg font-bold text-yellow-600">${st.inCorso}</p><p class="text-xs text-gray-500">In Corso</p></div>
-                                <div><p class="text-lg font-bold text-blue-600">${st.chiuse}</p><p class="text-xs text-gray-500">Chiuse</p></div>
+                                <div><p class="text-lg font-bold text-yellow-600">${st.svolgimento}</p><p class="text-xs text-gray-500">Svolgimento</p></div>
+                                <div><p class="text-lg font-bold text-green-600">${st.fatto}</p><p class="text-xs text-gray-500">Fatto</p></div>
+                                <div><p class="text-lg font-bold text-red-600">${st.bloccato}</p><p class="text-xs text-gray-500">Bloccato</p></div>
                             </div>
                         </div>
                         <div class="flex gap-2 no-print">
@@ -645,13 +776,13 @@ function renderGestione() {
 function renderModalPratica() {
     const canEdit = isAdmin() || !state.editingPratica;
     return `
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
                 <h2 class="text-2xl font-bold">${state.editingPratica ? '✏️ Modifica Pratica' : '➕ Nuova Pratica'}</h2>
                 <button onclick="state.showModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
-            <div class="p-6 space-y-4">
+            <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Cliente *</label>
                     <input type="text" value="${state.formData.cliente}" ${canEdit?'':'disabled'}
@@ -663,19 +794,16 @@ function renderModalPratica() {
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo Pratica *</label>
                         <select ${canEdit?'':'disabled'} onchange="state.formData.tipo_pratica=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">
-                            ${['civile','penale','amministrativo','lavoro','famiglia','tributario'].map(t => 
-                                `<option value="${t}" ${state.formData.tipo_pratica===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`
+                            ${['civile','penale','amministrativo','lavoro','famiglia','tributario','tribunale','cgt','tribunale_cgt1','tribunale_cgt2','cassazione','mediazione'].map(t => 
+                                `<option value="${t}" ${state.formData.tipo_pratica===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1).replace('_',' ')}</option>`
                             ).join('')}
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Stato *</label>
-                        <select ${canEdit?'':'disabled'} onchange="state.formData.stato=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">
-                            ${[['aperta','Aperta'],['in-corso','In Corso'],['chiusa','Chiusa']].map(([v,l]) => 
-                                `<option value="${v}" ${state.formData.stato===v?'selected':''}>${l}</option>`
-                            ).join('')}
-                        </select>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">RGNR</label>
+                        <input type="text" value="${state.formData.rgnr||''}" ${canEdit?'':'disabled'}
+                            oninput="state.formData.rgnr=this.value"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}" />
                     </div>
                 </div>
                 <div>
@@ -683,15 +811,47 @@ function renderModalPratica() {
                     <textarea ${canEdit?'':'disabled'} oninput="state.formData.descrizione=this.value" rows="3"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">${state.formData.descrizione}</textarea>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Stato *</label>
+                        <select ${canEdit?'':'disabled'} onchange="state.formData.stato=this.value"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">
+                            ${[['svolgimento','Svolgimento'],['fatto','Fatto'],['bloccato','Bloccato']].map(([v,l]) => 
+                                `<option value="${v}" ${state.formData.stato===v?'selected':''}>${l}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Priorità *</label>
+                        <select ${canEdit?'':'disabled'} onchange="state.formData.priorita=this.value"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">
+                            ${[['bassa','Bassa'],['media','Media'],['alta','Alta']].map(([v,l]) => 
+                                `<option value="${v}" ${state.formData.priorita===v?'selected':''}>${l}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Data Apertura *</label>
                         <input type="date" ${canEdit?'':'disabled'} value="${state.formData.data_apertura}" 
                             oninput="state.formData.data_apertura=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}"/>
                     </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Aggiornamento Attività</label>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Scadenza</label>
+                        <input type="date" value="${state.formData.scadenza||''}" 
+                            oninput="state.formData.scadenza=this.value"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Timeline</label>
+                        <input type="date" value="${state.formData.timeline||''}" 
+                            oninput="state.formData.timeline=this.value"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Agg.to Attività</label>
                         <input type="date" value="${state.formData.data_aggiornamento_attivita||''}" 
                             oninput="state.formData.data_aggiornamento_attivita=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
@@ -833,14 +993,20 @@ function renderModalUtente() {
 }
 
 function renderModalNote() {
+    const p = state.viewingPratica;
     return `
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">📝 Storico Note - Pratica #${state.viewingPratica?.numero}</h2>
-                <button onclick="state.showNoteModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
+                <div class="text-center mb-4">
+                    <h2 class="text-xl font-bold mb-2">${p?.cliente}</h2>
+                    <p class="text-sm text-blue-200">${p?.descrizione}</p>
+                </div>
+                <button onclick="state.showNoteModal=false;render()" 
+                    class="absolute top-6 right-6 hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6">
+                ${!isAdmin() ? `
                 <div class="mb-6">
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Aggiungi Nota Aggiornamento</label>
                     <textarea oninput="state.noteForm.nota=this.value" rows="3"
@@ -850,7 +1016,7 @@ function renderModalNote() {
                         class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
                         ➕ Aggiungi Nota
                     </button>
-                </div>
+                </div>` : ''}
                 
                 <h3 class="text-xl font-bold text-gray-800 mb-4">📜 Storico Note</h3>
                 ${state.noteAggiornamento.length > 0 ? `
@@ -871,7 +1037,6 @@ function renderModalNote() {
     </div>`;
 }
 
-// HANDLERS
 function switchTab(tab) { state.activeTab = tab; render(); }
 
 async function doLogin() {
@@ -883,8 +1048,9 @@ async function doLogin() {
 
 function openPraticaModal(p) {
     state.editingPratica = p;
-    state.formData = p ? {...p} : { cliente:'', tipo_pratica:'civile', descrizione:'', stato:'aperta',
-        data_apertura:today(), data_aggiornamento_attivita:'', avvocato:'', nota_aggiornamento:'' };
+    state.formData = p ? {...p} : { cliente:'', tipo_pratica:'civile', descrizione:'', stato:'svolgimento',
+        data_apertura:today(), data_aggiornamento_attivita:'', timeline:'', scadenza:'',
+        priorita:'media', rgnr:'', avvocato:'', nota_aggiornamento:'' };
     state.showModal = true;
     render();
 }
@@ -994,3 +1160,7 @@ render();
 </script>
 </body>
 </html>
+
+
+
+
