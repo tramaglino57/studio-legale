@@ -41,19 +41,25 @@ let state = {
     activeTab: 'dashboard',
     viewMode: 'cards',
     pratiche: [],
+    praticheSemplici: [],
     avvocati: [],
     utenti: [],
     noteAggiornamento: [],
     searchTerm: '',
+    searchSemplici: '',
     filterStato: 'tutti',
+    filterStatoSemplici: 'tutti',
     filterTipo: 'tutti',
     filterPriorita: 'tutti',
     filterAvvocato: 'tutti',
+    filterAvvocatoSemplici: 'tutti',
     showModal: false,
+    showModalSemplici: false,
     showAvvocatoModal: false,
     showUtenteModal: false,
     showNoteModal: false,
     editingPratica: null,
+    editingSemplici: null,
     editingAvvocato: null,
     editingUtente: null,
     viewingPratica: null,
@@ -61,6 +67,7 @@ let state = {
     formData: { cliente:'', tipo_pratica:'civile', descrizione:'', stato:'svolgimento',
         data_apertura: today(), data_aggiornamento_attivita:'', timeline:'', scadenza:'',
         priorita:'media', rgnr:'', avvocato:'', nota_aggiornamento:'' },
+    formSemplici: { avvocato:'', pratica:'', rgnr:'', stato:'svolgimento' },
     avvForm: { nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile' },
     utenteForm: { username:'', password:'', nome_completo:'', email:'', ruolo:'avvocato' },
     noteForm: { nota:'' }
@@ -81,12 +88,17 @@ function isPraticaScaduta(pratica) {
 }
 
 async function loadAll() {
-    await Promise.all([loadPratiche(), loadAvvocati(), isAdmin() && loadUtenti()].filter(Boolean));
+    await Promise.all([loadPratiche(), loadPraticheSemplici(), loadAvvocati(), isAdmin() && loadUtenti()].filter(Boolean));
 }
 
 async function loadPratiche() {
     const { data, error } = await sb.from('pratiche').select('*').order('numero', { ascending: false });
     if (!error) state.pratiche = data || [];
+}
+
+async function loadPraticheSemplici() {
+    const { data, error } = await sb.from('pratiche_semplici').select('*').order('created_at', { ascending: false });
+    if (!error) state.praticheSemplici = data || [];
 }
 
 async function loadAvvocati() {
@@ -154,6 +166,58 @@ async function deletePratica(id) {
     const { error } = await sb.from('pratiche').delete().eq('id', id);
     if (!error) { await loadPratiche(); showSuccess('Pratica eliminata!'); }
     else alert('Errore: ' + error.message);
+}
+
+async function savePraticaSemplice(ps) {
+    try {
+        if (ps.id) {
+            const { error } = await sb.from('pratiche_semplici').update(ps).eq('id', ps.id);
+            if (error) throw error;
+        } else {
+            const { error } = await sb.from('pratiche_semplici').insert([ps]);
+            if (error) throw error;
+        }
+        await loadPraticheSemplici();
+        return true;
+    } catch(e) { alert('Errore: ' + e.message); return false; }
+}
+
+async function deletePraticaSemplice(id) {
+    const { error } = await sb.from('pratiche_semplici').delete().eq('id', id);
+    if (!error) { await loadPraticheSemplici(); showSuccess('Pratica eliminata!'); }
+    else alert('Errore: ' + error.message);
+}
+
+async function importaCSV(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        try {
+            const text = ev.target.result;
+            const lines = text.split('\n').filter(l => l.trim());
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            
+            let importate = 0;
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                const ps = {
+                    avvocato: values[headers.indexOf('avvocato')] || '',
+                    pratica: values[headers.indexOf('pratica')] || '',
+                    rgnr: values[headers.indexOf('rgnr')] || '',
+                    stato: (values[headers.indexOf('stato')] || 'svolgimento').toLowerCase()
+                };
+                if (ps.avvocato && ps.pratica) {
+                    await sb.from('pratiche_semplici').insert([ps]);
+                    importate++;
+                }
+            }
+            await loadPraticheSemplici();
+            showSuccess(`Importate ${importate} pratiche da CSV!`);
+        } catch(er) { alert('Errore importazione CSV: ' + er.message); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
 }
 
 async function saveAvvocato(avv) {
@@ -1160,6 +1224,7 @@ render();
 </script>
 </body>
 </html>
+
 
 
 
