@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SLS Studio Legale - Gestione Pratiche</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.39.3/umd/supabase.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <style>
         @keyframes fadeIn { from {opacity:0;transform:translateY(10px);} to {opacity:1;transform:translateY(0);}}
         .animate-fadein { animation: fadeIn 0.3s; }
@@ -40,7 +40,11 @@
 <script>
 const SUPABASE_URL = 'https://vwfubfydakocuxhepwkq.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_ziNieyV1K_9bPBNJu6GHUQ_j2kVEyn2';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Supporta sia il namespace 'supabase' che 'Supabase'
+const _supabase = window.supabase || window.Supabase;
+if (!_supabase) { document.getElementById('app').innerHTML = '<div style="color:red;padding:40px;text-align:center"><h2>Errore: libreria Supabase non caricata.<br>Controlla la connessione internet.</h2></div>'; throw new Error('Supabase not loaded'); }
+const sb = _supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let state = {
     user: null,
@@ -810,9 +814,3 @@ render();
 </script>
 </body>
 </html>
-
-
-
-
-
-
