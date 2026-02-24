@@ -57,32 +57,6 @@ function today() { return new Date().toISOString().split('T')[0]; }
 function isAdmin() { return state.user?.ruolo === 'amministratore'; }
 function isAvvocato() { return state.user?.ruolo === 'avvocato'; }
 
-// ============================================================
-// FIX 1: ESCAPE XSS â€” applica a tutti i dati utente nei template
-// ============================================================
-function esc(s) {
-    if (s == null) return '';
-    return String(s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-// ============================================================
-// FIX 2: HASH PASSWORD con Web Crypto API (SHA-256)
-// ATTENZIONE: gli utenti esistenti con password in plaintext
-// dovranno essere aggiornati nel DB con la versione hashata.
-// Per farlo, esegui una volta la funzione hashPassword(password)
-// e salva il risultato nel campo password della tabella utenti.
-// ============================================================
-async function hashPassword(password) {
-    const enc = new TextEncoder();
-    const buf = await crypto.subtle.digest('SHA-256', enc.encode(password));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 function getInizialiAvvocato(n) {
     if (!n) return '';
     return n.split(' ').map(x => x[0]).join('.').toUpperCase();
@@ -172,8 +146,6 @@ async function savePraticaSemplice(ps) {
 }
 
 async function deletePraticaSemplice(id) {
-    // FIX 3: aggiunto controllo admin (mancava nell'originale)
-    if (!isAdmin()) { alert('Solo gli amministratori possono eliminare pratiche'); return; }
     const { error } = await sb.from('pratiche_semplici').delete().eq('id', id);
     if (!error) { await loadPraticheSemplici(); showSuccess('Pratica eliminata!'); }
     else alert('Errore: ' + error.message);
@@ -195,8 +167,7 @@ async function saveAvvocato(avv) {
 }
 
 async function deleteAvvocato(id) {
-    // FIX 4: confronto ID type-safe
-    const nome = state.avvocati.find(a => String(a.id) === String(id))?.nome_completo;
+    const nome = state.avvocati.find(a => a.id === id)?.nome_completo;
     if (state.pratiche.filter(p => p.avvocato === nome).length > 0) {
         alert('Impossibile eliminare: ci sono pratiche assegnate!'); return;
     }
@@ -209,17 +180,10 @@ async function saveUtente(u) {
     try {
         if (u.id) {
             const upd = {...u};
-            // FIX 2: hash della nuova password se inserita
-            if (!upd.password || upd.password === '') {
-                delete upd.password;
-            } else {
-                upd.password = await hashPassword(upd.password);
-            }
+            if (!upd.password || upd.password === '') delete upd.password;
             const { error } = await sb.from('utenti').update(upd).eq('id', u.id);
             if (error) throw error;
         } else {
-            // FIX 2: hash della password per nuovo utente
-            u.password = await hashPassword(u.password);
             const { error } = await sb.from('utenti').insert([u]);
             if (error) throw error;
         }
@@ -228,18 +192,15 @@ async function saveUtente(u) {
 }
 
 async function deleteUtente(id) {
-    // FIX 4: confronto ID type-safe
-    if (String(id) === String(state.user.id)) { alert('Non puoi eliminare il tuo stesso account!'); return; }
+    if (id === state.user.id) { alert('Non puoi eliminare il tuo stesso account!'); return; }
     const { error } = await sb.from('utenti').delete().eq('id', id);
     if (!error) { await loadUtenti(); showSuccess('Utente eliminato!'); }
     else alert('Errore: ' + error.message);
 }
 
 async function login(username, password) {
-    // FIX 2: hash della password prima del confronto con il DB
-    const hashed = await hashPassword(password);
     const { data, error } = await sb.from('utenti').select('*')
-        .eq('username', username).eq('password', hashed).eq('attivo', true).single();
+        .eq('username', username).eq('password', password).eq('attivo', true).single();
     if (error || !data) { alert('Username o password errati!'); return false; }
     state.user = data;
     await loadAll();
@@ -252,7 +213,7 @@ function logout() { state.user = null; state.activeTab = 'dashboard'; render(); 
 function checkScadenze() {
     const scadute = state.pratiche.filter(p => isPraticaScaduta(p));
     if (scadute.length > 0 && isAdmin()) {
-        setTimeout(() => alert(`âš ï¸ ATTENZIONE: Ci sono ${scadute.length} pratica/e scaduta/e in svolgimento!`), 1000);
+        setTimeout(() => alert(`⚠️ ATTENZIONE: Ci sono ${scadute.length} pratica/e scaduta/e in svolgimento!`), 1000);
     }
 }
 
@@ -295,7 +256,7 @@ function getStatoBadge(s) {
     return { svolgimento:'stato-svolgimento', fatto:'stato-fatto', bloccato:'stato-bloccato' }[s] || 'stato-svolgimento';
 }
 function getStatoIcon(s) {
-    if (s === 'fatto') return 'âœ…'; if (s === 'bloccato') return 'ðŸš«'; return 'ðŸ”„';
+    if (s === 'fatto') return '✅'; if (s === 'bloccato') return '🚫'; return '🔄';
 }
 function getPrioritaBadge(p) {
     return { bassa:'priorita-bassa', media:'priorita-media', alta:'priorita-alta' }[p] || 'priorita-media';
@@ -310,9 +271,8 @@ function getAvvStats(nome) {
 function getFiltered() {
     return state.pratiche.filter(p => {
         const s = state.searchTerm.toLowerCase();
-        // FIX 5: null-safe su cliente e descrizione
-        const match = (p.cliente||'').toLowerCase().includes(s) ||
-            (p.descrizione||'').toLowerCase().includes(s) || (p.rgnr||'').toLowerCase().includes(s);
+        const match = p.cliente.toLowerCase().includes(s) ||
+            p.descrizione.toLowerCase().includes(s) || (p.rgnr||'').toLowerCase().includes(s);
         return match &&
             (state.filterStato === 'tutti' || p.stato === state.filterStato) &&
             (state.filterTipo === 'tutti' || p.tipo_pratica === state.filterTipo) &&
@@ -332,11 +292,11 @@ function render() {
         scadute: state.pratiche.filter(p=>isPraticaScaduta(p)).length };
     const filtered = getFiltered();
     const tabs = [
-        { id:'dashboard', label:'Dashboard', icon:'ðŸ“Š', show: true },
-        { id:'pratiche', label:'Pratiche', icon:'ðŸ“', show: true },
-        { id:'avvocati', label:'Avvocati', icon:'ðŸ‘¥', show: isAdmin() },
-        { id:'utenti', label:'Utenti', icon:'ðŸ”', show: state.user?.username === 'admin' },
-        { id:'gestione', label:'Gestione Dati', icon:'ðŸ—„ï¸', show: state.user?.username === 'admin' }
+        { id:'dashboard', label:'Dashboard', icon:'📊', show: true },
+        { id:'pratiche', label:'Pratiche', icon:'📁', show: true },
+        { id:'avvocati', label:'Avvocati', icon:'👥', show: isAdmin() },
+        { id:'utenti', label:'Utenti', icon:'🔐', show: state.user?.username === 'admin' },
+        { id:'gestione', label:'Gestione Dati', icon:'🗄️', show: state.user?.username === 'admin' }
     ].filter(t => t.show);
 
     document.getElementById('app').innerHTML = `
@@ -344,7 +304,7 @@ function render() {
         <div class="bg-white rounded-2xl shadow-2xl mb-6 overflow-hidden no-print">
             <div class="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-8 relative">
                 <button onclick="logout()" class="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition-all absolute top-8 right-8">
-                    ðŸšª Esci
+                    🚪 Esci
                 </button>
                 <div class="text-center">
                     <h1 class="text-4xl font-bold mb-4">SLS Studio Legale</h1>
@@ -352,9 +312,9 @@ function render() {
                         class="w-[30rem] h-[30rem] mx-auto mb-4 object-contain">
                     <p class="text-blue-200 mb-2">Sistema di Gestione Pratiche</p>
                     <div class="bg-white/10 rounded-full px-4 py-2 inline-flex items-center gap-2">
-                        <span class="text-sm">ðŸ‘¤ ${esc(state.user.nome_completo)}</span>
+                        <span class="text-sm">👤 ${state.user.nome_completo}</span>
                         <span class="text-white/50">|</span>
-                        <span class="text-sm">${state.user.ruolo === 'amministratore' ? 'ðŸ‘‘ Admin' : 'âš–ï¸ Avvocato'}</span>
+                        <span class="text-sm">${state.user.ruolo === 'amministratore' ? '👑 Admin' : '⚖️ Avvocato'}</span>
                     </div>
                 </div>
             </div>
@@ -370,12 +330,12 @@ function render() {
 
         ${state.successMessage ? `
         <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg mb-6 shadow-lg no-print">
-            <p class="font-semibold">âœ… ${esc(state.successMessage)}</p>
+            <p class="font-semibold">✅ ${state.successMessage}</p>
         </div>` : ''}
 
         ${stats.scadute > 0 ? `
         <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6 shadow-lg no-print animate-pulse">
-            <p class="font-semibold">âš ï¸ ATTENZIONE: ${stats.scadute} pratica/e scaduta/e in svolgimento!</p>
+            <p class="font-semibold">⚠️ ATTENZIONE: ${stats.scadute} pratica/e scaduta/e in svolgimento!</p>
         </div>` : ''}
 
         ${state.activeTab === 'dashboard' ? renderDashboard(stats) : ''}
@@ -404,22 +364,23 @@ function renderLogin() {
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Username</label>
-                    <input type="text" id="loginUsername" autocomplete="username"
+                    <input type="text" id="loginUsername"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"
                         placeholder="Il tuo username"/>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-                    <input type="password" id="loginPassword" autocomplete="current-password"
+                    <input type="password" id="loginPassword"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"
                         placeholder="La tua password"
                         onkeypress="if(event.key==='Enter') doLogin()"/>
                 </div>
                 <button onclick="doLogin()"
                     class="w-full px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
-                    ðŸ” Accedi
+                    🔐 Accedi
                 </button>
             </div>
+
         </div>
     </div>`;
 }
@@ -429,10 +390,10 @@ function renderDashboard(stats) {
     <div class="space-y-6">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             ${[
-                {label:'Totale Pratiche', val:stats.totali, icon:'ðŸ“', color:'indigo'},
-                {label:'In Svolgimento', val:stats.svolgimento, icon:'ðŸ”„', color:'yellow'},
-                {label:'Fatto', val:stats.fatto, icon:'âœ…', color:'green'},
-                {label:'Bloccato', val:stats.bloccato, icon:'ðŸš«', color:'red'}
+                {label:'Totale Pratiche', val:stats.totali, icon:'📁', color:'indigo'},
+                {label:'In Svolgimento', val:stats.svolgimento, icon:'🔄', color:'yellow'},
+                {label:'Fatto', val:stats.fatto, icon:'✅', color:'green'},
+                {label:'Bloccato', val:stats.bloccato, icon:'🚫', color:'red'}
             ].map(s => `
                 <div class="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
                     <div class="flex items-center justify-between">
@@ -450,29 +411,28 @@ function renderDashboard(stats) {
 
 function renderPratiche(filtered) {
     const tipiPratica = ['tutti','civile','penale','amministrativo','lavoro','famiglia','tributario','tribunale','cgt','tribunale_cgt1','tribunale_cgt2','cassazione','mediazione'];
-    // FIX 5: filtro null su p.avvocato per evitare undefined nel dropdown
-    const avvocatiList = ['tutti', ...new Set(state.pratiche.map(p => p.avvocato).filter(Boolean))];
+    const avvocatiList = ['tutti', ...new Set(state.pratiche.map(p => p.avvocato))];
     return `
     <div class="space-y-6">
         <div class="bg-white rounded-xl shadow-lg p-6 no-print">
             <div class="space-y-4">
                 <div class="flex flex-col md:flex-row gap-4 items-center">
                     <div class="flex-1 relative">
-                        <span class="absolute left-3 top-3 text-gray-400">ðŸ”</span>
+                        <span class="absolute left-3 top-3 text-gray-400">🔍</span>
                         <input type="text" placeholder="Cerca cliente, descrizione, RGNR..."
-                            value="${esc(state.searchTerm)}" oninput="state.searchTerm=this.value;render()"
+                            value="${state.searchTerm}" oninput="state.searchTerm=this.value;render()"
                             class="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                     </div>
                     <div class="flex gap-2">
                         <button onclick="state.viewMode='cards';render()"
-                            class="px-4 py-3 ${state.viewMode==='cards'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg transition-all">ðŸ“‹ Card</button>
+                            class="px-4 py-3 ${state.viewMode==='cards'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg transition-all">📋 Card</button>
                         <button onclick="state.viewMode='table';render()"
-                            class="px-4 py-3 ${state.viewMode==='table'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg transition-all">ðŸ“Š Tabella</button>
+                            class="px-4 py-3 ${state.viewMode==='table'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg transition-all">📊 Tabella</button>
                     </div>
                     ${isAdmin() ? `
                     <button onclick="openPraticaModal(null)"
                         class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all whitespace-nowrap">
-                        âž• Nuova Pratica
+                        ➕ Nuova Pratica
                     </button>` : ''}
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -486,15 +446,15 @@ function renderPratiche(filtered) {
                         ${tipiPratica.map(t => `<option value="${t}" ${state.filterTipo===t?'selected':''}>${t==='tutti'?'Tutti i tipi':t.charAt(0).toUpperCase()+t.slice(1).replace('_',' ')}</option>`).join('')}
                     </select>
                     <select onchange="state.filterPriorita=this.value;render()" class="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        <option value="tutti" ${state.filterPriorita==='tutti'?'selected':''}>Tutte prioritÃ </option>
+                        <option value="tutti" ${state.filterPriorita==='tutti'?'selected':''}>Tutte priorità</option>
                         <option value="bassa" ${state.filterPriorita==='bassa'?'selected':''}>Bassa</option>
                         <option value="media" ${state.filterPriorita==='media'?'selected':''}>Media</option>
                         <option value="alta" ${state.filterPriorita==='alta'?'selected':''}>Alta</option>
                     </select>
                     <select onchange="state.filterAvvocato=this.value;render()" class="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        ${avvocatiList.map(a => `<option value="${esc(a)}" ${state.filterAvvocato===a?'selected':''}>${a==='tutti'?'Tutti avvocati':esc(getInizialiAvvocato(a))}</option>`).join('')}
+                        ${avvocatiList.map(a => `<option value="${a}" ${state.filterAvvocato===a?'selected':''}>${a==='tutti'?'Tutti avvocati':getInizialiAvvocato(a)}</option>`).join('')}
                     </select>
-                    <button onclick="stampa()" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all">ðŸ–¨ï¸ Stampa</button>
+                    <button onclick="stampa()" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all">🖨️ Stampa</button>
                 </div>
             </div>
         </div>
@@ -512,35 +472,35 @@ function renderPraticheCards(filtered) {
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div class="flex-1">
                         <div class="flex items-center gap-3 mb-3 flex-wrap">
-                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)}">${getStatoIcon(p.stato)} ${esc(p.stato).toUpperCase()}</span>
-                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${esc(p.priorita).toUpperCase()}</span>
-                            <span class="px-3 py-1 bg-gray-100 rounded-full text-xs font-semibold">${esc(p.tipo_pratica)}</span>
-                            ${p.rgnr ? `<span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">RGNR: ${esc(p.rgnr)}</span>` : ''}
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
+                            <span class="px-3 py-1 bg-gray-100 rounded-full text-xs font-semibold">${p.tipo_pratica}</span>
+                            ${p.rgnr ? `<span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">RGNR: ${p.rgnr}</span>` : ''}
                         </div>
-                        <h3 class="text-xl font-bold text-gray-800 mb-2">${esc(p.cliente)}</h3>
-                        <p class="text-gray-600 mb-2">${esc(p.descrizione)}</p>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">${p.cliente}</h3>
+                        <p class="text-gray-600 mb-2">${p.descrizione}</p>
                         <div class="flex flex-wrap gap-4 text-sm text-gray-500">
-                            <span>ðŸ‘¤ ${esc(getInizialiAvvocato(p.avvocato))}</span>
-                            <span>ðŸ“… Apertura: ${fmtDate(p.data_apertura)}</span>
-                            ${p.scadenza ? `<span class="${scaduta?'text-red-600 font-bold':''}">â° Scadenza: ${fmtDate(p.scadenza)}</span>` : ''}
-                            ${p.timeline ? `<span>ðŸ“ Timeline: ${fmtDate(p.timeline)}</span>` : ''}
-                            ${p.data_aggiornamento_attivita ? `<span>ðŸ”„ Agg.AttivitÃ : ${fmtDate(p.data_aggiornamento_attivita)}</span>` : ''}
+                            <span>👤 ${getInizialiAvvocato(p.avvocato)}</span>
+                            <span>📅 Apertura: ${fmtDate(p.data_apertura)}</span>
+                            ${p.scadenza ? `<span class="${scaduta?'text-red-600 font-bold':''}">⏰ Scadenza: ${fmtDate(p.scadenza)}</span>` : ''}
+                            ${p.timeline ? `<span>📍 Timeline: ${fmtDate(p.timeline)}</span>` : ''}
+                            ${p.data_aggiornamento_attivita ? `<span>🔄 Agg.Attività: ${fmtDate(p.data_aggiornamento_attivita)}</span>` : ''}
                         </div>
                     </div>
                     <div class="flex gap-2 no-print">
-                        <button onclick="viewPratica('${esc(p.id)}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">ðŸ‘ï¸ Vedi</button>
+                        <button onclick="viewPratica('${p.id}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">👁️ Vedi</button>
                         ${isAdmin() ? `
-                        <button onclick="openPraticaModal('${esc(p.id)}')" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">âœï¸</button>
-                        <button onclick="confirmDeletePratica('${esc(p.id)}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">ðŸ—‘ï¸</button>
+                        <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">✏️</button>
+                        <button onclick="confirmDeletePratica('${p.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">🗑️</button>
                         ` : `
-                        <button onclick="openNoteModal('${esc(p.id)}')" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">ðŸ“ Nota</button>
+                        <button onclick="openNoteModal('${p.id}')" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">📝 Nota</button>
                         `}
                     </div>
                 </div>
             </div>`;
         }).join('') : `
         <div class="bg-white rounded-xl shadow-lg p-12 text-center">
-            <div class="text-6xl mb-4">ðŸ“</div>
+            <div class="text-6xl mb-4">📁</div>
             <p class="text-gray-400 text-lg">Nessuna pratica trovata</p>
         </div>`}
     </div>`;
@@ -555,36 +515,32 @@ function renderPraticheTable(filtered) {
                     <th class="px-4 py-3 text-left text-sm font-semibold">Cliente</th>
                     <th class="px-4 py-3 text-left text-sm font-semibold">Tipo</th>
                     <th class="px-4 py-3 text-left text-sm font-semibold">Stato</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">PrioritÃ </th>
+                    <th class="px-4 py-3 text-left text-sm font-semibold">Priorità</th>
                     <th class="px-4 py-3 text-left text-sm font-semibold">Scadenza</th>
                     <th class="px-4 py-3 text-left text-sm font-semibold">Timeline</th>
                     <th class="px-4 py-3 text-left text-sm font-semibold">Avv.</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Agg.AttivitÃ </th>
+                    <th class="px-4 py-3 text-left text-sm font-semibold">Agg.Attività</th>
                     <th class="px-4 py-3 text-left text-sm font-semibold no-print">Azioni</th>
                 </tr>
             </thead>
             <tbody>
                 ${filtered.map(p => {
                     const scaduta = isPraticaScaduta(p);
-                    // FIX 1+medio: escape XSS + "..." solo se la descrizione Ã¨ davvero lunga
-                    const descPreview = (p.descrizione||'').length > 50
-                        ? esc((p.descrizione||'').substring(0,50)) + '...'
-                        : esc(p.descrizione||'');
                     return `
                     <tr class="border-b hover:bg-gray-50 ${scaduta?'bg-red-50':''}">
-                        <td class="px-4 py-3"><div class="font-semibold">${esc(p.cliente)}</div><div class="text-xs text-gray-500">${descPreview}</div></td>
-                        <td class="px-4 py-3 text-sm">${esc(p.tipo_pratica)}</td>
-                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatoBadge(p.stato)}">${esc(p.stato)}</span></td>
-                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${esc(p.priorita)}</span></td>
+                        <td class="px-4 py-3"><div class="font-semibold">${p.cliente}</div><div class="text-xs text-gray-500">${p.descrizione.substring(0,50)}...</div></td>
+                        <td class="px-4 py-3 text-sm">${p.tipo_pratica}</td>
+                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatoBadge(p.stato)}">${p.stato}</span></td>
+                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${p.priorita}</span></td>
                         <td class="px-4 py-3 text-sm ${scaduta?'text-red-600 font-bold':''}">${fmtDate(p.scadenza)||'-'}</td>
                         <td class="px-4 py-3 text-sm ${p.stato==='fatto'?'text-green-600 font-bold':''}">${fmtDate(p.timeline)||'-'}</td>
-                        <td class="px-4 py-3 text-sm font-semibold">${esc(getInizialiAvvocato(p.avvocato))}</td>
+                        <td class="px-4 py-3 text-sm font-semibold">${getInizialiAvvocato(p.avvocato)}</td>
                         <td class="px-4 py-3 text-sm">${fmtDate(p.data_aggiornamento_attivita)||'-'}</td>
                         <td class="px-4 py-3 no-print">
                             <div class="flex gap-1">
-                                <button onclick="viewPratica('${esc(p.id)}')" class="px-2 py-1 bg-green-500 text-white rounded text-xs">ðŸ‘ï¸</button>
-                                ${isAdmin() ? `<button onclick="openPraticaModal('${esc(p.id)}')" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">âœï¸</button>`
-                                : `<button onclick="openNoteModal('${esc(p.id)}')" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">ðŸ“</button>`}
+                                <button onclick="viewPratica('${p.id}')" class="px-2 py-1 bg-green-500 text-white rounded text-xs">👁️</button>
+                                ${isAdmin() ? `<button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">✏️</button>`
+                                : `<button onclick="openNoteModal('${p.id}')" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">📝</button>`}
                             </div>
                         </td>
                     </tr>`;
@@ -599,10 +555,10 @@ function renderAvvocati() {
     <div class="space-y-6">
         <div class="bg-white rounded-xl shadow-lg p-6">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">ðŸ‘¥ Archivio Avvocati</h2>
+                <h2 class="text-2xl font-bold text-gray-800">👥 Archivio Avvocati</h2>
                 <div class="flex gap-2">
-                    <button onclick="stampa()" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all no-print">ðŸ–¨ï¸ Stampa</button>
-                    <button onclick="openAvvocatoModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all no-print">âž• Nuovo Avvocato</button>
+                    <button onclick="stampa()" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all no-print">🖨️ Stampa</button>
+                    <button onclick="openAvvocatoModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all no-print">➕ Nuovo Avvocato</button>
                 </div>
             </div>
             ${state.avvocati.length > 0 ? `
@@ -613,14 +569,14 @@ function renderAvvocati() {
                     <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border-2 border-indigo-100">
                         <div class="flex justify-between items-start mb-4">
                             <div>
-                                <h3 class="text-xl font-bold text-gray-800">${esc(a.nome_completo)}</h3>
-                                <p class="text-sm text-indigo-600 font-semibold">${esc(a.specializzazione)}</p>
+                                <h3 class="text-xl font-bold text-gray-800">${a.nome_completo}</h3>
+                                <p class="text-sm text-indigo-600 font-semibold">${a.specializzazione}</p>
                             </div>
-                            <span class="text-3xl">ðŸ’¼</span>
+                            <span class="text-3xl">💼</span>
                         </div>
                         <div class="space-y-2 mb-4">
-                            <p class="text-sm text-gray-600">ðŸ“§ ${esc(a.email)}</p>
-                            <p class="text-sm text-gray-600">ðŸ“± ${esc(a.telefono)}</p>
+                            <p class="text-sm text-gray-600">📧 ${a.email}</p>
+                            <p class="text-sm text-gray-600">📱 ${a.telefono}</p>
                         </div>
                         <div class="bg-white rounded-lg p-3 mb-4">
                             <p class="text-xs text-gray-500 mb-2">Pratiche assegnate:</p>
@@ -632,13 +588,13 @@ function renderAvvocati() {
                             </div>
                         </div>
                         <div class="flex gap-2 no-print">
-                            <button onclick="openAvvocatoModal('${esc(a.id)}')" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">âœï¸ Modifica</button>
-                            <button onclick="confirmDeleteAvvocato('${esc(a.id)}')" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">ðŸ—‘ï¸ Elimina</button>
+                            <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">✏️ Modifica</button>
+                            <button onclick="confirmDeleteAvvocato('${a.id}')" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">🗑️ Elimina</button>
                         </div>
                     </div>`;
                 }).join('')}
             </div>` : `
-            <div class="text-center py-12"><div class="text-6xl mb-4">ðŸ‘¥</div><p class="text-gray-400 text-lg">Nessun avvocato in archivio</p></div>`}
+            <div class="text-center py-12"><div class="text-6xl mb-4">👥</div><p class="text-gray-400 text-lg">Nessun avvocato in archivio</p></div>`}
         </div>
     </div>`;
 }
@@ -648,8 +604,8 @@ function renderUtenti() {
     <div class="space-y-6">
         <div class="bg-white rounded-xl shadow-lg p-6">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">ðŸ” Gestione Utenti</h2>
-                <button onclick="openUtenteModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">âž• Nuovo Utente</button>
+                <h2 class="text-2xl font-bold text-gray-800">🔐 Gestione Utenti</h2>
+                <button onclick="openUtenteModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">➕ Nuovo Utente</button>
             </div>
             ${state.utenti.length > 0 ? `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -657,21 +613,21 @@ function renderUtenti() {
                     <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-100">
                         <div class="flex justify-between items-start mb-4">
                             <div>
-                                <h3 class="text-xl font-bold text-gray-800">${esc(u.nome_completo)}</h3>
+                                <h3 class="text-xl font-bold text-gray-800">${u.nome_completo}</h3>
                                 <p class="text-sm ${u.ruolo==='amministratore'?'text-red-600':'text-indigo-600'} font-semibold">
-                                    ${u.ruolo==='amministratore'?'ðŸ‘‘ Amministratore':'âš–ï¸ Avvocato'}
+                                    ${u.ruolo==='amministratore'?'👑 Amministratore':'⚖️ Avvocato'}
                                 </p>
                             </div>
-                            <span class="text-3xl">${u.ruolo==='amministratore'?'ðŸ‘‘':'ðŸ‘¤'}</span>
+                            <span class="text-3xl">${u.ruolo==='amministratore'?'👑':'👤'}</span>
                         </div>
                         <div class="space-y-2 mb-4">
-                            <p class="text-sm text-gray-600">ðŸ”‘ Username: <strong>${esc(u.username)}</strong></p>
-                            <p class="text-sm text-gray-600">ðŸ“§ ${esc(u.email)}</p>
-                            <p class="text-sm ${u.attivo?'text-green-600':'text-red-600'}">${u.attivo?'âœ… Attivo':'âŒ Disattivato'}</p>
+                            <p class="text-sm text-gray-600">🔑 Username: <strong>${u.username}</strong></p>
+                            <p class="text-sm text-gray-600">📧 ${u.email}</p>
+                            <p class="text-sm ${u.attivo?'text-green-600':'text-red-600'}">${u.attivo?'✅ Attivo':'❌ Disattivato'}</p>
                         </div>
                         <div class="flex gap-2">
-                            <button onclick="openUtenteModal('${esc(u.id)}')" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">âœï¸ Modifica</button>
-                            <button onclick="confirmDeleteUtente('${esc(u.id)}')" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">ðŸ—‘ï¸ Elimina</button>
+                            <button onclick="openUtenteModal(${JSON.stringify(u).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">✏️ Modifica</button>
+                            <button onclick="confirmDeleteUtente('${u.id}')" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">🗑️ Elimina</button>
                         </div>
                     </div>
                 `).join('')}
@@ -684,30 +640,30 @@ function renderGestione() {
     return `
     <div class="space-y-6">
         <div class="bg-white rounded-xl shadow-lg p-8">
-            <h2 class="text-2xl font-bold mb-6 text-gray-800">ðŸ—„ï¸ Gestione Database</h2>
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">🗄️ Gestione Database</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border-2 border-green-200">
                     <div class="flex items-center gap-3 mb-4">
-                        <span class="text-4xl">ðŸ“¥</span>
+                        <span class="text-4xl">📥</span>
                         <div><h3 class="text-xl font-bold text-gray-800">Esporta Dati</h3><p class="text-sm text-gray-600">Backup completo su file</p></div>
                     </div>
                     <div class="bg-white rounded-lg p-4 mb-4">
-                        <p class="text-sm text-gray-700 mb-2">ðŸ“Š <strong>Pratiche:</strong> ${state.pratiche.length}</p>
-                        <p class="text-sm text-gray-700">ðŸ‘¥ <strong>Avvocati:</strong> ${state.avvocati.length}</p>
+                        <p class="text-sm text-gray-700 mb-2">📊 <strong>Pratiche:</strong> ${state.pratiche.length}</p>
+                        <p class="text-sm text-gray-700">👥 <strong>Avvocati:</strong> ${state.avvocati.length}</p>
                     </div>
-                    <button onclick="esportaDati()" class="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">ðŸ“¥ Esporta Database</button>
+                    <button onclick="esportaDati()" class="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">📥 Esporta Database</button>
                 </div>
                 <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-200">
                     <div class="flex items-center gap-3 mb-4">
-                        <span class="text-4xl">ðŸ“¤</span>
+                        <span class="text-4xl">📤</span>
                         <div><h3 class="text-xl font-bold text-gray-800">Importa Dati</h3><p class="text-sm text-gray-600">Ripristina da backup</p></div>
                     </div>
                     <div class="bg-white rounded-lg p-4 mb-4">
-                        <p class="text-sm text-gray-700 mb-2">âš ï¸ <strong>Attenzione:</strong></p>
+                        <p class="text-sm text-gray-700 mb-2">⚠️ <strong>Attenzione:</strong></p>
                         <p class="text-xs text-gray-600">I dati verranno aggiunti al database.</p>
                     </div>
                     <label class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer">
-                        ðŸ“¤ Seleziona File Backup
+                        📤 Seleziona File Backup
                         <input type="file" accept=".json" onchange="importaDati(event)" class="hidden"/>
                     </label>
                 </div>
@@ -722,13 +678,13 @@ function renderModalPratica() {
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
         <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${state.editingPratica ? 'âœï¸ Modifica Pratica' : 'âž• Nuova Pratica'}</h2>
-                <button onclick="state.showModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">âœ•</button>
+                <h2 class="text-2xl font-bold">${state.editingPratica ? '✏️ Modifica Pratica' : '➕ Nuova Pratica'}</h2>
+                <button onclick="state.showModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Cliente *</label>
-                    <input type="text" value="${esc(state.formData.cliente)}" ${canEdit?'':'disabled'}
+                    <input type="text" value="${state.formData.cliente}" ${canEdit?'':'disabled'}
                         oninput="state.formData.cliente=this.value"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}"/>
                 </div>
@@ -744,7 +700,7 @@ function renderModalPratica() {
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">RGNR</label>
-                        <input type="text" value="${esc(state.formData.rgnr||'')}" ${canEdit?'':'disabled'}
+                        <input type="text" value="${state.formData.rgnr||''}" ${canEdit?'':'disabled'}
                             oninput="state.formData.rgnr=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}"/>
                     </div>
@@ -752,7 +708,7 @@ function renderModalPratica() {
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Descrizione *</label>
                     <textarea ${canEdit?'':'disabled'} oninput="state.formData.descrizione=this.value" rows="3"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">${esc(state.formData.descrizione)}</textarea>
+                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">${state.formData.descrizione}</textarea>
                 </div>
                 <div class="grid grid-cols-3 gap-4">
                     <div>
@@ -765,7 +721,7 @@ function renderModalPratica() {
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">PrioritÃ  *</label>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Priorità *</label>
                         <select ${canEdit?'':'disabled'} onchange="state.formData.priorita=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">
                             ${[['bassa','Bassa'],['media','Media'],['alta','Alta']].map(([v,l]) =>
@@ -775,7 +731,7 @@ function renderModalPratica() {
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Data Apertura *</label>
-                        <input type="date" ${canEdit?'':'disabled'} value="${esc(state.formData.data_apertura)}"
+                        <input type="date" ${canEdit?'':'disabled'} value="${state.formData.data_apertura}"
                             oninput="state.formData.data_apertura=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}"/>
                     </div>
@@ -783,17 +739,17 @@ function renderModalPratica() {
                 <div class="grid grid-cols-3 gap-4">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Scadenza</label>
-                        <input type="date" value="${esc(state.formData.scadenza||'')}" oninput="state.formData.scadenza=this.value"
+                        <input type="date" value="${state.formData.scadenza||''}" oninput="state.formData.scadenza=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Timeline</label>
-                        <input type="date" value="${esc(state.formData.timeline||'')}" oninput="state.formData.timeline=this.value"
+                        <input type="date" value="${state.formData.timeline||''}" oninput="state.formData.timeline=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Agg.to AttivitÃ </label>
-                        <input type="date" value="${esc(state.formData.data_aggiornamento_attivita||'')}" oninput="state.formData.data_aggiornamento_attivita=this.value"
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Agg.to Attività</label>
+                        <input type="date" value="${state.formData.data_aggiornamento_attivita||''}" oninput="state.formData.data_aggiornamento_attivita=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                     </div>
                 </div>
@@ -803,19 +759,19 @@ function renderModalPratica() {
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${canEdit?'':'bg-gray-100'}">
                         <option value="">-- Seleziona --</option>
                         ${state.avvocati.map(a =>
-                            `<option value="${esc(a.nome_completo)}" ${state.formData.avvocato===a.nome_completo?'selected':''}>${esc(a.nome_completo)}</option>`
+                            `<option value="${a.nome_completo}" ${state.formData.avvocato===a.nome_completo?'selected':''}>${a.nome_completo}</option>`
                         ).join('')}
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Nota Aggiornamento</label>
                     <textarea oninput="state.formData.nota_aggiornamento=this.value" rows="3"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">${esc(state.formData.nota_aggiornamento||'')}</textarea>
+                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">${state.formData.nota_aggiornamento||''}</textarea>
                 </div>
                 <div class="flex gap-3 pt-4">
                     <button onclick="submitPratica()" ${canEdit?'':'disabled'}
                         class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all ${canEdit?'':'opacity-50 cursor-not-allowed'}">
-                        ðŸ’¾ ${state.editingPratica ? 'Aggiorna' : 'Salva'}
+                        💾 ${state.editingPratica ? 'Aggiorna' : 'Salva'}
                     </button>
                     <button onclick="state.showModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">Annulla</button>
                 </div>
@@ -829,30 +785,30 @@ function renderModalAvvocato() {
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${state.editingAvvocato ? 'âœï¸ Modifica Avvocato' : 'âž• Nuovo Avvocato'}</h2>
-                <button onclick="state.showAvvocatoModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">âœ•</button>
+                <h2 class="text-2xl font-bold">${state.editingAvvocato ? '✏️ Modifica Avvocato' : '➕ Nuovo Avvocato'}</h2>
+                <button onclick="state.showAvvocatoModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6 space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Nome *</label>
-                        <input type="text" value="${esc(state.avvForm.nome)}" oninput="state.avvForm.nome=this.value"
+                        <input type="text" value="${state.avvForm.nome}" oninput="state.avvForm.nome=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Cognome *</label>
-                        <input type="text" value="${esc(state.avvForm.cognome)}" oninput="state.avvForm.cognome=this.value"
+                        <input type="text" value="${state.avvForm.cognome}" oninput="state.avvForm.cognome=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                     </div>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-                    <input type="email" value="${esc(state.avvForm.email)}" oninput="state.avvForm.email=this.value"
+                    <input type="email" value="${state.avvForm.email}" oninput="state.avvForm.email=this.value"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Telefono *</label>
-                    <input type="tel" value="${esc(state.avvForm.telefono)}" oninput="state.avvForm.telefono=this.value"
+                    <input type="tel" value="${state.avvForm.telefono}" oninput="state.avvForm.telefono=this.value"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                 </div>
                 <div>
@@ -866,7 +822,7 @@ function renderModalAvvocato() {
                 </div>
                 <div class="flex gap-3 pt-4">
                     <button onclick="submitAvvocato()" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
-                        ðŸ’¾ ${state.editingAvvocato ? 'Aggiorna' : 'Salva'}
+                        💾 ${state.editingAvvocato ? 'Aggiorna' : 'Salva'}
                     </button>
                     <button onclick="state.showAvvocatoModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">Annulla</button>
                 </div>
@@ -880,42 +836,42 @@ function renderModalUtente() {
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${state.editingUtente ? 'âœï¸ Modifica Utente' : 'âž• Nuovo Utente'}</h2>
-                <button onclick="state.showUtenteModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">âœ•</button>
+                <h2 class="text-2xl font-bold">${state.editingUtente ? '✏️ Modifica Utente' : '➕ Nuovo Utente'}</h2>
+                <button onclick="state.showUtenteModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6 space-y-4">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Username *</label>
-                    <input type="text" value="${esc(state.utenteForm.username)}" ${state.editingUtente?'disabled':''}
-                        oninput="state.utenteForm.username=this.value" autocomplete="username"
+                    <input type="text" value="${state.utenteForm.username}" ${state.editingUtente?'disabled':''}
+                        oninput="state.utenteForm.username=this.value"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${state.editingUtente?'bg-gray-100':''}"/>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Password ${state.editingUtente?'(lascia vuoto per non modificare)':'*'}</label>
-                    <input type="password" value="" oninput="state.utenteForm.password=this.value" autocomplete="new-password"
+                    <input type="password" value="${state.utenteForm.password||''}" oninput="state.utenteForm.password=this.value"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Nome Completo *</label>
-                    <input type="text" value="${esc(state.utenteForm.nome_completo)}" oninput="state.utenteForm.nome_completo=this.value"
+                    <input type="text" value="${state.utenteForm.nome_completo}" oninput="state.utenteForm.nome_completo=this.value"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-                    <input type="email" value="${esc(state.utenteForm.email)}" oninput="state.utenteForm.email=this.value"
+                    <input type="email" value="${state.utenteForm.email}" oninput="state.utenteForm.email=this.value"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Ruolo *</label>
                     <select onchange="state.utenteForm.ruolo=this.value"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        <option value="avvocato" ${state.utenteForm.ruolo==='avvocato'?'selected':''}>âš–ï¸ Avvocato</option>
-                        <option value="amministratore" ${state.utenteForm.ruolo==='amministratore'?'selected':''}>ðŸ‘‘ Amministratore</option>
+                        <option value="avvocato" ${state.utenteForm.ruolo==='avvocato'?'selected':''}>⚖️ Avvocato</option>
+                        <option value="amministratore" ${state.utenteForm.ruolo==='amministratore'?'selected':''}>👑 Amministratore</option>
                     </select>
                 </div>
                 <div class="flex gap-3 pt-4">
                     <button onclick="submitUtente()" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
-                        ðŸ’¾ ${state.editingUtente ? 'Aggiorna' : 'Crea Utente'}
+                        💾 ${state.editingUtente ? 'Aggiorna' : 'Crea Utente'}
                     </button>
                     <button onclick="state.showUtenteModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">Annulla</button>
                 </div>
@@ -931,10 +887,10 @@ function renderModalNote() {
         <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 relative">
                 <div class="text-center mb-4">
-                    <h2 class="text-xl font-bold mb-2">${esc(p?.cliente)}</h2>
-                    <p class="text-sm text-blue-200">${esc(p?.descrizione)}</p>
+                    <h2 class="text-xl font-bold mb-2">${p?.cliente}</h2>
+                    <p class="text-sm text-blue-200">${p?.descrizione}</p>
                 </div>
-                <button onclick="state.showNoteModal=false;render()" class="absolute top-6 right-6 hover:bg-white/20 rounded-full p-2 text-2xl">âœ•</button>
+                <button onclick="state.showNoteModal=false;render()" class="absolute top-6 right-6 hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6">
                 ${!isAdmin() ? `
@@ -942,21 +898,21 @@ function renderModalNote() {
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Aggiungi Nota Aggiornamento</label>
                     <textarea oninput="state.noteForm.nota=this.value" rows="3"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none mb-3"
-                        placeholder="Scrivi qui la nota di aggiornamento...">${esc(state.noteForm.nota||'')}</textarea>
+                        placeholder="Scrivi qui la nota di aggiornamento...">${state.noteForm.nota||''}</textarea>
                     <button onclick="submitNota()" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
-                        âž• Aggiungi Nota
+                        ➕ Aggiungi Nota
                     </button>
                 </div>` : ''}
-                <h3 class="text-xl font-bold text-gray-800 mb-4">ðŸ“œ Storico Note</h3>
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📜 Storico Note</h3>
                 ${state.noteAggiornamento.length > 0 ? `
                 <div class="space-y-3">
                     ${state.noteAggiornamento.map(n => `
                         <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-l-4 border-blue-500">
                             <div class="flex justify-between items-start mb-2">
-                                <p class="text-sm text-gray-600">ðŸ‘¤ <strong>${esc(n.autore)}</strong></p>
-                                <p class="text-sm text-gray-500">ðŸ“… ${fmtDate(n.data_nota)}</p>
+                                <p class="text-sm text-gray-600">👤 <strong>${n.autore}</strong></p>
+                                <p class="text-sm text-gray-500">📅 ${fmtDate(n.data_nota)}</p>
                             </div>
-                            <p class="text-gray-800">${esc(n.nota)}</p>
+                            <p class="text-gray-800">${n.nota}</p>
                         </div>
                     `).join('')}
                 </div>` : `<p class="text-gray-400 text-center py-8">Nessuna nota ancora inserita</p>`}
@@ -974,9 +930,7 @@ async function doLogin() {
     await login(u, p);
 }
 
-// FIX 6: openPraticaModal usa ID invece di JSON.stringify dell'oggetto
-function openPraticaModal(id) {
-    const p = id ? state.pratiche.find(pr => String(pr.id) === String(id)) : null;
+function openPraticaModal(p) {
     state.editingPratica = p;
     state.formData = p ? {...p} : { cliente:'', tipo_pratica:'civile', descrizione:'', stato:'svolgimento',
         data_apertura:today(), data_aggiornamento_attivita:'', timeline:'', scadenza:'',
@@ -984,18 +938,14 @@ function openPraticaModal(id) {
     state.showModal = true; render();
 }
 
-// FIX 6: openAvvocatoModal usa ID invece di JSON.stringify dell'oggetto
-function openAvvocatoModal(id) {
-    const a = id ? state.avvocati.find(av => String(av.id) === String(id)) : null;
+function openAvvocatoModal(a) {
     state.editingAvvocato = a;
     state.avvForm = a ? { nome:a.nome, cognome:a.cognome, email:a.email, telefono:a.telefono, specializzazione:a.specializzazione }
         : { nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile' };
     state.showAvvocatoModal = true; render();
 }
 
-// FIX 6: openUtenteModal usa ID invece di JSON.stringify dell'oggetto
-function openUtenteModal(id) {
-    const u = id ? state.utenti.find(ut => String(ut.id) === String(id)) : null;
+function openUtenteModal(u) {
     state.editingUtente = u;
     state.utenteForm = u ? { username:u.username, password:'', nome_completo:u.nome_completo, email:u.email, ruolo:u.ruolo }
         : { username:'', password:'', nome_completo:'', email:'', ruolo:'avvocato' };
@@ -1003,8 +953,7 @@ function openUtenteModal(id) {
 }
 
 async function openNoteModal(praticaId) {
-    // FIX 4: confronto ID type-safe
-    const p = state.pratiche.find(pr => String(pr.id) === String(praticaId));
+    const p = state.pratiche.find(pr => pr.id === praticaId);
     state.viewingPratica = p;
     state.noteForm = { nota: '' };
     await loadNote(praticaId);
@@ -1060,6 +1009,7 @@ render();
 </script>
 </body>
 </html>
+
 
 
 
