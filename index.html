@@ -295,8 +295,8 @@ function render() {
         { id:'dashboard', label:'Dashboard', icon:'📊', show: true },
         { id:'pratiche', label:'Pratiche', icon:'📁', show: true },
         { id:'avvocati', label:'Avvocati', icon:'👥', show: isAdmin() },
-        { id:'utenti', label:'Utenti', icon:'🔐', show: isAdmin() },
-        { id:'gestione', label:'Gestione Dati', icon:'🗄️', show: isAdmin() }
+        { id:'utenti', label:'Utenti', icon:'🔐', show: state.user?.username === 'admin' },
+        { id:'gestione', label:'Gestione Dati', icon:'🗄️', show: state.user?.username === 'admin' }
     ].filter(t => t.show);
 
     document.getElementById('app').innerHTML = `
@@ -380,9 +380,7 @@ function renderLogin() {
                     🔐 Accedi
                 </button>
             </div>
-            <div class="mt-6 text-center text-sm text-gray-500">
-                <p>👤 Admin predefinito: <strong>admin</strong> / <strong>admin123</strong></p>
-            </div>
+
         </div>
     </div>`;
 }
