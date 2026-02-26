@@ -419,9 +419,10 @@ function renderPratiche(filtered) {
                 <div class="flex flex-col md:flex-row gap-4 items-center">
                     <div class="flex-1 relative">
                         <span class="absolute left-3 top-3 text-gray-400">🔍</span>
-                        <input type="text" placeholder="Cerca cliente, descrizione, RGNR..."
-                            value="${state.searchTerm}" oninput="state.searchTerm=this.value;render()"
-                            onkeydown="if(event.key==='Enter')event.preventDefault()"
+                        <input type="text" id="searchInput" placeholder="Cerca cliente, descrizione, RGNR..."
+                            value="${state.searchTerm}"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();return;} state.searchTerm=this.value; renderPraticheResult();"
+                            oninput="state.searchTerm=this.value; renderPraticheResult();"
                             class="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                     </div>
                     <div class="flex gap-2">
@@ -459,7 +460,9 @@ function renderPratiche(filtered) {
                 </div>
             </div>
         </div>
-        ${state.viewMode === 'table' ? renderPraticheTable(filtered) : renderPraticheCards(filtered)}
+        <div id="praticheResult">
+            ${state.viewMode === 'table' ? renderPraticheTable(filtered) : renderPraticheCards(filtered)}
+        </div>
     </div>`;
 }
 
@@ -928,6 +931,16 @@ function renderModalNote() {
     </div>`;
 }
 
+function renderPraticheResult() {
+    const el = document.getElementById('praticheResult');
+    if (!el) return;
+    const filtered = getFiltered();
+    el.innerHTML = state.viewMode === 'table' ? renderPraticheTable(filtered) : renderPraticheCards(filtered);
+    // mantieni focus sul campo di ricerca
+    const inp = document.getElementById('searchInput');
+    if (inp) { const pos = inp.value.length; inp.focus(); inp.setSelectionRange(pos, pos); }
+}
+
 function switchTab(tab) { state.activeTab = tab; render(); }
 
 async function doLogin() {
@@ -1016,6 +1029,7 @@ render();
 </script>
 </body>
 </html>
+
 
 
 
