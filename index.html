@@ -237,7 +237,26 @@ function checkScadenze() {
         setTimeout(() => alert(`⚠️ ATTENZIONE: Ci sono ${scadute.length} pratica/e scaduta/e in svolgimento!`), 1000);
 }
 
-function esportaDati() {
+function esportaCSV(nomeFile, righe) {
+    if (!righe || righe.length === 0) { alert('Nessun dato da esportare!'); return; }
+    const headers = Object.keys(righe[0]);
+    const csv = [
+        headers.join(';'),
+        ...righe.map(r => headers.map(h => {
+            const v = r[h] === null || r[h] === undefined ? '' : String(r[h]);
+            return '"' + v.replace(/"/g, '""') + '"';
+        }).join(';'))
+    ].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = nomeFile;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+async function esportaDati() {
+    // export JSON legacy
     const data = { pratiche: state.pratiche, avvocati: state.avvocati,
         dataEsportazione: new Date().toISOString(), versione: '2.0' };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
@@ -246,7 +265,27 @@ function esportaDati() {
     a.href = url; a.download = `sls-backup-${today()}.json`;
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
-    showSuccess('Dati esportati!');
+    showSuccess('Backup JSON esportato!');
+}
+
+async function esportaTuttiCSV() {
+    // carica note e utenti freschi
+    const [note, utenti] = await Promise.all([
+        sb.from('note_aggiornamento').select('*').order('data_nota', { ascending: false }),
+        sb.from('utenti').select('id, username, nome_completo, email, ruolo, attivo')
+    ]);
+    esportaCSV(`pratiche-${today()}.csv`, state.pratiche);
+    await new Promise(r => setTimeout(r, 300));
+    esportaCSV(`avvocati-${today()}.csv`, state.avvocati);
+    await new Promise(r => setTimeout(r, 300));
+    if (!utenti.error && utenti.data?.length) {
+        esportaCSV(`utenti-${today()}.csv`, utenti.data);
+        await new Promise(r => setTimeout(r, 300));
+    }
+    if (!note.error && note.data?.length) {
+        esportaCSV(`note-${today()}.csv`, note.data);
+    }
+    showSuccess('CSV esportati! Controlla i download.');
 }
 
 function importaDati(e) {
@@ -662,31 +701,51 @@ function renderGestione() {
         <div class="bg-white rounded-xl shadow-lg p-8">
             <h2 class="text-2xl font-bold mb-6 text-gray-800">🗄️ Gestione Database</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                <!-- EXPORT CSV -->
                 <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border-2 border-green-200">
                     <div class="flex items-center gap-3 mb-4">
-                        <span class="text-4xl">📥</span>
-                        <div><h3 class="text-xl font-bold text-gray-800">Esporta Dati</h3><p class="text-sm text-gray-600">Backup completo su file</p></div>
+                        <span class="text-4xl">📊</span>
+                        <div><h3 class="text-xl font-bold text-gray-800">Esporta CSV</h3><p class="text-sm text-gray-600">File Excel-compatibili separati</p></div>
                     </div>
-                    <div class="bg-white rounded-lg p-4 mb-4">
-                        <p class="text-sm text-gray-700 mb-2">📊 <strong>Pratiche:</strong> ${state.pratiche.length}</p>
-                        <p class="text-sm text-gray-700">👥 <strong>Avvocati:</strong> ${state.avvocati.length}</p>
+                    <div class="bg-white rounded-lg p-4 mb-4 space-y-1">
+                        <p class="text-sm text-gray-700">📁 <strong>pratiche.csv</strong> — ${state.pratiche.length} record</p>
+                        <p class="text-sm text-gray-700">👥 <strong>avvocati.csv</strong> — ${state.avvocati.length} record</p>
+                        <p class="text-sm text-gray-700">🔐 <strong>utenti.csv</strong></p>
+                        <p class="text-sm text-gray-700">📝 <strong>note.csv</strong></p>
                     </div>
-                    <button onclick="esportaDati()" class="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">📥 Esporta Database</button>
+                    <button onclick="esportaTuttiCSV()" class="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+                        📊 Esporta tutti i CSV
+                    </button>
+                    <div class="grid grid-cols-2 gap-2 mt-3">
+                        <button onclick="esportaCSV('pratiche-${today()}.csv', state.pratiche)" class="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-semibold hover:bg-green-200 transition-all">📁 Solo Pratiche</button>
+                        <button onclick="esportaCSV('avvocati-${today()}.csv', state.avvocati)" class="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-semibold hover:bg-green-200 transition-all">👥 Solo Avvocati</button>
+                    </div>
                 </div>
-                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-200">
-                    <div class="flex items-center gap-3 mb-4">
-                        <span class="text-4xl">📤</span>
-                        <div><h3 class="text-xl font-bold text-gray-800">Importa Dati</h3><p class="text-sm text-gray-600">Ripristina da backup</p></div>
+
+                <!-- IMPORT / BACKUP JSON -->
+                <div class="space-y-4">
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-200">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-4xl">📥</span>
+                            <div><h3 class="text-xl font-bold text-gray-800">Backup JSON</h3><p class="text-sm text-gray-600">File di backup completo</p></div>
+                        </div>
+                        <button onclick="esportaDati()" class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+                            📥 Esporta Backup JSON
+                        </button>
                     </div>
-                    <div class="bg-white rounded-lg p-4 mb-4">
-                        <p class="text-sm text-gray-700 mb-2">⚠️ <strong>Attenzione:</strong></p>
-                        <p class="text-xs text-gray-600">I dati verranno aggiunti al database.</p>
+                    <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-6 border-2 border-orange-200">
+                        <div class="flex items-center gap-3 mb-4">
+                            <span class="text-4xl">📤</span>
+                            <div><h3 class="text-xl font-bold text-gray-800">Importa Dati</h3><p class="text-sm text-gray-600">Ripristina da backup JSON</p></div>
+                        </div>
+                        <label class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer">
+                            📤 Seleziona File Backup
+                            <input type="file" accept=".json" onchange="importaDati(event)" class="hidden"/>
+                        </label>
                     </div>
-                    <label class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer">
-                        📤 Seleziona File Backup
-                        <input type="file" accept=".json" onchange="importaDati(event)" class="hidden"/>
-                    </label>
                 </div>
+
             </div>
         </div>
     </div>`;
@@ -1052,6 +1111,7 @@ render();
 </script>
 </body>
 </html>
+
 
 
 
