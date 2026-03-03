@@ -24,8 +24,7 @@
         .stato-fatto { background-color: #d1fae5; color: #065f46; }
         .stato-bloccato { background-color: #fee2e2; color: #991b1b; }
         .pratica-fatto { opacity: 0.75; }
-        .pratica-fatto h3 { text-decoration: none; }
-        .pratica-fatto .desc-text { text-decoration: none; }
+        .badge-fatto { text-decoration: line-through; text-decoration-color: #065f46; text-decoration-thickness: 2px; }
         .avv-avatar { display:inline-flex;align-items:center;justify-content:center;width:2.2rem;height:2.2rem;border-radius:50%;font-size:0.65rem;font-weight:700;color:white;flex-shrink:0;letter-spacing:0.03em; }
         .avv-avatar-lg { display:inline-flex;align-items:center;justify-content:center;width:3rem;height:3rem;border-radius:50%;font-size:0.8rem;font-weight:700;color:white;flex-shrink:0; }
     </style>
@@ -134,28 +133,30 @@ function eseguiCheckAlert() {
     }
 }
 
-function salvaStorico(alerts) {
-    const key = `sls_alert_storico_${state.user?.id}`;
-    let storico = [];
-    try { storico = JSON.parse(localStorage.getItem(key)||'[]'); } catch(e){}
-    alerts.forEach(a => {
-        storico.unshift({
-            data: today(),
+async function salvaStorico(alerts) {
+    for (const a of alerts) {
+        const utente = state.utenti.find(u => u.nome_completo === a.pratica.avvocato);
+        await sb.from('alert_storico').insert([{
+            data_alert: today(),
+            pratica_id: a.pratica.id,
             cliente: a.pratica.cliente,
             scadenza: a.pratica.scadenza,
             avvocato: a.pratica.avvocato,
+            avvocato_id: utente?.id || null,
             tipo: a.tipo,
-            diff: a.diff
-        });
-    });
-    // Mantieni solo gli ultimi 50
-    storico = storico.slice(0, 50);
-    localStorage.setItem(key, JSON.stringify(storico));
+            diff_giorni: a.diff
+        }]);
+    }
 }
 
-function getStorico(avvocatoId) {
-    const key = `sls_alert_storico_${avvocatoId}`;
-    try { return JSON.parse(localStorage.getItem(key)||'[]'); } catch(e){ return []; }
+async function getStorico(nomeAvvocato) {
+    const { data, error } = await sb.from('alert_storico')
+        .select('*')
+        .eq('avvocato', nomeAvvocato)
+        .order('data_alert', { ascending: false })
+        .limit(10);
+    if (error) return [];
+    return data || [];
 }
 
 async function loadAll() {
@@ -427,7 +428,7 @@ function render() {
 
         ${state.activeTab==='dashboard'?renderDashboard(stats):''}
         ${state.activeTab==='pratiche'?renderPratiche(filtered):''}
-        ${state.activeTab==='avvocati'?renderAvvocati():''}
+        ${state.activeTab==='avvocati'?'<div id="avvocatiContainer"><p class="text-center text-gray-400 py-8">Caricamento...</p></div>':''}
         ${state.activeTab==='utenti'?renderUtenti():''}
         ${state.activeTab==='gestione'?renderGestione():''}
 
@@ -558,7 +559,7 @@ function renderPraticheCards(filtered) {
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div class="flex-1">
                         <div class="flex items-center gap-2 mb-3 flex-wrap">
-                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)} ${p.stato==='fatto'?'badge-fatto':''}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
                             <span class="px-3 py-1 rounded-full text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
                             <span class="px-3 py-1 bg-gray-100 rounded-full text-xs font-semibold">${p.tipo_pratica}</span>
                             ${p.autorita?`<span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">🏛️ ${p.autorita}</span>`:''}
@@ -641,8 +642,14 @@ function renderPraticheTable(filtered) {
     </div>`;
 }
 
-function renderAvvocati() {
-    return `
+async function renderAvvocati() {
+    // Carica storico alert per tutti gli avvocati
+    const storicoMap = {};
+    for (const a of state.avvocati) {
+        storicoMap[a.nome_completo] = await getStorico(a.nome_completo);
+    }
+
+    const html = `
     <div class="space-y-6">
         <div class="bg-white rounded-xl shadow-lg p-6">
             <div class="flex justify-between items-center mb-6">
@@ -653,13 +660,13 @@ function renderAvvocati() {
                 </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                ${state.avvocati.map(a=>{
-                    const st=getAvvStats(a.nome_completo);
-                    const storico=getStorico(state.utenti.find(u=>u.nome_completo===a.nome_completo)?.id);
+                ${state.avvocati.map(a => {
+                    const st = getAvvStats(a.nome_completo);
+                    const storico = storicoMap[a.nome_completo] || [];
                     return `
                     <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border-2 border-indigo-100">
                         <div class="flex items-center gap-3 mb-4">
-                            ${avvAvatar(a.nome_completo,true)}
+                            ${avvAvatar(a.nome_completo, true)}
                             <div>
                                 <h3 class="text-xl font-bold text-gray-800">${a.nome_completo}</h3>
                                 <p class="text-sm text-indigo-600 font-semibold">${a.specializzazione}</p>
@@ -677,26 +684,32 @@ function renderAvvocati() {
                                 <div><p class="text-lg font-bold text-red-600">${st.bloccato}</p><p class="text-xs text-gray-500">Bloccato</p></div>
                             </div>
                         </div>
-                        ${storico.length>0?`
+                        ${storico.length > 0 ? `
                         <div class="mb-4">
-                            <p class="text-xs font-semibold text-gray-500 mb-2">📋 Storico Alert (ultimi ${Math.min(storico.length,3)})</p>
-                            <div class="space-y-1 max-h-24 overflow-y-auto">
-                                ${storico.slice(0,3).map(s=>`
-                                    <div class="text-xs p-2 rounded ${s.tipo==='scaduta'?'bg-red-50 text-red-700':'bg-orange-50 text-orange-700'}">
-                                        ${s.tipo==='scaduta'?'⚠️':'🔔'} ${s.cliente} — scad. ${fmtDate(s.scadenza)} <span class="text-gray-400">(${fmtDate(s.data)})</span>
+                            <p class="text-xs font-semibold text-gray-500 mb-2">📋 Storico Alert (ultimi ${storico.length})</p>
+                            <div class="space-y-1 max-h-36 overflow-y-auto">
+                                ${storico.map(s => `
+                                    <div class="text-xs p-2 rounded flex justify-between items-center ${s.tipo==='scaduta'?'bg-red-50 text-red-700':'bg-orange-50 text-orange-700'}">
+                                        <span>${s.tipo==='scaduta'?'⚠️':'🔔'} <strong>${s.cliente}</strong> — scad. ${fmtDate(s.scadenza)}</span>
+                                        <span class="text-gray-400 ml-2">${fmtDate(s.data_alert)}</span>
                                     </div>`).join('')}
                             </div>
-                        </div>`:''}
-                        ${isAdmin()?`
+                        </div>` : `
+                        <div class="mb-4 p-3 bg-gray-50 rounded-lg text-center">
+                            <p class="text-xs text-gray-400">Nessun alert registrato</p>
+                        </div>`}
+                        ${isAdmin() ? `
                         <div class="flex gap-2 no-print">
                             <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️ Modifica</button>
                             <button onclick="confirmDeleteAvvocato('${a.id}')" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">🗑️ Elimina</button>
-                        </div>`:''}
+                        </div>` : ''}
                     </div>`;
                 }).join('')}
             </div>
         </div>
     </div>`;
+    document.getElementById('app').querySelector('[data-tab="avvocati"]') && (document.getElementById('app').innerHTML = html);
+    return html;
 }
 
 function renderUtenti() {
@@ -1061,7 +1074,15 @@ function renderPraticheResult() {
     if (inp) { const pos=inp.value.length; inp.focus(); inp.setSelectionRange(pos,pos); }
 }
 
-function switchTab(tab) { state.activeTab=tab; render(); }
+function switchTab(tab) {
+    state.activeTab = tab; render();
+    if (tab === 'avvocati') {
+        renderAvvocati().then(html => {
+            const el = document.getElementById('avvocatiContainer');
+            if (el) el.outerHTML = html;
+        });
+    }
+}
 
 async function doLogin() {
     const u=document.getElementById('loginUsername').value;
