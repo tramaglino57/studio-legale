@@ -623,12 +623,12 @@ function renderPraticheTable(filtered) {
                     return `
                     <tr class="border-b hover:bg-gray-50 ${scaduta?'bg-red-50':inScad?'bg-orange-50':fatto?'bg-green-50 opacity-70':''}">
                         <td class="px-4 py-3">
-                            <div class="font-semibold ${fatto?'line-through text-gray-400':''}">${p.cliente}</div>
-                            <div class="text-xs text-gray-500 ${fatto?'line-through':''}">${p.descrizione.substring(0,40)}...</div>
+                            <div class="font-semibold">${p.cliente}</div>
+                            <div class="text-xs text-gray-500">${p.descrizione.substring(0,40)}...</div>
                         </td>
                         <td class="px-4 py-3 text-sm">${p.tipo_pratica}</td>
                         <td class="px-4 py-3 text-sm">${p.autorita||'-'}</td>
-                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatoBadge(p.stato)}">${p.stato}</span></td>
+                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatoBadge(p.stato)} ${p.stato==='fatto'?'badge-fatto':''}">${p.stato}</span></td>
                         <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${p.priorita}</span></td>
                         <td class="px-4 py-3 text-sm ${scaduta?'text-red-600 font-bold':inScad?'text-orange-600 font-bold':''}">${fmtDate(p.scadenza)||'-'}</td>
                         <td class="px-4 py-3">${avvAvatar(p.avvocato)}</td>
@@ -1198,6 +1198,7 @@ render();
 </script>
 </body>
 </html>
+
 
 
 
