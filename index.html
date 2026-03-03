@@ -23,29 +23,20 @@
         .stato-svolgimento { background-color: #fef3c7; color: #92400e; }
         .stato-fatto { background-color: #d1fae5; color: #065f46; }
         .stato-bloccato { background-color: #fee2e2; color: #991b1b; }
-        .avv-avatar {
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 2.2rem; height: 2.2rem; border-radius: 50%;
-            font-size: 0.65rem; font-weight: 700; color: white;
-            flex-shrink: 0; letter-spacing: 0.03em;
-        }
-        .avv-avatar-lg {
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 3rem; height: 3rem; border-radius: 50%;
-            font-size: 0.8rem; font-weight: 700; color: white; flex-shrink: 0;
-        }
-        #alertBanner { display:none; }
+        .pratica-fatto { opacity: 0.75; }
+        .pratica-fatto h3 { text-decoration: line-through; text-decoration-color: #6b7280; text-decoration-thickness: 2px; }
+        .pratica-fatto .desc-text { text-decoration: line-through; text-decoration-color: #9ca3af; }
+        .avv-avatar { display:inline-flex;align-items:center;justify-content:center;width:2.2rem;height:2.2rem;border-radius:50%;font-size:0.65rem;font-weight:700;color:white;flex-shrink:0;letter-spacing:0.03em; }
+        .avv-avatar-lg { display:inline-flex;align-items:center;justify-content:center;width:3rem;height:3rem;border-radius:50%;font-size:0.8rem;font-weight:700;color:white;flex-shrink:0; }
     </style>
 </head>
 <body>
-<div id="alertBanner" class="fixed top-0 left-0 right-0 z-[100] animate-slidedown"></div>
 <div id="app" class="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center">
     <div class="text-white text-center">
         <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="SLS Studio Legale" class="w-72 h-72 mx-auto mb-4 object-contain animate-pulse">
         <p class="text-xl">Caricamento...</p>
     </div>
 </div>
-
 <script>
 const SUPABASE_URL = 'https://vwfubfydakocuxhepwkq.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_ziNieyV1K_9bPBNJu6GHUQ_j2kVEyn2';
@@ -53,36 +44,34 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const TIPI_PRATICA = ['civile','penale','amministrativo','lavoro','famiglia','tributario'];
 const AUTORITA = ['Tribunale','CGT1','CGT2','Mediazione','Cassazione','Corte d\'Appello','Stragiudiziale'];
-
 const AVV_COLORS = ['#4f46e5','#7c3aed','#db2777','#059669','#d97706','#dc2626','#0891b2','#65a30d','#9333ea','#c2410c'];
 const avvColorMap = {};
+
 function getAvvColor(nome) {
     if (!nome) return '#6b7280';
     if (!avvColorMap[nome]) {
         let h = 0;
-        for (let i = 0; i < nome.length; i++) h = nome.charCodeAt(i) + ((h << 5) - h);
+        for (let i = 0; i < nome.length; i++) h = nome.charCodeAt(i) + ((h<<5)-h);
         avvColorMap[nome] = AVV_COLORS[Math.abs(h) % AVV_COLORS.length];
     }
     return avvColorMap[nome];
 }
-function getInizialiAvvocato(nome) {
+function getIniziali(nome) {
     if (!nome) return '?';
-    return nome.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0,3);
+    return nome.split(' ').filter(Boolean).map(n=>n[0]).join('').toUpperCase().slice(0,3);
 }
-function avvAvatar(nome, large=false) {
-    const cls = large ? 'avv-avatar-lg' : 'avv-avatar';
-    return `<span class="${cls}" style="background:${getAvvColor(nome)}" title="${nome||''}">${getInizialiAvvocato(nome)}</span>`;
+function avvAvatar(nome, lg=false) {
+    return `<span class="${lg?'avv-avatar-lg':'avv-avatar'}" style="background:${getAvvColor(nome)}" title="${nome||''}">${getIniziali(nome)}</span>`;
 }
 
 let state = {
-    user: null, activeTab: 'dashboard', viewMode: 'cards',
-    pratiche: [], avvocati: [], utenti: [], noteAggiornamento: [],
-    searchTerm: '', filterStato:'tutti', filterTipo:'tutti', filterPriorita:'tutti', filterAvvocato:'tutti',
-    showModal:false, showAvvocatoModal:false, showUtenteModal:false, showNoteModal:false,
-    showAlertModal:false, alertList:[],
+    user:null, activeTab:'dashboard', viewMode:'cards',
+    pratiche:[], avvocati:[], utenti:[], noteAggiornamento:[], alertStorico:[],
+    searchTerm:'', filterStato:'tutti', filterTipo:'tutti', filterPriorita:'tutti', filterAvvocato:'tutti',
+    showModal:false, showAvvocatoModal:false, showUtenteModal:false, showNoteModal:false, showAlertModal:false,
     editingPratica:null, editingAvvocato:null, editingUtente:null, viewingPratica:null,
-    successMessage:'',
-    formData: { cliente:'', tipo_pratica:'civile', autorita:'', descrizione:'', stato:'svolgimento',
+    alertList:[], successMessage:'',
+    formData:{ cliente:'', tipo_pratica:'civile', autorita:'', descrizione:'', stato:'svolgimento',
         data_apertura:today(), data_aggiornamento_attivita:today(), scadenza:'', timeline:'',
         priorita:'media', rgnr:'', avvocato:'', nota_aggiornamento:'', alert_giorni:'1' },
     avvForm:{ nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile' },
@@ -95,66 +84,78 @@ function isAdmin() { return state.user?.username === 'admin'; }
 
 function isPraticaScaduta(p) {
     if (!p.scadenza || p.stato==='fatto') return false;
-    return new Date(p.scadenza) <= new Date() && p.stato==='svolgimento';
+    return new Date(p.scadenza) < new Date(today()) && p.stato==='svolgimento';
 }
-
 function isPraticaInScadenza(p) {
     if (!p.scadenza || p.stato==='fatto' || !p.alert_giorni) return false;
-    const giorni = p.alert_giorni === '1' ? 3 : 10;
+    const giorni = p.alert_giorni==='1' ? 3 : 10;
     const diff = (new Date(p.scadenza) - new Date()) / (1000*60*60*24);
     return diff > 0 && diff <= giorni;
 }
 
-// ---- Alert giornaliero ----
+// Validazione date per non-admin
+function validaDataAvanti(nuovaData, dataAttuale) {
+    if (!nuovaData) return true;
+    if (!dataAttuale) return true;
+    return nuovaData >= dataAttuale;
+}
+
 function checkAlertGiornaliero() {
     const lastCheck = localStorage.getItem('sls_last_alert_check');
-    const todayStr = today();
-    if (lastCheck === todayStr) return; // già controllato oggi
-    localStorage.setItem('sls_last_alert_check', todayStr);
+    if (lastCheck === today()) return;
+    localStorage.setItem('sls_last_alert_check', today());
     eseguiCheckAlert();
 }
 
 function eseguiCheckAlert() {
     const alerts = [];
     state.pratiche.forEach(p => {
-        if (!p.scadenza || p.stato==='fatto' || !p.alert_giorni) return;
-        const giorni = p.alert_giorni === '1' ? 3 : 10;
+        if (!p.scadenza || p.stato==='fatto') return;
         const diff = Math.ceil((new Date(p.scadenza) - new Date()) / (1000*60*60*24));
-        if (diff > 0 && diff <= giorni) {
-            // mostra a admin sempre; mostra all'avvocato se è la sua pratica
-            if (isAdmin() || state.user?.nome_completo === p.avvocato) {
-                alerts.push({ pratica: p, diff, giorni });
+        // Alert scadenza imminente
+        if (p.alert_giorni) {
+            const giorni = p.alert_giorni==='1' ? 3 : 10;
+            if (diff > 0 && diff <= giorni) {
+                if (isAdmin() || state.user?.nome_completo === p.avvocato)
+                    alerts.push({ pratica:p, diff, tipo:'imminente' });
             }
+        }
+        // Alert scadenza già passata
+        if (diff <= 0 && p.stato==='svolgimento') {
+            if (isAdmin() || state.user?.nome_completo === p.avvocato)
+                alerts.push({ pratica:p, diff, tipo:'scaduta' });
         }
     });
     if (alerts.length > 0) {
         state.alertList = alerts;
         state.showAlertModal = true;
+        // Salva nello storico alert
+        salvaStorico(alerts);
     }
 }
 
-// Controllo immediato al login (indipendente dal giorno)
-function checkScadenzeLogin() {
-    const alerts = [];
-    state.pratiche.forEach(p => {
-        if (!p.scadenza || p.stato==='fatto' || !p.alert_giorni) return;
-        const giorni = p.alert_giorni === '1' ? 3 : 10;
-        const diff = Math.ceil((new Date(p.scadenza) - new Date()) / (1000*60*60*24));
-        if (diff > 0 && diff <= giorni) {
-            if (isAdmin() || state.user?.nome_completo === p.avvocato) {
-                alerts.push({ pratica: p, diff, giorni });
-            }
-        }
+function salvaStorico(alerts) {
+    const key = `sls_alert_storico_${state.user?.id}`;
+    let storico = [];
+    try { storico = JSON.parse(localStorage.getItem(key)||'[]'); } catch(e){}
+    alerts.forEach(a => {
+        storico.unshift({
+            data: today(),
+            cliente: a.pratica.cliente,
+            scadenza: a.pratica.scadenza,
+            avvocato: a.pratica.avvocato,
+            tipo: a.tipo,
+            diff: a.diff
+        });
     });
-    if (alerts.length > 0) {
-        state.alertList = alerts;
-        state.showAlertModal = true;
-    }
-    // scadute
-    const scadute = state.pratiche.filter(p => isPraticaScaduta(p));
-    if (scadute.length > 0 && isAdmin()) {
-        setTimeout(() => alert(`⚠️ ATTENZIONE: Ci sono ${scadute.length} pratica/e scaduta/e in svolgimento!`), 1500);
-    }
+    // Mantieni solo gli ultimi 50
+    storico = storico.slice(0, 50);
+    localStorage.setItem(key, JSON.stringify(storico));
+}
+
+function getStorico(avvocatoId) {
+    const key = `sls_alert_storico_${avvocatoId}`;
+    try { return JSON.parse(localStorage.getItem(key)||'[]'); } catch(e){ return []; }
 }
 
 async function loadAll() {
@@ -192,7 +193,7 @@ async function savePratica(p) {
         const cp = cleanPratica(p);
         let praticaId;
         if (cp.id) {
-            const { error } = await sb.from('pratiche').update(cp).eq('id', cp.id);
+            const { error } = await sb.from('pratiche').update(cp).eq('id',cp.id);
             if (error) throw error;
             praticaId = cp.id;
         } else {
@@ -203,9 +204,9 @@ async function savePratica(p) {
         }
         if (p.nota_aggiornamento?.trim()) {
             await sb.from('note_aggiornamento').insert([{
-                pratica_id: praticaId, data_nota: today(),
-                nota: p.nota_aggiornamento.trim(),
-                autore: state.user.nome_completo, autore_id: state.user.id
+                pratica_id:praticaId, data_nota:today(),
+                nota:p.nota_aggiornamento.trim(),
+                autore:state.user.nome_completo, autore_id:state.user.id
             }]);
         }
         await loadPratiche(); return true;
@@ -215,8 +216,8 @@ async function savePratica(p) {
 async function aggiungiNota(praticaId, nota) {
     try {
         const { error } = await sb.from('note_aggiornamento').insert([{
-            pratica_id: praticaId, data_nota: today(), nota,
-            autore: state.user.nome_completo, autore_id: state.user.id
+            pratica_id:praticaId, data_nota:today(), nota,
+            autore:state.user.nome_completo, autore_id:state.user.id
         }]);
         if (error) throw error;
         await loadNote(praticaId); return true;
@@ -225,7 +226,7 @@ async function aggiungiNota(praticaId, nota) {
 
 async function deletePratica(id) {
     if (!isAdmin()) { alert('Solo admin può eliminare pratiche'); return; }
-    const { error } = await sb.from('pratiche').delete().eq('id', id);
+    const { error } = await sb.from('pratiche').delete().eq('id',id);
     if (!error) { await loadPratiche(); showSuccess('Pratica eliminata!'); }
     else alert('Errore: '+error.message);
 }
@@ -234,7 +235,7 @@ async function saveAvvocato(avv) {
     try {
         avv.nome_completo = avv.nome+' '+avv.cognome;
         if (avv.id) {
-            const { error } = await sb.from('avvocati').update(avv).eq('id', avv.id);
+            const { error } = await sb.from('avvocati').update(avv).eq('id',avv.id);
             if (error) throw error;
         } else {
             avv.data_creazione = today();
@@ -251,7 +252,7 @@ async function deleteAvvocato(id) {
     if (state.pratiche.filter(p=>p.avvocato===nome).length>0) {
         alert('Impossibile eliminare: ci sono pratiche assegnate!'); return;
     }
-    const { error } = await sb.from('avvocati').delete().eq('id', id);
+    const { error } = await sb.from('avvocati').delete().eq('id',id);
     if (!error) { await loadAvvocati(); showSuccess('Avvocato eliminato!'); }
     else alert('Errore: '+error.message);
 }
@@ -260,7 +261,7 @@ async function saveUtente(u) {
     try {
         if (u.id) {
             const upd={...u}; if (!upd.password||upd.password==='') delete upd.password;
-            const { error } = await sb.from('utenti').update(upd).eq('id', u.id);
+            const { error } = await sb.from('utenti').update(upd).eq('id',u.id);
             if (error) throw error;
         } else {
             const { error } = await sb.from('utenti').insert([u]);
@@ -272,33 +273,32 @@ async function saveUtente(u) {
 
 async function deleteUtente(id) {
     if (id===state.user.id) { alert('Non puoi eliminare il tuo account!'); return; }
-    const { error } = await sb.from('utenti').delete().eq('id', id);
+    const { error } = await sb.from('utenti').delete().eq('id',id);
     if (!error) { await loadUtenti(); showSuccess('Utente eliminato!'); }
     else alert('Errore: '+error.message);
 }
 
 async function login(username, password) {
     const { data, error } = await sb.from('utenti').select('*')
-        .eq('username', username).eq('password', password).eq('attivo', true).single();
+        .eq('username',username).eq('password',password).eq('attivo',true).single();
     if (error||!data) { alert('Username o password errati!'); return false; }
     state.user = data;
     await loadAll();
     checkAlertGiornaliero();
-    checkScadenzeLogin();
+    eseguiCheckAlert();
     render(); return true;
 }
 
 function logout() { state.user=null; state.activeTab='dashboard'; render(); }
 
-// ---- CSV Export ----
 function esportaCSV(nomeFile, righe) {
     if (!righe||righe.length===0) { alert('Nessun dato!'); return; }
     const headers = Object.keys(righe[0]);
-    const csv = [headers.join(';'), ...righe.map(r => headers.map(h => {
-        const v = r[h]===null||r[h]===undefined ? '' : String(r[h]);
+    const csv = [headers.join(';'), ...righe.map(r=>headers.map(h=>{
+        const v=r[h]===null||r[h]===undefined?'':String(r[h]);
         return '"'+v.replace(/"/g,'""')+'"';
     }).join(';'))].join('\n');
-    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+    const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href=url; a.download=nomeFile;
@@ -307,24 +307,24 @@ function esportaCSV(nomeFile, righe) {
 }
 
 async function esportaTuttiCSV() {
-    const [note, utenti] = await Promise.all([
+    const [note,utenti] = await Promise.all([
         sb.from('note_aggiornamento').select('*').order('data_nota',{ascending:false}),
         sb.from('utenti').select('id,username,nome_completo,email,ruolo,attivo')
     ]);
-    esportaCSV(`pratiche-${today()}.csv`, state.pratiche);
+    esportaCSV(`pratiche-${today()}.csv`,state.pratiche);
     await new Promise(r=>setTimeout(r,300));
-    esportaCSV(`avvocati-${today()}.csv`, state.avvocati);
+    esportaCSV(`avvocati-${today()}.csv`,state.avvocati);
     await new Promise(r=>setTimeout(r,300));
-    if (!utenti.error&&utenti.data?.length) { esportaCSV(`utenti-${today()}.csv`, utenti.data); await new Promise(r=>setTimeout(r,300)); }
-    if (!note.error&&note.data?.length) esportaCSV(`note-${today()}.csv`, note.data);
-    showSuccess('CSV esportati! Controlla i download.');
+    if (!utenti.error&&utenti.data?.length) { esportaCSV(`utenti-${today()}.csv`,utenti.data); await new Promise(r=>setTimeout(r,300)); }
+    if (!note.error&&note.data?.length) esportaCSV(`note-${today()}.csv`,note.data);
+    showSuccess('CSV esportati!');
 }
 
 async function esportaDati() {
-    const data = { pratiche:state.pratiche, avvocati:state.avvocati, dataEsportazione:new Date().toISOString(), versione:'2.0' };
-    const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const data={pratiche:state.pratiche,avvocati:state.avvocati,dataEsportazione:new Date().toISOString(),versione:'2.0'};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
     a.href=url; a.download=`sls-backup-${today()}.json`;
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
@@ -337,53 +337,47 @@ function importaDati(e) {
     reader.onload=async(ev)=>{
         try {
             const data=JSON.parse(ev.target.result);
-            if(!confirm(`Importare ${data.pratiche?.length||0} pratiche e ${data.avvocati?.length||0} avvocati?`)) return;
+            if(!confirm(`Importare ${data.pratiche?.length||0} pratiche?`)) return;
             for(const a of (data.avvocati||[])) { delete a.id; delete a.created_at; await sb.from('avvocati').insert([a]); }
             for(const p of (data.pratiche||[])) { delete p.id; delete p.created_at; await sb.from('pratiche').insert([p]); }
-            await loadAll(); showSuccess(`Importati!`);
+            await loadAll(); showSuccess('Importati!');
         } catch(er) { alert('Errore: '+er.message); }
     };
     reader.readAsText(file); e.target.value='';
 }
 
 function stampa() { window.print(); }
-
 function showSuccess(msg) {
     state.successMessage=msg; render();
-    setTimeout(()=>{ state.successMessage=''; render(); }, 3000);
+    setTimeout(()=>{ state.successMessage=''; render(); },3000);
 }
 
-function getStatoBadge(s) {
-    return {svolgimento:'stato-svolgimento',fatto:'stato-fatto',bloccato:'stato-bloccato'}[s]||'stato-svolgimento';
-}
+function getStatoBadge(s) { return {svolgimento:'stato-svolgimento',fatto:'stato-fatto',bloccato:'stato-bloccato'}[s]||'stato-svolgimento'; }
 function getStatoIcon(s) { return s==='fatto'?'✅':s==='bloccato'?'🚫':'🔄'; }
-function getPrioritaBadge(p) {
-    return {bassa:'priorita-bassa',media:'priorita-media',alta:'priorita-alta'}[p]||'priorita-media';
-}
+function getPrioritaBadge(p) { return {bassa:'priorita-bassa',media:'priorita-media',alta:'priorita-alta'}[p]||'priorita-media'; }
 
 function getAvvStats(nome) {
     const ps=state.pratiche.filter(p=>p.avvocato===nome);
-    return { totali:ps.length, svolgimento:ps.filter(p=>p.stato==='svolgimento').length,
-        fatto:ps.filter(p=>p.stato==='fatto').length, bloccato:ps.filter(p=>p.stato==='bloccato').length };
+    return {totali:ps.length,svolgimento:ps.filter(p=>p.stato==='svolgimento').length,
+        fatto:ps.filter(p=>p.stato==='fatto').length,bloccato:ps.filter(p=>p.stato==='bloccato').length};
 }
 
 function getFiltered() {
-    return state.pratiche.filter(p => {
+    return state.pratiche.filter(p=>{
         const s=state.searchTerm.toLowerCase();
         const match=p.cliente.toLowerCase().includes(s)||p.descrizione.toLowerCase().includes(s)||(p.rgnr||'').toLowerCase().includes(s);
-        return match &&
-            (state.filterStato==='tutti'||p.stato===state.filterStato) &&
-            (state.filterTipo==='tutti'||p.tipo_pratica===state.filterTipo) &&
-            (state.filterPriorita==='tutti'||p.priorita===state.filterPriorita) &&
+        return match&&(state.filterStato==='tutti'||p.stato===state.filterStato)&&
+            (state.filterTipo==='tutti'||p.tipo_pratica===state.filterTipo)&&
+            (state.filterPriorita==='tutti'||p.priorita===state.filterPriorita)&&
             (state.filterAvvocato==='tutti'||p.avvocato===state.filterAvvocato);
     });
 }
 
-function fmtDate(d) { return d ? new Date(d).toLocaleDateString('it-IT') : ''; }
+function fmtDate(d) { return d?new Date(d).toLocaleDateString('it-IT'):''; }
 
 function render() {
     if (!state.user) { renderLogin(); return; }
-    const stats = {
+    const stats={
         totali:state.pratiche.length,
         svolgimento:state.pratiche.filter(p=>p.stato==='svolgimento').length,
         fatto:state.pratiche.filter(p=>p.stato==='fatto').length,
@@ -391,8 +385,8 @@ function render() {
         scadute:state.pratiche.filter(p=>isPraticaScaduta(p)).length,
         inScadenza:state.pratiche.filter(p=>isPraticaInScadenza(p)).length
     };
-    const filtered = getFiltered();
-    const tabs = [
+    const filtered=getFiltered();
+    const tabs=[
         {id:'dashboard',label:'Dashboard',icon:'📊',show:true},
         {id:'pratiche',label:'Pratiche',icon:'📁',show:true},
         {id:'avvocati',label:'Avvocati',icon:'👥',show:true},
@@ -400,7 +394,7 @@ function render() {
         {id:'gestione',label:'Gestione Dati',icon:'🗄️',show:isAdmin()}
     ].filter(t=>t.show);
 
-    document.getElementById('app').innerHTML = `
+    document.getElementById('app').innerHTML=`
     <div class="max-w-7xl mx-auto p-4 w-full print-full">
         <div class="bg-white rounded-2xl shadow-2xl mb-6 overflow-hidden no-print">
             <div class="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-8 relative">
@@ -422,22 +416,14 @@ function render() {
                         ${state.activeTab===t.id?'bg-white text-indigo-600 border-b-4 border-indigo-600':'text-gray-600 hover:bg-gray-100'}">
                         ${t.icon} ${t.label}
                     </button>`).join('')}
-                ${stats.inScadenza>0?`
-                <button onclick="state.showAlertModal=true;render()" class="ml-auto flex items-center gap-2 px-6 py-4 font-semibold text-orange-600 hover:bg-orange-50 whitespace-nowrap animate-pulse">
-                    🔔 ${stats.inScadenza} in scadenza
+                ${stats.inScadenza>0||stats.scadute>0?`
+                <button onclick="state.showAlertModal=true;render()" class="ml-auto flex items-center gap-2 px-6 py-4 font-semibold text-orange-600 hover:bg-orange-50 whitespace-nowrap animate-pulse no-print">
+                    🔔 ${stats.inScadenza+stats.scadute} alert
                 </button>`:''}
             </div>
         </div>
 
-        ${state.successMessage?`
-        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg mb-6 shadow-lg no-print">
-            <p class="font-semibold">✅ ${state.successMessage}</p>
-        </div>`:''}
-
-        ${stats.scadute>0?`
-        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6 shadow-lg no-print animate-pulse">
-            <p class="font-semibold">⚠️ ATTENZIONE: ${stats.scadute} pratica/e scaduta/e in svolgimento!</p>
-        </div>`:''}
+        ${state.successMessage?`<div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg mb-6 shadow-lg no-print"><p class="font-semibold">✅ ${state.successMessage}</p></div>`:''}
 
         ${state.activeTab==='dashboard'?renderDashboard(stats):''}
         ${state.activeTab==='pratiche'?renderPratiche(filtered):''}
@@ -454,11 +440,11 @@ function render() {
 }
 
 function renderLogin() {
-    document.getElementById('app').innerHTML = `
+    document.getElementById('app').innerHTML=`
     <div class="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
             <div class="text-center mb-8">
-                <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="SLS Studio Legale" class="w-[28rem] h-[28rem] mx-auto mb-4 object-contain">
+                <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="SLS" class="w-[28rem] h-[28rem] mx-auto mb-4 object-contain">
                 <h1 class="text-3xl font-bold text-gray-800 mb-2">SLS Studio Legale</h1>
                 <p class="text-gray-600">Sistema di Gestione Pratiche</p>
             </div>
@@ -469,7 +455,7 @@ function renderLogin() {
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-                    <input type="password" id="loginPassword" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="La tua password" onkeypress="if(event.key==='Enter') doLogin()"/>
+                    <input type="password" id="loginPassword" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="La tua password" onkeypress="if(event.key==='Enter')doLogin()"/>
                 </div>
                 <button onclick="doLogin()" class="w-full px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">🔐 Accedi</button>
             </div>
@@ -478,16 +464,14 @@ function renderLogin() {
 }
 
 function renderDashboard(stats) {
-    const inScadenza3 = state.pratiche.filter(p=>p.alert_giorni==='1'&&isPraticaInScadenza(p)).length;
-    const inScadenza10 = state.pratiche.filter(p=>p.alert_giorni==='2'&&isPraticaInScadenza(p)).length;
     return `
     <div class="space-y-6">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             ${[
                 {label:'Totale Pratiche',val:stats.totali,icon:'📁',color:'indigo'},
                 {label:'In Svolgimento',val:stats.svolgimento,icon:'🔄',color:'yellow'},
-                {label:'Fatto',val:stats.fatto,icon:'✅',color:'green'},
-                {label:'Bloccato',val:stats.bloccato,icon:'🚫',color:'red'}
+                {label:'Completate',val:stats.fatto,icon:'✅',color:'green'},
+                {label:'Bloccate',val:stats.bloccato,icon:'🚫',color:'red'}
             ].map(s=>`
                 <div class="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
                     <div class="flex items-center justify-between">
@@ -496,17 +480,17 @@ function renderDashboard(stats) {
                     </div>
                 </div>`).join('')}
         </div>
-        ${stats.inScadenza>0?`
+        ${stats.scadute>0||stats.inScadenza>0?`
         <div class="bg-white rounded-xl p-6 shadow-lg">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">🔔 Pratiche in Scadenza</h3>
+            <h3 class="text-lg font-bold text-gray-800 mb-4">🔔 Situazione Scadenze</h3>
             <div class="grid grid-cols-2 gap-4">
-                <div class="bg-orange-50 rounded-xl p-4 border-2 border-orange-200 text-center">
-                    <p class="text-3xl font-bold text-orange-600">${inScadenza3}</p>
-                    <p class="text-sm text-gray-600">Alert entro 3 giorni</p>
+                <div class="bg-red-50 rounded-xl p-4 border-2 border-red-200 text-center cursor-pointer" onclick="state.showAlertModal=true;render()">
+                    <p class="text-3xl font-bold text-red-600">${stats.scadute}</p>
+                    <p class="text-sm text-gray-600">Pratiche scadute</p>
                 </div>
-                <div class="bg-yellow-50 rounded-xl p-4 border-2 border-yellow-200 text-center">
-                    <p class="text-3xl font-bold text-yellow-600">${inScadenza10}</p>
-                    <p class="text-sm text-gray-600">Alert entro 10 giorni</p>
+                <div class="bg-orange-50 rounded-xl p-4 border-2 border-orange-200 text-center cursor-pointer" onclick="state.showAlertModal=true;render()">
+                    <p class="text-3xl font-bold text-orange-600">${stats.inScadenza}</p>
+                    <p class="text-sm text-gray-600">In scadenza</p>
                 </div>
             </div>
         </div>`:''}
@@ -514,7 +498,7 @@ function renderDashboard(stats) {
 }
 
 function renderPratiche(filtered) {
-    const avvocatiList = ['tutti',...new Set(state.pratiche.map(p=>p.avvocato).filter(Boolean))];
+    const avvocatiList=['tutti',...new Set(state.pratiche.map(p=>p.avvocato).filter(Boolean))];
     return `
     <div class="space-y-6">
         <div class="bg-white rounded-xl shadow-lg p-6 no-print">
@@ -529,30 +513,30 @@ function renderPratiche(filtered) {
                             class="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="state.viewMode='cards';render()" class="px-4 py-3 ${state.viewMode==='cards'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg transition-all">📋 Card</button>
-                        <button onclick="state.viewMode='table';render()" class="px-4 py-3 ${state.viewMode==='table'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg transition-all">📊 Tabella</button>
+                        <button onclick="state.viewMode='cards';render()" class="px-4 py-3 ${state.viewMode==='cards'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg">📋 Card</button>
+                        <button onclick="state.viewMode='table';render()" class="px-4 py-3 ${state.viewMode==='table'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg">📊 Tabella</button>
                     </div>
-                    ${isAdmin()?`<button onclick="openPraticaModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all whitespace-nowrap">➕ Nuova Pratica</button>`:''}
+                    <button onclick="openPraticaModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg whitespace-nowrap">➕ Nuova Pratica</button>
                 </div>
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    <select onchange="state.filterStato=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none text-sm">
-                        <option value="tutti" ${state.filterStato==='tutti'?'selected':''}>Tutti stati</option>
+                    <select onchange="state.filterStato=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm">
+                        <option value="tutti">Tutti stati</option>
                         <option value="svolgimento" ${state.filterStato==='svolgimento'?'selected':''}>Svolgimento</option>
                         <option value="fatto" ${state.filterStato==='fatto'?'selected':''}>Fatto</option>
                         <option value="bloccato" ${state.filterStato==='bloccato'?'selected':''}>Bloccato</option>
                     </select>
-                    <select onchange="state.filterTipo=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none text-sm">
-                        <option value="tutti" ${state.filterTipo==='tutti'?'selected':''}>Tutti i tipi</option>
+                    <select onchange="state.filterTipo=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm">
+                        <option value="tutti">Tutti i tipi</option>
                         ${TIPI_PRATICA.map(t=>`<option value="${t}" ${state.filterTipo===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
                     </select>
-                    <select onchange="state.filterPriorita=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none text-sm">
-                        <option value="tutti" ${state.filterPriorita==='tutti'?'selected':''}>Tutte priorità</option>
+                    <select onchange="state.filterPriorita=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm">
+                        <option value="tutti">Tutte priorità</option>
                         <option value="bassa">Bassa</option><option value="media">Media</option><option value="alta">Alta</option>
                     </select>
-                    <select onchange="state.filterAvvocato=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none text-sm">
+                    <select onchange="state.filterAvvocato=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm">
                         ${avvocatiList.map(a=>`<option value="${a}" ${state.filterAvvocato===a?'selected':''}>${a==='tutti'?'Tutti avvocati':a}</option>`).join('')}
                     </select>
-                    <button onclick="stampa()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all text-sm">🖨️ Stampa</button>
+                    <button onclick="stampa()" class="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm">🖨️ Stampa</button>
                 </div>
             </div>
         </div>
@@ -568,8 +552,9 @@ function renderPraticheCards(filtered) {
         ${filtered.length>0?filtered.map(p=>{
             const scaduta=isPraticaScaduta(p);
             const inScad=isPraticaInScadenza(p);
+            const fatto=p.stato==='fatto';
             return `
-            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all ${scaduta?'scaduta':inScad?'border-l-4 border-orange-400':''}">
+            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all ${scaduta?'scaduta':inScad?'border-l-4 border-orange-400':''} ${fatto?'pratica-fatto':''}">
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div class="flex-1">
                         <div class="flex items-center gap-2 mb-3 flex-wrap">
@@ -579,9 +564,10 @@ function renderPraticheCards(filtered) {
                             ${p.autorita?`<span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">🏛️ ${p.autorita}</span>`:''}
                             ${p.rgnr?`<span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">RGNR: ${p.rgnr}</span>`:''}
                             ${inScad?`<span class="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold animate-pulse">🔔 Scade tra ${Math.ceil((new Date(p.scadenza)-new Date())/(1000*60*60*24))}gg</span>`:''}
+                            ${scaduta?`<span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">⚠️ SCADUTA</span>`:''}
                         </div>
                         <h3 class="text-xl font-bold text-gray-800 mb-1">${p.cliente}</h3>
-                        <p class="text-gray-600 mb-2">${p.descrizione}</p>
+                        <p class="text-gray-600 mb-2 desc-text">${p.descrizione}</p>
                         <div class="flex flex-wrap gap-4 text-sm text-gray-500 items-center">
                             <span class="flex items-center gap-1">${avvAvatar(p.avvocato)}<span class="font-semibold">${p.avvocato||'-'}</span></span>
                             <span>📅 ${fmtDate(p.data_apertura)}</span>
@@ -592,11 +578,11 @@ function renderPraticheCards(filtered) {
                         </div>
                     </div>
                     <div class="flex gap-2 no-print">
-                        <button onclick="viewPratica('${p.id}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">👁️ Vedi</button>
+                        <button onclick="viewPratica('${p.id}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600">👁️ Vedi</button>
                         ${isAdmin()?`
-                        <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">✏️</button>
-                        <button onclick="confirmDeletePratica('${p.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">🗑️</button>`:`
-                        <button onclick="openNoteModal('${p.id}')" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">📝 Nota</button>`}
+                        <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️</button>
+                        <button onclick="confirmDeletePratica('${p.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">🗑️</button>`:`
+                        <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️</button>`}
                     </div>
                 </div>
             </div>`;
@@ -628,9 +614,13 @@ function renderPraticheTable(filtered) {
                 ${filtered.map(p=>{
                     const scaduta=isPraticaScaduta(p);
                     const inScad=isPraticaInScadenza(p);
+                    const fatto=p.stato==='fatto';
                     return `
-                    <tr class="border-b hover:bg-gray-50 ${scaduta?'bg-red-50':inScad?'bg-orange-50':''}">
-                        <td class="px-4 py-3"><div class="font-semibold">${p.cliente}</div><div class="text-xs text-gray-500">${p.descrizione.substring(0,40)}...</div></td>
+                    <tr class="border-b hover:bg-gray-50 ${scaduta?'bg-red-50':inScad?'bg-orange-50':fatto?'bg-green-50 opacity-70':''}">
+                        <td class="px-4 py-3">
+                            <div class="font-semibold ${fatto?'line-through text-gray-400':''}">${p.cliente}</div>
+                            <div class="text-xs text-gray-500 ${fatto?'line-through':''}">${p.descrizione.substring(0,40)}...</div>
+                        </td>
                         <td class="px-4 py-3 text-sm">${p.tipo_pratica}</td>
                         <td class="px-4 py-3 text-sm">${p.autorita||'-'}</td>
                         <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatoBadge(p.stato)}">${p.stato}</span></td>
@@ -640,8 +630,8 @@ function renderPraticheTable(filtered) {
                         <td class="px-4 py-3 no-print">
                             <div class="flex gap-1">
                                 <button onclick="viewPratica('${p.id}')" class="px-2 py-1 bg-green-500 text-white rounded text-xs">👁️</button>
-                                ${isAdmin()?`<button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">✏️</button>`
-                                :`<button onclick="openNoteModal('${p.id}')" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">📝</button>`}
+                                <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">✏️</button>
+                                ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="px-2 py-1 bg-red-500 text-white rounded text-xs">🗑️</button>`:''}
                             </div>
                         </td>
                     </tr>`;
@@ -658,14 +648,14 @@ function renderAvvocati() {
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">👥 Archivio Avvocati</h2>
                 <div class="flex gap-2">
-                    <button onclick="stampa()" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 no-print">🖨️ Stampa</button>
-                    ${isAdmin()?`<button onclick="openAvvocatoModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg no-print">➕ Nuovo</button>`:''}
+                    <button onclick="stampa()" class="px-6 py-3 bg-gray-600 text-white rounded-lg no-print">🖨️ Stampa</button>
+                    ${isAdmin()?`<button onclick="openAvvocatoModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold no-print">➕ Nuovo</button>`:''}
                 </div>
             </div>
-            ${state.avvocati.length>0?`
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 ${state.avvocati.map(a=>{
                     const st=getAvvStats(a.nome_completo);
+                    const storico=getStorico(state.utenti.find(u=>u.nome_completo===a.nome_completo)?.id);
                     return `
                     <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border-2 border-indigo-100">
                         <div class="flex items-center gap-3 mb-4">
@@ -687,6 +677,16 @@ function renderAvvocati() {
                                 <div><p class="text-lg font-bold text-red-600">${st.bloccato}</p><p class="text-xs text-gray-500">Bloccato</p></div>
                             </div>
                         </div>
+                        ${storico.length>0?`
+                        <div class="mb-4">
+                            <p class="text-xs font-semibold text-gray-500 mb-2">📋 Storico Alert (ultimi ${Math.min(storico.length,3)})</p>
+                            <div class="space-y-1 max-h-24 overflow-y-auto">
+                                ${storico.slice(0,3).map(s=>`
+                                    <div class="text-xs p-2 rounded ${s.tipo==='scaduta'?'bg-red-50 text-red-700':'bg-orange-50 text-orange-700'}">
+                                        ${s.tipo==='scaduta'?'⚠️':'🔔'} ${s.cliente} — scad. ${fmtDate(s.scadenza)} <span class="text-gray-400">(${fmtDate(s.data)})</span>
+                                    </div>`).join('')}
+                            </div>
+                        </div>`:''}
                         ${isAdmin()?`
                         <div class="flex gap-2 no-print">
                             <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️ Modifica</button>
@@ -694,7 +694,7 @@ function renderAvvocati() {
                         </div>`:''}
                     </div>`;
                 }).join('')}
-            </div>`:`<div class="text-center py-12"><div class="text-6xl mb-4">👥</div><p class="text-gray-400">Nessun avvocato in archivio</p></div>`}
+            </div>
         </div>
     </div>`;
 }
@@ -705,12 +705,12 @@ function renderUtenti() {
         <div class="bg-white rounded-xl shadow-lg p-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">🔐 Gestione Utenti</h2>
-                <button onclick="openUtenteModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg">➕ Nuovo Utente</button>
+                <button onclick="openUtenteModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">➕ Nuovo</button>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 ${state.utenti.map(u=>`
                     <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-100">
-                        <div class="flex justify-between items-start mb-4">
+                        <div class="flex justify-between items-start mb-3">
                             <div>
                                 <h3 class="text-xl font-bold text-gray-800">${u.nome_completo}</h3>
                                 <p class="text-sm ${u.ruolo==='amministratore'?'text-red-600':'text-indigo-600'} font-semibold">${u.ruolo==='amministratore'?'👑 Amministratore':'⚖️ Avvocato'}</p>
@@ -723,8 +723,8 @@ function renderUtenti() {
                             <p class="text-sm ${u.attivo?'text-green-600':'text-red-600'}">${u.attivo?'✅ Attivo':'❌ Disattivato'}</p>
                         </div>
                         <div class="flex gap-2">
-                            <button onclick="openUtenteModal(${JSON.stringify(u).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️ Modifica</button>
-                            <button onclick="confirmDeleteUtente('${u.id}')" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">🗑️ Elimina</button>
+                            <button onclick="openUtenteModal(${JSON.stringify(u).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg">✏️ Modifica</button>
+                            <button onclick="confirmDeleteUtente('${u.id}')" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg">🗑️ Elimina</button>
                         </div>
                     </div>`).join('')}
             </div>
@@ -739,38 +739,28 @@ function renderGestione() {
             <h2 class="text-2xl font-bold mb-6 text-gray-800">🗄️ Gestione Database</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border-2 border-green-200">
-                    <div class="flex items-center gap-3 mb-4">
-                        <span class="text-4xl">📊</span>
-                        <div><h3 class="text-xl font-bold text-gray-800">Esporta CSV</h3><p class="text-sm text-gray-600">File Excel-compatibili</p></div>
-                    </div>
+                    <div class="flex items-center gap-3 mb-4"><span class="text-4xl">📊</span><div><h3 class="text-xl font-bold">Esporta CSV</h3><p class="text-sm text-gray-600">File Excel-compatibili</p></div></div>
                     <div class="bg-white rounded-lg p-4 mb-4 space-y-1">
-                        <p class="text-sm text-gray-700">📁 <strong>pratiche.csv</strong> — ${state.pratiche.length} record</p>
-                        <p class="text-sm text-gray-700">👥 <strong>avvocati.csv</strong> — ${state.avvocati.length} record</p>
-                        <p class="text-sm text-gray-700">🔐 <strong>utenti.csv</strong></p>
-                        <p class="text-sm text-gray-700">📝 <strong>note.csv</strong></p>
+                        <p class="text-sm">📁 <strong>pratiche.csv</strong> — ${state.pratiche.length} record</p>
+                        <p class="text-sm">👥 <strong>avvocati.csv</strong> — ${state.avvocati.length} record</p>
+                        <p class="text-sm">🔐 <strong>utenti.csv</strong></p>
+                        <p class="text-sm">📝 <strong>note.csv</strong></p>
                     </div>
-                    <button onclick="esportaTuttiCSV()" class="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg mb-3">📊 Esporta tutti i CSV</button>
+                    <button onclick="esportaTuttiCSV()" class="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold mb-3">📊 Esporta tutti i CSV</button>
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="esportaCSV('pratiche-${today()}.csv',state.pratiche)" class="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-semibold hover:bg-green-200">📁 Pratiche</button>
-                        <button onclick="esportaCSV('avvocati-${today()}.csv',state.avvocati)" class="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-semibold hover:bg-green-200">👥 Avvocati</button>
+                        <button onclick="esportaCSV('pratiche-${today()}.csv',state.pratiche)" class="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-semibold">📁 Pratiche</button>
+                        <button onclick="esportaCSV('avvocati-${today()}.csv',state.avvocati)" class="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-semibold">👥 Avvocati</button>
                     </div>
                 </div>
                 <div class="space-y-4">
                     <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-200">
-                        <div class="flex items-center gap-3 mb-4">
-                            <span class="text-4xl">📥</span>
-                            <div><h3 class="text-xl font-bold text-gray-800">Backup JSON</h3><p class="text-sm text-gray-600">File di backup completo</p></div>
-                        </div>
-                        <button onclick="esportaDati()" class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg">📥 Esporta JSON</button>
+                        <div class="flex items-center gap-3 mb-4"><span class="text-4xl">📥</span><div><h3 class="text-xl font-bold">Backup JSON</h3><p class="text-sm text-gray-600">File di backup completo</p></div></div>
+                        <button onclick="esportaDati()" class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold">📥 Esporta JSON</button>
                     </div>
                     <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-6 border-2 border-orange-200">
-                        <div class="flex items-center gap-3 mb-4">
-                            <span class="text-4xl">📤</span>
-                            <div><h3 class="text-xl font-bold text-gray-800">Importa Dati</h3><p class="text-sm text-gray-600">Ripristina da backup</p></div>
-                        </div>
-                        <label class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg font-semibold hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer">
-                            📤 Seleziona File
-                            <input type="file" accept=".json" onchange="importaDati(event)" class="hidden"/>
+                        <div class="flex items-center gap-3 mb-4"><span class="text-4xl">📤</span><div><h3 class="text-xl font-bold">Importa Dati</h3><p class="text-sm text-gray-600">Ripristina da backup</p></div></div>
+                        <label class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg font-semibold flex items-center justify-center gap-2 cursor-pointer">
+                            📤 Seleziona File <input type="file" accept=".json" onchange="importaDati(event)" class="hidden"/>
                         </label>
                     </div>
                 </div>
@@ -780,11 +770,18 @@ function renderGestione() {
 }
 
 function renderModalPratica() {
+    const isNuova = !state.editingPratica;
+    const origScadenza = state.editingPratica?.scadenza || '';
+    const origAggAttivita = state.editingPratica?.data_aggiornamento_attivita || '';
+    const origApertura = state.editingPratica?.data_apertura || today();
+    const minScadenza = !isAdmin() && origScadenza ? origScadenza : '';
+    const minAggAttivita = !isAdmin() && origAggAttivita ? origAggAttivita : '';
+
     return `
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
         <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${state.editingPratica?'✏️ Modifica Pratica':'➕ Nuova Pratica'}</h2>
+                <h2 class="text-2xl font-bold">${isNuova?'➕ Nuova Pratica':'✏️ Modifica Pratica'}</h2>
                 <button onclick="state.showModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
@@ -842,55 +839,55 @@ function renderModalPratica() {
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Data Apertura *</label>
-                        <input type="date" value="${state.formData.data_apertura}" oninput="state.formData.data_apertura=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
+                        <input type="date" value="${state.formData.data_apertura}"
+                            ${!isAdmin()&&!isNuova?'disabled':''}
+                            oninput="state.formData.data_apertura=this.value"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${!isAdmin()&&!isNuova?'bg-gray-100 cursor-not-allowed':''}"/>
+                        ${!isAdmin()&&!isNuova?'<p class="text-xs text-gray-400 mt-1">Non modificabile</p>':''}
                     </div>
                 </div>
                 <div class="grid grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Scadenza</label>
-                        <input type="date" value="${state.formData.scadenza||''}" oninput="state.formData.scadenza=this.value"
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Scadenza ${!isAdmin()&&origScadenza?'(solo in avanti)':''}</label>
+                        <input type="date" value="${state.formData.scadenza||''}"
+                            ${minScadenza?`min="${minScadenza}"`:''}
+                            oninput="state.formData.scadenza=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
+                        ${!isAdmin()&&origScadenza?`<p class="text-xs text-orange-500 mt-1">⚠️ Non puoi retrodatare</p>`:''}
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Timeline</label>
-                        <input type="date" value="${state.formData.timeline||''}" oninput="state.formData.timeline=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Agg.to Attività</label>
-                        <input type="date" value="${state.formData.data_aggiornamento_attivita||today()}" oninput="state.formData.data_aggiornamento_attivita=this.value"
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Agg.to Attività ${!isAdmin()&&origAggAttivita?'(solo in avanti)':''}</label>
+                        <input type="date" value="${state.formData.data_aggiornamento_attivita||today()}"
+                            ${minAggAttivita?`min="${minAggAttivita}"`:''}
+                            oninput="state.formData.data_aggiornamento_attivita=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none bg-blue-50"/>
+                        ${!isAdmin()&&origAggAttivita?`<p class="text-xs text-orange-500 mt-1">⚠️ Non puoi retrodatare</p>`:''}
                     </div>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">🔔 Alert Scadenza</label>
                     <div class="grid grid-cols-3 gap-3">
-                        <label class="flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${state.formData.alert_giorni===''?'border-gray-400 bg-gray-50':'border-gray-200'}">
-                            <input type="radio" name="alertGiorni" value="" ${state.formData.alert_giorni===''?'checked':''} onchange="state.formData.alert_giorni=this.value;render()"/>
-                            <span class="text-sm font-semibold text-gray-600">Nessuno</span>
-                        </label>
-                        <label class="flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${state.formData.alert_giorni==='1'?'border-orange-400 bg-orange-50':'border-gray-200'}">
-                            <input type="radio" name="alertGiorni" value="1" ${state.formData.alert_giorni==='1'?'checked':''} onchange="state.formData.alert_giorni=this.value;render()"/>
-                            <span class="text-sm font-semibold text-orange-700">⚡ 3 giorni prima</span>
-                        </label>
-                        <label class="flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${state.formData.alert_giorni==='2'?'border-yellow-400 bg-yellow-50':'border-gray-200'}">
-                            <input type="radio" name="alertGiorni" value="2" ${state.formData.alert_giorni==='2'?'checked':''} onchange="state.formData.alert_giorni=this.value;render()"/>
-                            <span class="text-sm font-semibold text-yellow-700">🕐 10 giorni prima</span>
-                        </label>
+                        ${[['','Nessuno','gray'],['1','⚡ 3 giorni prima','orange'],['2','🕐 10 giorni prima','yellow']].map(([v,l,c])=>`
+                        <label class="flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${state.formData.alert_giorni===v?`border-${c}-400 bg-${c}-50`:'border-gray-200'}">
+                            <input type="radio" name="alertGiorni" value="${v}" ${state.formData.alert_giorni===v?'checked':''} onchange="state.formData.alert_giorni=this.value;render()"/>
+                            <span class="text-sm font-semibold text-${c==='gray'?'gray':'${c}'}-700">${l}</span>
+                        </label>`).join('')}
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">📝 Nota Aggiornamento</label>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        📝 Nota Aggiornamento
+                        ${!isAdmin()&&!isNuova?'<span class="text-red-500">* obbligatoria se modifichi date</span>':''}
+                    </label>
                     <textarea oninput="state.formData.nota_aggiornamento=this.value" rows="3"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"
                         placeholder="Questa nota verrà aggiunta allo storico...">${state.formData.nota_aggiornamento||''}</textarea>
                 </div>
                 <div class="flex gap-3 pt-2">
                     <button onclick="submitPratica()" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg">
-                        💾 ${state.editingPratica?'Aggiorna':'Salva'}
+                        💾 ${isNuova?'Salva':'Aggiorna'}
                     </button>
-                    <button onclick="state.showModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">Annulla</button>
+                    <button onclick="state.showModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold">Annulla</button>
                 </div>
             </div>
         </div>
@@ -902,37 +899,27 @@ function renderModalAvvocato() {
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${state.editingAvvocato?'✏️ Modifica Avvocato':'➕ Nuovo Avvocato'}</h2>
+                <h2 class="text-2xl font-bold">${state.editingAvvocato?'✏️ Modifica':'➕ Nuovo'} Avvocato</h2>
                 <button onclick="state.showAvvocatoModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6 space-y-4">
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nome *</label>
-                        <input type="text" value="${state.avvForm.nome}" oninput="state.avvForm.nome=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Cognome *</label>
-                        <input type="text" value="${state.avvForm.cognome}" oninput="state.avvForm.cognome=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                    </div>
+                    <div><label class="block text-sm font-semibold text-gray-700 mb-2">Nome *</label>
+                    <input type="text" value="${state.avvForm.nome}" oninput="state.avvForm.nome=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/></div>
+                    <div><label class="block text-sm font-semibold text-gray-700 mb-2">Cognome *</label>
+                    <input type="text" value="${state.avvForm.cognome}" oninput="state.avvForm.cognome=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/></div>
                 </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-                    <input type="email" value="${state.avvForm.email}" oninput="state.avvForm.email=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Telefono *</label>
-                    <input type="tel" value="${state.avvForm.telefono}" oninput="state.avvForm.telefono=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Specializzazione *</label>
-                    <select onchange="state.avvForm.specializzazione=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        ${['civile','penale','amministrativo','lavoro','famiglia','tributario'].map(s=>`<option value="${s}" ${state.avvForm.specializzazione===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
-                    </select>
-                </div>
+                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
+                <input type="email" value="${state.avvForm.email}" oninput="state.avvForm.email=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/></div>
+                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Telefono *</label>
+                <input type="tel" value="${state.avvForm.telefono}" oninput="state.avvForm.telefono=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/></div>
+                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Specializzazione *</label>
+                <select onchange="state.avvForm.specializzazione=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                    ${['civile','penale','amministrativo','lavoro','famiglia','tributario'].map(s=>`<option value="${s}" ${state.avvForm.specializzazione===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+                </select></div>
                 <div class="flex gap-3 pt-4">
-                    <button onclick="submitAvvocato()" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg">💾 ${state.editingAvvocato?'Aggiorna':'Salva'}</button>
-                    <button onclick="state.showAvvocatoModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">Annulla</button>
+                    <button onclick="submitAvvocato()" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">💾 ${state.editingAvvocato?'Aggiorna':'Salva'}</button>
+                    <button onclick="state.showAvvocatoModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold">Annulla</button>
                 </div>
             </div>
         </div>
@@ -944,37 +931,27 @@ function renderModalUtente() {
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${state.editingUtente?'✏️ Modifica Utente':'➕ Nuovo Utente'}</h2>
+                <h2 class="text-2xl font-bold">${state.editingUtente?'✏️ Modifica':'➕ Nuovo'} Utente</h2>
                 <button onclick="state.showUtenteModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6 space-y-4">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Username *</label>
-                    <input type="text" value="${state.utenteForm.username}" ${state.editingUtente?'disabled':''} oninput="state.utenteForm.username=this.value"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${state.editingUtente?'bg-gray-100':''}"/>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Password ${state.editingUtente?'(vuoto = non modificare)':'*'}</label>
-                    <input type="password" value="${state.utenteForm.password||''}" oninput="state.utenteForm.password=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Nome Completo *</label>
-                    <input type="text" value="${state.utenteForm.nome_completo}" oninput="state.utenteForm.nome_completo=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-                    <input type="email" value="${state.utenteForm.email}" oninput="state.utenteForm.email=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Ruolo *</label>
-                    <select onchange="state.utenteForm.ruolo=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        <option value="avvocato" ${state.utenteForm.ruolo==='avvocato'?'selected':''}>⚖️ Avvocato</option>
-                        <option value="amministratore" ${state.utenteForm.ruolo==='amministratore'?'selected':''}>👑 Amministratore</option>
-                    </select>
-                </div>
+                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Username *</label>
+                <input type="text" value="${state.utenteForm.username}" ${state.editingUtente?'disabled':''} oninput="state.utenteForm.username=this.value"
+                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg ${state.editingUtente?'bg-gray-100':''}"/></div>
+                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Password ${state.editingUtente?'(vuoto = non modificare)':'*'}</label>
+                <input type="password" value="${state.utenteForm.password||''}" oninput="state.utenteForm.password=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
+                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Nome Completo *</label>
+                <input type="text" value="${state.utenteForm.nome_completo}" oninput="state.utenteForm.nome_completo=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
+                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
+                <input type="email" value="${state.utenteForm.email}" oninput="state.utenteForm.email=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
+                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Ruolo *</label>
+                <select onchange="state.utenteForm.ruolo=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg">
+                    <option value="avvocato" ${state.utenteForm.ruolo==='avvocato'?'selected':''}>⚖️ Avvocato</option>
+                    <option value="amministratore" ${state.utenteForm.ruolo==='amministratore'?'selected':''}>👑 Amministratore</option>
+                </select></div>
                 <div class="flex gap-3 pt-4">
-                    <button onclick="submitUtente()" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg">💾 ${state.editingUtente?'Aggiorna':'Crea Utente'}</button>
-                    <button onclick="state.showUtenteModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300">Annulla</button>
+                    <button onclick="submitUtente()" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">💾 ${state.editingUtente?'Aggiorna':'Crea'}</button>
+                    <button onclick="state.showUtenteModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold">Annulla</button>
                 </div>
             </div>
         </div>
@@ -982,7 +959,7 @@ function renderModalUtente() {
 }
 
 function renderModalNote() {
-    const p = state.viewingPratica;
+    const p=state.viewingPratica;
     return `
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
@@ -1002,16 +979,13 @@ function renderModalNote() {
                 <button onclick="state.showNoteModal=false;render()" class="absolute top-6 right-6 hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6">
-                ${isAdmin()?`
-                <div class="mb-4 flex justify-end">
-                    <button onclick="state.showNoteModal=false;openPraticaModal(state.viewingPratica)" class="px-5 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold">✏️ Modifica Pratica</button>
-                </div>`:''}
+                ${isAdmin()?`<div class="mb-4 flex justify-end"><button onclick="state.showNoteModal=false;openPraticaModal(state.viewingPratica)" class="px-5 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold">✏️ Modifica Pratica</button></div>`:''}
                 <div class="mb-6 bg-indigo-50 rounded-xl p-4 border border-indigo-100">
                     <label class="block text-sm font-semibold text-gray-700 mb-2">📝 Aggiungi Nota</label>
                     <textarea id="noteTextarea" oninput="state.noteForm.nota=this.value" rows="3"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none mb-3 bg-white"
                         placeholder="Scrivi qui la nota...">${state.noteForm.nota||''}</textarea>
-                    <button onclick="submitNota()" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg">➕ Aggiungi Nota</button>
+                    <button onclick="submitNota()" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">➕ Aggiungi Nota</button>
                 </div>
                 <h3 class="text-xl font-bold text-gray-800 mb-4">📜 Storico Note</h3>
                 ${state.noteAggiornamento.length>0?`
@@ -1019,7 +993,7 @@ function renderModalNote() {
                     ${state.noteAggiornamento.map(n=>`
                         <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-l-4 border-blue-500">
                             <div class="flex justify-between items-start mb-2">
-                                <div class="flex items-center gap-2">${avvAvatar(n.autore)}<p class="text-sm font-semibold text-gray-700">${n.autore}</p></div>
+                                <div class="flex items-center gap-2">${avvAvatar(n.autore)}<p class="text-sm font-semibold">${n.autore}</p></div>
                                 <p class="text-sm text-gray-500">📅 ${fmtDate(n.data_nota)}</p>
                             </div>
                             <p class="text-gray-800 mt-1">${n.nota}</p>
@@ -1034,45 +1008,56 @@ function renderModalAlert() {
     return `
     <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[90]">
         <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto animate-slidedown">
-            <div class="bg-gradient-to-r from-orange-500 to-amber-500 text-white p-6 flex justify-between items-center">
+            <div class="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 flex justify-between items-center">
                 <h2 class="text-2xl font-bold">🔔 Alert Scadenze</h2>
                 <button onclick="state.showAlertModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6 space-y-4">
-                <p class="text-gray-600 text-sm">Le seguenti pratiche stanno per scadere:</p>
-                ${state.alertList.map(({pratica:p, diff})=>`
-                    <div class="p-4 bg-orange-50 rounded-xl border-2 border-orange-200">
-                        <div class="flex items-center justify-between mb-2">
-                            <div class="flex items-center gap-2">
-                                ${avvAvatar(p.avvocato)}
-                                <span class="font-bold text-gray-800">${p.cliente}</span>
+                ${state.alertList.filter(a=>a.tipo==='scaduta').length>0?`
+                <div>
+                    <h3 class="font-bold text-red-600 mb-3">⚠️ Pratiche già scadute</h3>
+                    ${state.alertList.filter(a=>a.tipo==='scaduta').map(({pratica:p,diff})=>`
+                        <div class="p-4 bg-red-50 rounded-xl border-2 border-red-200 mb-2">
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center gap-2">${avvAvatar(p.avvocato)}<span class="font-bold">${p.cliente}</span></div>
+                                <span class="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-bold">Scaduta da ${Math.abs(diff)}gg</span>
                             </div>
-                            <span class="px-3 py-1 bg-orange-200 text-orange-800 rounded-full text-sm font-bold">
-                                ⏰ ${diff} giorno/i
-                            </span>
-                        </div>
-                        <p class="text-sm text-gray-600 mb-1">${p.descrizione}</p>
-                        <div class="flex gap-3 text-xs text-gray-500 flex-wrap">
-                            ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
-                            <span>📅 Scadenza: <strong class="text-orange-700">${fmtDate(p.scadenza)}</strong></span>
-                            <span>👤 ${p.avvocato}</span>
-                            <span>Alert: ${p.alert_giorni==='1'?'⚡ 3gg':'🕐 10gg'}</span>
-                        </div>
-                    </div>`).join('')}
-                <button onclick="state.showAlertModal=false;render()" class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg font-semibold hover:shadow-lg mt-4">
-                    ✅ Ho capito
-                </button>
+                            <div class="flex gap-3 text-xs text-gray-500 flex-wrap mt-1">
+                                ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
+                                <span>📅 Scadenza: <strong class="text-red-700">${fmtDate(p.scadenza)}</strong></span>
+                                <span>👤 ${p.avvocato}</span>
+                            </div>
+                        </div>`).join('')}
+                </div>`:''}
+                ${state.alertList.filter(a=>a.tipo==='imminente').length>0?`
+                <div>
+                    <h3 class="font-bold text-orange-600 mb-3">🔔 In scadenza</h3>
+                    ${state.alertList.filter(a=>a.tipo==='imminente').map(({pratica:p,diff})=>`
+                        <div class="p-4 bg-orange-50 rounded-xl border-2 border-orange-200 mb-2">
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="flex items-center gap-2">${avvAvatar(p.avvocato)}<span class="font-bold">${p.cliente}</span></div>
+                                <span class="px-3 py-1 bg-orange-200 text-orange-800 rounded-full text-sm font-bold">Scade tra ${diff}gg</span>
+                            </div>
+                            <div class="flex gap-3 text-xs text-gray-500 flex-wrap mt-1">
+                                ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
+                                <span>📅 Scadenza: <strong class="text-orange-700">${fmtDate(p.scadenza)}</strong></span>
+                                <span>👤 ${p.avvocato}</span>
+                                <span>Alert: ${p.alert_giorni==='1'?'⚡ 3gg':'🕐 10gg'}</span>
+                            </div>
+                        </div>`).join('')}
+                </div>`:''}
+                <button onclick="state.showAlertModal=false;render()" class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-semibold mt-2">✅ Ho capito</button>
             </div>
         </div>
     </div>`;
 }
 
 function renderPraticheResult() {
-    const el = document.getElementById('praticheResult');
+    const el=document.getElementById('praticheResult');
     if (!el) return;
-    const filtered = getFiltered();
-    el.innerHTML = state.viewMode==='table' ? renderPraticheTable(filtered) : renderPraticheCards(filtered);
-    const inp = document.getElementById('searchInput');
+    const filtered=getFiltered();
+    el.innerHTML=state.viewMode==='table'?renderPraticheTable(filtered):renderPraticheCards(filtered);
+    const inp=document.getElementById('searchInput');
     if (inp) { const pos=inp.value.length; inp.focus(); inp.setSelectionRange(pos,pos); }
 }
 
@@ -1082,30 +1067,30 @@ async function doLogin() {
     const u=document.getElementById('loginUsername').value;
     const p=document.getElementById('loginPassword').value;
     if (!u||!p) { alert('Inserisci username e password'); return; }
-    await login(u, p);
+    await login(u,p);
 }
 
 function openPraticaModal(p) {
-    state.editingPratica = p;
-    state.formData = p ? {...p, nota_aggiornamento:'', alert_giorni: p.alert_giorni||''} : {
-        cliente:'', tipo_pratica:'civile', autorita:'', descrizione:'', stato:'svolgimento',
-        data_apertura:today(), data_aggiornamento_attivita:today(), scadenza:'', timeline:'',
-        priorita:'media', rgnr:'', avvocato:'', nota_aggiornamento:'', alert_giorni:'1'
+    state.editingPratica=p;
+    state.formData=p?{...p,nota_aggiornamento:'',alert_giorni:p.alert_giorni||''}:{
+        cliente:'',tipo_pratica:'civile',autorita:'',descrizione:'',stato:'svolgimento',
+        data_apertura:today(),data_aggiornamento_attivita:today(),scadenza:'',timeline:'',
+        priorita:'media',rgnr:'',avvocato:'',nota_aggiornamento:'',alert_giorni:'1'
     };
     state.showModal=true; state.showNoteModal=false; render();
 }
 
 function openAvvocatoModal(a) {
     state.editingAvvocato=a;
-    state.avvForm = a ? {nome:a.nome,cognome:a.cognome,email:a.email,telefono:a.telefono,specializzazione:a.specializzazione}
-        : {nome:'',cognome:'',email:'',telefono:'',specializzazione:'civile'};
+    state.avvForm=a?{nome:a.nome,cognome:a.cognome,email:a.email,telefono:a.telefono,specializzazione:a.specializzazione}
+        :{nome:'',cognome:'',email:'',telefono:'',specializzazione:'civile'};
     state.showAvvocatoModal=true; render();
 }
 
 function openUtenteModal(u) {
     state.editingUtente=u;
-    state.utenteForm = u ? {username:u.username,password:'',nome_completo:u.nome_completo,email:u.email,ruolo:u.ruolo}
-        : {username:'',password:'',nome_completo:'',email:'',ruolo:'avvocato'};
+    state.utenteForm=u?{username:u.username,password:'',nome_completo:u.nome_completo,email:u.email,ruolo:u.ruolo}
+        :{username:'',password:'',nome_completo:'',email:'',ruolo:'avvocato'};
     state.showUtenteModal=true; render();
 }
 
@@ -1119,11 +1104,36 @@ async function openNoteModal(praticaId) {
 async function viewPratica(praticaId) { await openNoteModal(praticaId); }
 
 async function submitPratica() {
-    if (!state.formData.cliente||!state.formData.descrizione||!state.formData.avvocato) {
-        alert('Compila tutti i campi obbligatori (*)'); return;
+    const f=state.formData;
+    const orig=state.editingPratica;
+    const isNuova=!orig;
+
+    if (!f.cliente||!f.descrizione||!f.avvocato) { alert('Compila tutti i campi obbligatori (*)'); return; }
+
+    // Validazione non-admin su date
+    if (!isAdmin()&&!isNuova) {
+        const scadenzaCambiata = f.scadenza && orig.scadenza && f.scadenza !== orig.scadenza;
+        const aggCambiata = f.data_aggiornamento_attivita && orig.data_aggiornamento_attivita && f.data_aggiornamento_attivita !== orig.data_aggiornamento_attivita;
+
+        // Controlla retrodatazione
+        if (f.scadenza && orig.scadenza && f.scadenza < orig.scadenza) {
+            alert('⚠️ Non puoi retrodatare la scadenza!'); return;
+        }
+        if (f.data_aggiornamento_attivita && orig.data_aggiornamento_attivita && f.data_aggiornamento_attivita < orig.data_aggiornamento_attivita) {
+            alert('⚠️ Non puoi retrodatare l\'aggiornamento attività!'); return;
+        }
+
+        // Nota obbligatoria se hai modificato le date
+        if ((scadenzaCambiata||aggCambiata) && !f.nota_aggiornamento?.trim()) {
+            alert('⚠️ Devi inserire una nota di aggiornamento quando modifichi le date!'); return;
+        }
+
+        // Data apertura non modificabile
+        f.data_apertura = orig.data_apertura;
     }
-    const p={...state.formData};
-    if (state.editingPratica) p.id=state.editingPratica.id;
+
+    const p={...f};
+    if (orig) p.id=orig.id;
     p.data_modifica=today();
     p.data_aggiornamento_attivita=today();
     const ok=await savePratica(p);
@@ -1131,9 +1141,7 @@ async function submitPratica() {
 }
 
 async function submitAvvocato() {
-    if (!state.avvForm.nome||!state.avvForm.cognome||!state.avvForm.email||!state.avvForm.telefono) {
-        alert('Compila tutti i campi (*)'); return;
-    }
+    if (!state.avvForm.nome||!state.avvForm.cognome||!state.avvForm.email||!state.avvForm.telefono) { alert('Compila tutti i campi'); return; }
     const a={...state.avvForm};
     if (state.editingAvvocato) a.id=state.editingAvvocato.id;
     const ok=await saveAvvocato(a);
@@ -1141,9 +1149,7 @@ async function submitAvvocato() {
 }
 
 async function submitUtente() {
-    if (!state.utenteForm.username||!state.utenteForm.nome_completo||!state.utenteForm.email) {
-        alert('Compila tutti i campi obbligatori (*)'); return;
-    }
+    if (!state.utenteForm.username||!state.utenteForm.nome_completo||!state.utenteForm.email) { alert('Compila tutti i campi'); return; }
     if (!state.editingUtente&&!state.utenteForm.password) { alert('Inserisci una password'); return; }
     const u={...state.utenteForm};
     if (state.editingUtente) u.id=state.editingUtente.id;
@@ -1154,7 +1160,7 @@ async function submitUtente() {
 
 async function submitNota() {
     if (!state.noteForm.nota) { alert('Scrivi una nota!'); return; }
-    const ok=await aggiungiNota(state.viewingPratica.id, state.noteForm.nota);
+    const ok=await aggiungiNota(state.viewingPratica.id,state.noteForm.nota);
     if (ok) { state.noteForm={nota:''}; showSuccess('Nota aggiunta!'); render(); }
 }
 
@@ -1166,6 +1172,7 @@ render();
 </script>
 </body>
 </html>
+
 
 
 
