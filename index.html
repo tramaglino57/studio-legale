@@ -429,6 +429,7 @@ function render() {
         ${state.activeTab==='dashboard'?renderDashboard(stats):''}
         ${state.activeTab==='pratiche'?renderPratiche(filtered):''}
         ${state.activeTab==='avvocati'?'<div id="avvocatiContainer"><p class="text-center text-gray-400 py-8">Caricamento...</p></div>':''}
+        ${state.activeTab==='avvocati'?'':''}
         ${state.activeTab==='utenti'?renderUtenti():''}
         ${state.activeTab==='gestione'?renderGestione():''}
 
@@ -438,6 +439,9 @@ function render() {
         ${state.showNoteModal?renderModalNote():''}
         ${state.showAlertModal?renderModalAlert():''}
     </div>`;
+
+    // Carica avvocati con storico async dopo il render
+    if (state.activeTab === 'avvocati') loadAndRenderAvvocati();
 }
 
 function renderLogin() {
@@ -1076,12 +1080,13 @@ function renderPraticheResult() {
 
 function switchTab(tab) {
     state.activeTab = tab; render();
-    if (tab === 'avvocati') {
-        renderAvvocati().then(html => {
-            const el = document.getElementById('avvocatiContainer');
-            if (el) el.outerHTML = html;
-        });
-    }
+    if (tab === 'avvocati') loadAndRenderAvvocati();
+}
+
+async function loadAndRenderAvvocati() {
+    const html = await renderAvvocati();
+    const el = document.getElementById('avvocatiContainer');
+    if (el) el.outerHTML = html;
 }
 
 async function doLogin() {
@@ -1193,6 +1198,7 @@ render();
 </script>
 </body>
 </html>
+
 
 
 
