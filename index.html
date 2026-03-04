@@ -27,6 +27,9 @@
         .badge-fatto { text-decoration: line-through; text-decoration-color: #065f46; text-decoration-thickness: 2px; }
         .avv-avatar { display:inline-flex;align-items:center;justify-content:center;width:2.2rem;height:2.2rem;border-radius:50%;font-size:0.65rem;font-weight:700;color:white;flex-shrink:0;letter-spacing:0.03em; }
         .avv-avatar-lg { display:inline-flex;align-items:center;justify-content:center;width:3rem;height:3rem;border-radius:50%;font-size:0.8rem;font-weight:700;color:white;flex-shrink:0; }
+        .color-swatch { width:2rem;height:2rem;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px #e5e7eb;cursor:pointer;transition:transform 0.15s; }
+        .color-swatch:hover { transform:scale(1.2); }
+        .color-swatch.selected { box-shadow:0 0 0 3px #4f46e5; transform:scale(1.15); }
     </style>
 </head>
 <body>
@@ -43,11 +46,22 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const TIPI_PRATICA = ['civile','penale','amministrativo','lavoro','famiglia','tributario'];
 const AUTORITA = ['Tribunale','CGT1','CGT2','Mediazione','Cassazione','Corte d\'Appello','Stragiudiziale'];
-const AVV_COLORS = ['#4f46e5','#7c3aed','#db2777','#059669','#d97706','#dc2626','#0891b2','#65a30d','#9333ea','#c2410c'];
+
+const PALETTE_COLORI = [
+    '#4f46e5','#7c3aed','#db2777','#059669','#d97706',
+    '#dc2626','#0891b2','#65a30d','#9333ea','#c2410c',
+    '#0ea5e9','#14b8a6','#f59e0b','#ef4444','#8b5cf6',
+    '#10b981','#f97316','#6366f1','#ec4899','#84cc16'
+];
+
+const AVV_COLORS = PALETTE_COLORI;
 const avvColorMap = {};
 
 function getAvvColor(nome) {
     if (!nome) return '#6b7280';
+    // Controlla se l'avvocato ha un colore personalizzato
+    const avv = state.avvocati.find(a => a.nome_completo === nome);
+    if (avv && avv.colore) return avv.colore;
     if (!avvColorMap[nome]) {
         let h = 0;
         for (let i = 0; i < nome.length; i++) h = nome.charCodeAt(i) + ((h<<5)-h);
@@ -73,9 +87,10 @@ let state = {
     formData:{ cliente:'', tipo_pratica:'civile', autorita:'', descrizione:'', stato:'svolgimento',
         data_apertura:today(), data_aggiornamento_attivita:today(), scadenza:'', timeline:'',
         priorita:'media', rgnr:'', avvocato:'', nota_aggiornamento:'', alert_giorni:'1' },
-    avvForm:{ nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile' },
+    avvForm:{ nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile', colore:'#4f46e5' },
     utenteForm:{ username:'', password:'', nome_completo:'', email:'', ruolo:'avvocato' },
-    noteForm:{ nota:'' }
+    noteForm:{ nota:'' },
+    alertArchivio:[], alertArchivioLoading:false
 };
 
 function today() { return new Date().toISOString().split('T')[0]; }
@@ -92,13 +107,6 @@ function isPraticaInScadenza(p) {
     return diff > 0 && diff <= giorni;
 }
 
-// Validazione date per non-admin
-function validaDataAvanti(nuovaData, dataAttuale) {
-    if (!nuovaData) return true;
-    if (!dataAttuale) return true;
-    return nuovaData >= dataAttuale;
-}
-
 function checkAlertGiornaliero() {
     const lastCheck = localStorage.getItem('sls_last_alert_check');
     if (lastCheck === today()) return;
@@ -111,7 +119,6 @@ function eseguiCheckAlert() {
     state.pratiche.forEach(p => {
         if (!p.scadenza || p.stato==='fatto') return;
         const diff = Math.ceil((new Date(p.scadenza) - new Date()) / (1000*60*60*24));
-        // Alert scadenza imminente
         if (p.alert_giorni) {
             const giorni = p.alert_giorni==='1' ? 3 : 10;
             if (diff > 0 && diff <= giorni) {
@@ -119,7 +126,6 @@ function eseguiCheckAlert() {
                     alerts.push({ pratica:p, diff, tipo:'imminente' });
             }
         }
-        // Alert scadenza già passata
         if (diff <= 0 && p.stato==='svolgimento') {
             if (isAdmin() || state.user?.nome_completo === p.avvocato)
                 alerts.push({ pratica:p, diff, tipo:'scaduta' });
@@ -128,7 +134,6 @@ function eseguiCheckAlert() {
     if (alerts.length > 0) {
         state.alertList = alerts;
         state.showAlertModal = true;
-        // Salva nello storico alert
         salvaStorico(alerts);
     }
 }
@@ -178,6 +183,18 @@ async function loadNote(praticaId) {
     const { data, error } = await sb.from('note_aggiornamento').select('*')
         .eq('pratica_id', praticaId).order('data_nota',{ascending:false});
     if (!error) state.noteAggiornamento = data||[];
+}
+
+// Carica archivio alert per la tab Alert
+async function loadAlertArchivio() {
+    state.alertArchivioLoading = true;
+    let query = sb.from('alert_storico').select('*').order('data_alert', { ascending: false });
+    if (!isAdmin()) {
+        query = query.eq('avvocato', state.user.nome_completo);
+    }
+    const { data, error } = await query;
+    state.alertArchivio = error ? [] : (data || []);
+    state.alertArchivioLoading = false;
 }
 
 function cleanPratica(p) {
@@ -387,12 +404,15 @@ function render() {
         inScadenza:state.pratiche.filter(p=>isPraticaInScadenza(p)).length
     };
     const filtered=getFiltered();
+
+    // Tabs: aggiunta "alert" dopo "gestione" (solo admin) oppure sempre visibile
     const tabs=[
         {id:'dashboard',label:'Dashboard',icon:'📊',show:true},
         {id:'pratiche',label:'Pratiche',icon:'📁',show:true},
         {id:'avvocati',label:'Avvocati',icon:'👥',show:true},
         {id:'utenti',label:'Utenti',icon:'🔐',show:isAdmin()},
-        {id:'gestione',label:'Gestione Dati',icon:'🗄️',show:isAdmin()}
+        {id:'gestione',label:'Gestione Dati',icon:'🗄️',show:isAdmin()},
+        {id:'alertarchivio',label:'Alert',icon:'🔔',show:true}
     ].filter(t=>t.show);
 
     document.getElementById('app').innerHTML=`
@@ -429,9 +449,9 @@ function render() {
         ${state.activeTab==='dashboard'?renderDashboard(stats):''}
         ${state.activeTab==='pratiche'?renderPratiche(filtered):''}
         ${state.activeTab==='avvocati'?'<div id="avvocatiContainer"><p class="text-center text-gray-400 py-8">Caricamento...</p></div>':''}
-        ${state.activeTab==='avvocati'?'':''}
         ${state.activeTab==='utenti'?renderUtenti():''}
         ${state.activeTab==='gestione'?renderGestione():''}
+        ${state.activeTab==='alertarchivio'?renderAlertArchivio():''}
 
         ${state.showModal?renderModalPratica():''}
         ${state.showAvvocatoModal?renderModalAvvocato():''}
@@ -440,8 +460,10 @@ function render() {
         ${state.showAlertModal?renderModalAlert():''}
     </div>`;
 
-    // Carica avvocati con storico async dopo il render
     if (state.activeTab === 'avvocati') loadAndRenderAvvocati();
+    if (state.activeTab === 'alertarchivio' && !state.alertArchivioLoading && state.alertArchivio.length === 0) {
+        loadAlertArchivio().then(()=>render());
+    }
 }
 
 function renderLogin() {
@@ -572,7 +594,7 @@ function renderPraticheCards(filtered) {
                             ${scaduta?`<span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">⚠️ SCADUTA</span>`:''}
                         </div>
                         <h3 class="text-xl font-bold text-gray-800 mb-1">${p.cliente}</h3>
-                        <p class="text-gray-600 mb-2 desc-text">${p.descrizione}</p>
+                        <p class="text-gray-600 mb-2">${p.descrizione}</p>
                         <div class="flex flex-wrap gap-4 text-sm text-gray-500 items-center">
                             <span class="flex items-center gap-1">${avvAvatar(p.avvocato)}<span class="font-semibold">${p.avvocato||'-'}</span></span>
                             <span>📅 ${fmtDate(p.data_apertura)}</span>
@@ -647,7 +669,6 @@ function renderPraticheTable(filtered) {
 }
 
 async function renderAvvocati() {
-    // Carica storico alert per tutti gli avvocati
     const storicoMap = {};
     for (const a of state.avvocati) {
         storicoMap[a.nome_completo] = await getStorico(a.nome_completo);
@@ -667,13 +688,14 @@ async function renderAvvocati() {
                 ${state.avvocati.map(a => {
                     const st = getAvvStats(a.nome_completo);
                     const storico = storicoMap[a.nome_completo] || [];
+                    const colore = a.colore || getAvvColor(a.nome_completo);
                     return `
-                    <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border-2 border-indigo-100">
+                    <div class="rounded-xl p-6 border-2" style="background:${colore}18;border-color:${colore}40;">
                         <div class="flex items-center gap-3 mb-4">
                             ${avvAvatar(a.nome_completo, true)}
                             <div>
                                 <h3 class="text-xl font-bold text-gray-800">${a.nome_completo}</h3>
-                                <p class="text-sm text-indigo-600 font-semibold">${a.specializzazione}</p>
+                                <p class="text-sm font-semibold" style="color:${colore}">${a.specializzazione}</p>
                             </div>
                         </div>
                         <div class="space-y-1 mb-4">
@@ -706,14 +728,101 @@ async function renderAvvocati() {
                         <div class="flex gap-2 no-print">
                             <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️ Modifica</button>
                             <button onclick="confirmDeleteAvvocato('${a.id}')" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">🗑️ Elimina</button>
-                        </div>` : ''}
+                        </div>` : `
+                        <div class="flex gap-2 no-print">
+                            <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">🎨 Cambia Colore</button>
+                        </div>`}
                     </div>`;
                 }).join('')}
             </div>
         </div>
     </div>`;
-    document.getElementById('app').querySelector('[data-tab="avvocati"]') && (document.getElementById('app').innerHTML = html);
     return html;
+}
+
+// ── NUOVA TAB ARCHIVIO ALERT ──────────────────────────────────────────
+function renderAlertArchivio() {
+    const lista = state.alertArchivio;
+    const loading = state.alertArchivioLoading;
+
+    // Filtro per avvocato (solo admin)
+    const avvList = isAdmin() ? [...new Set(lista.map(a=>a.avvocato).filter(Boolean))] : [];
+
+    // Raggruppa per data
+    const grouped = {};
+    lista.forEach(a => {
+        const k = a.data_alert || 'N/D';
+        if (!grouped[k]) grouped[k] = [];
+        grouped[k].push(a);
+    });
+
+    return `
+    <div class="space-y-6">
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">🔔 Archivio Alert</h2>
+                    <p class="text-sm text-gray-500 mt-1">${isAdmin()?'Tutti gli alert dello studio':'I tuoi alert personali'}</p>
+                </div>
+                <button onclick="loadAlertArchivio().then(()=>render())" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-all">🔄 Aggiorna</button>
+            </div>
+
+            ${loading ? `<div class="text-center py-12"><p class="text-gray-400 text-lg">Caricamento...</p></div>` :
+            lista.length === 0 ? `
+                <div class="text-center py-16">
+                    <div class="text-6xl mb-4">🔕</div>
+                    <p class="text-gray-400 text-lg">Nessun alert registrato</p>
+                    <p class="text-gray-300 text-sm mt-1">Gli alert compariranno qui al primo accesso giornaliero</p>
+                </div>` : `
+
+            <!-- Riepilogo -->
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-gray-50 rounded-xl p-4 text-center border border-gray-200">
+                    <p class="text-2xl font-bold text-gray-700">${lista.length}</p>
+                    <p class="text-xs text-gray-500">Alert totali</p>
+                </div>
+                <div class="bg-red-50 rounded-xl p-4 text-center border border-red-200">
+                    <p class="text-2xl font-bold text-red-600">${lista.filter(a=>a.tipo==='scaduta').length}</p>
+                    <p class="text-xs text-gray-500">Scadute</p>
+                </div>
+                <div class="bg-orange-50 rounded-xl p-4 text-center border border-orange-200">
+                    <p class="text-2xl font-bold text-orange-600">${lista.filter(a=>a.tipo==='imminente').length}</p>
+                    <p class="text-xs text-gray-500">Imminenti</p>
+                </div>
+            </div>
+
+            <!-- Lista per data -->
+            <div class="space-y-6">
+                ${Object.keys(grouped).sort((a,b)=>b.localeCompare(a)).map(data => `
+                    <div>
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="h-px flex-1 bg-gray-200"></div>
+                            <span class="text-sm font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">📅 ${fmtDate(data)}</span>
+                            <div class="h-px flex-1 bg-gray-200"></div>
+                        </div>
+                        <div class="space-y-2">
+                            ${grouped[data].map(a => `
+                                <div class="flex items-center justify-between p-4 rounded-xl border-2 ${a.tipo==='scaduta'?'bg-red-50 border-red-200':'bg-orange-50 border-orange-200'}">
+                                    <div class="flex items-center gap-3">
+                                        ${avvAvatar(a.avvocato)}
+                                        <div>
+                                            <p class="font-bold text-gray-800">${a.cliente}</p>
+                                            <div class="flex gap-3 text-xs text-gray-500 mt-0.5 flex-wrap">
+                                                <span>👤 ${a.avvocato||'-'}</span>
+                                                <span>⏰ Scadenza: <strong>${fmtDate(a.scadenza)}</strong></span>
+                                                ${a.diff_giorni !== null && a.diff_giorni !== undefined ? `<span>${a.diff_giorni <= 0 ? `Scaduta da ${Math.abs(a.diff_giorni)}gg` : `${a.diff_giorni}gg al termine`}</span>` : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${a.tipo==='scaduta'?'bg-red-200 text-red-800':'bg-orange-200 text-orange-800'}">
+                                        ${a.tipo==='scaduta'?'⚠️ Scaduta':'🔔 Imminente'}
+                                    </span>
+                                </div>`).join('')}
+                        </div>
+                    </div>`).join('')}
+            </div>`}
+        </div>
+    </div>`;
 }
 
 function renderUtenti() {
@@ -790,7 +899,6 @@ function renderModalPratica() {
     const isNuova = !state.editingPratica;
     const origScadenza = state.editingPratica?.scadenza || '';
     const origAggAttivita = state.editingPratica?.data_aggiornamento_attivita || '';
-    const origApertura = state.editingPratica?.data_apertura || today();
     const minScadenza = !isAdmin() && origScadenza ? origScadenza : '';
     const minAggAttivita = !isAdmin() && origAggAttivita ? origAggAttivita : '';
 
@@ -885,9 +993,9 @@ function renderModalPratica() {
                     <label class="block text-sm font-semibold text-gray-700 mb-2">🔔 Alert Scadenza</label>
                     <div class="grid grid-cols-3 gap-3">
                         ${[['','Nessuno','gray'],['1','⚡ 3 giorni prima','orange'],['2','🕐 10 giorni prima','yellow']].map(([v,l,c])=>`
-                        <label class="flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${state.formData.alert_giorni===v?`border-${c}-400 bg-${c}-50`:'border-gray-200'}">
+                        <label class="flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${state.formData.alert_giorni===v?'border-indigo-400 bg-indigo-50':'border-gray-200'}">
                             <input type="radio" name="alertGiorni" value="${v}" ${state.formData.alert_giorni===v?'checked':''} onchange="state.formData.alert_giorni=this.value;render()"/>
-                            <span class="text-sm font-semibold text-${c==='gray'?'gray':'${c}'}-700">${l}</span>
+                            <span class="text-sm font-semibold text-gray-700">${l}</span>
                         </label>`).join('')}
                     </div>
                 </div>
@@ -911,15 +1019,21 @@ function renderModalPratica() {
     </div>`;
 }
 
+// ── MODAL AVVOCATO con selezione colore ───────────────────────────────
 function renderModalAvvocato() {
+    const coloreSelezionato = state.avvForm.colore || '#4f46e5';
+    // Se non è admin, mostra solo selezione colore per se stesso
+    const soloColore = !isAdmin() && state.editingAvvocato;
+
     return `
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${state.editingAvvocato?'✏️ Modifica':'➕ Nuovo'} Avvocato</h2>
+                <h2 class="text-2xl font-bold">${soloColore?'🎨 Colore Avvocato':state.editingAvvocato?'✏️ Modifica Avvocato':'➕ Nuovo Avvocato'}</h2>
                 <button onclick="state.showAvvocatoModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6 space-y-4">
+                ${soloColore ? '' : `
                 <div class="grid grid-cols-2 gap-4">
                     <div><label class="block text-sm font-semibold text-gray-700 mb-2">Nome *</label>
                     <input type="text" value="${state.avvForm.nome}" oninput="state.avvForm.nome=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/></div>
@@ -932,8 +1046,36 @@ function renderModalAvvocato() {
                 <input type="tel" value="${state.avvForm.telefono}" oninput="state.avvForm.telefono=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/></div>
                 <div><label class="block text-sm font-semibold text-gray-700 mb-2">Specializzazione *</label>
                 <select onchange="state.avvForm.specializzazione=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                    ${['civile','penale','amministrativo','lavoro','famiglia','tributario'].map(s=>`<option value="${s}" ${state.avvForm.specializzazione===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
-                </select></div>
+                    ${TIPI_PRATICA.map(s=>`<option value="${s}" ${state.avvForm.specializzazione===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+                </select></div>`}
+
+                <!-- Selezione colore -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-3">🎨 Colore Avatar</label>
+                    <div class="flex items-center gap-3 mb-3 p-3 bg-gray-50 rounded-xl">
+                        <span class="avv-avatar-lg" style="background:${coloreSelezionato}">${getIniziali((state.avvForm.nome||'') + ' ' + (state.avvForm.cognome||'')) || getIniziali(state.editingAvvocato?.nome_completo || '?')}</span>
+                        <div>
+                            <p class="font-semibold text-gray-700">${state.avvForm.nome||''} ${state.avvForm.cognome||state.editingAvvocato?.nome_completo||''}</p>
+                            <p class="text-xs text-gray-400">Anteprima colore selezionato</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-3 p-3 bg-gray-50 rounded-xl">
+                        ${PALETTE_COLORI.map(c=>`
+                            <div class="color-swatch ${coloreSelezionato===c?'selected':''}"
+                                style="background:${c}"
+                                onclick="state.avvForm.colore='${c}';render()"
+                                title="${c}">
+                            </div>`).join('')}
+                    </div>
+                    <div class="flex items-center gap-3 mt-3">
+                        <label class="text-sm text-gray-600 font-semibold">Personalizzato:</label>
+                        <input type="color" value="${coloreSelezionato}"
+                            oninput="state.avvForm.colore=this.value;render()"
+                            class="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-200"/>
+                        <span class="text-sm text-gray-500 font-mono">${coloreSelezionato}</span>
+                    </div>
+                </div>
+
                 <div class="flex gap-3 pt-4">
                     <button onclick="submitAvvocato()" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">💾 ${state.editingAvvocato?'Aggiorna':'Salva'}</button>
                     <button onclick="state.showAvvocatoModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold">Annulla</button>
@@ -1079,7 +1221,13 @@ function renderPraticheResult() {
 }
 
 function switchTab(tab) {
-    state.activeTab = tab; render();
+    state.activeTab = tab;
+    // Reset archivio alert quando si cambia tab
+    if (tab === 'alertarchivio') {
+        state.alertArchivio = [];
+        state.alertArchivioLoading = false;
+    }
+    render();
     if (tab === 'avvocati') loadAndRenderAvvocati();
 }
 
@@ -1108,8 +1256,9 @@ function openPraticaModal(p) {
 
 function openAvvocatoModal(a) {
     state.editingAvvocato=a;
-    state.avvForm=a?{nome:a.nome,cognome:a.cognome,email:a.email,telefono:a.telefono,specializzazione:a.specializzazione}
-        :{nome:'',cognome:'',email:'',telefono:'',specializzazione:'civile'};
+    state.avvForm=a
+        ? {nome:a.nome,cognome:a.cognome,email:a.email,telefono:a.telefono,specializzazione:a.specializzazione,colore:a.colore||getAvvColor(a.nome_completo)}
+        : {nome:'',cognome:'',email:'',telefono:'',specializzazione:'civile',colore:'#4f46e5'};
     state.showAvvocatoModal=true; render();
 }
 
@@ -1136,25 +1285,19 @@ async function submitPratica() {
 
     if (!f.cliente||!f.descrizione||!f.avvocato) { alert('Compila tutti i campi obbligatori (*)'); return; }
 
-    // Validazione non-admin su date
     if (!isAdmin()&&!isNuova) {
         const scadenzaCambiata = f.scadenza && orig.scadenza && f.scadenza !== orig.scadenza;
         const aggCambiata = f.data_aggiornamento_attivita && orig.data_aggiornamento_attivita && f.data_aggiornamento_attivita !== orig.data_aggiornamento_attivita;
 
-        // Controlla retrodatazione
         if (f.scadenza && orig.scadenza && f.scadenza < orig.scadenza) {
             alert('⚠️ Non puoi retrodatare la scadenza!'); return;
         }
         if (f.data_aggiornamento_attivita && orig.data_aggiornamento_attivita && f.data_aggiornamento_attivita < orig.data_aggiornamento_attivita) {
             alert('⚠️ Non puoi retrodatare l\'aggiornamento attività!'); return;
         }
-
-        // Nota obbligatoria se hai modificato le date
         if ((scadenzaCambiata||aggCambiata) && !f.nota_aggiornamento?.trim()) {
             alert('⚠️ Devi inserire una nota di aggiornamento quando modifichi le date!'); return;
         }
-
-        // Data apertura non modificabile
         f.data_apertura = orig.data_apertura;
     }
 
@@ -1167,11 +1310,14 @@ async function submitPratica() {
 }
 
 async function submitAvvocato() {
-    if (!state.avvForm.nome||!state.avvForm.cognome||!state.avvForm.email||!state.avvForm.telefono) { alert('Compila tutti i campi'); return; }
+    const soloColore = !isAdmin() && state.editingAvvocato;
+    if (!soloColore && (!state.avvForm.nome||!state.avvForm.cognome||!state.avvForm.email||!state.avvForm.telefono)) {
+        alert('Compila tutti i campi'); return;
+    }
     const a={...state.avvForm};
     if (state.editingAvvocato) a.id=state.editingAvvocato.id;
     const ok=await saveAvvocato(a);
-    if (ok) { state.showAvvocatoModal=false; state.editingAvvocato=null; showSuccess('Avvocato salvato!'); render(); }
+    if (ok) { state.showAvvocatoModal=false; state.editingAvvocato=null; showSuccess('Avvocato aggiornato!'); render(); }
 }
 
 async function submitUtente() {
@@ -1198,6 +1344,7 @@ render();
 </script>
 </body>
 </html>
+
 
 
 
