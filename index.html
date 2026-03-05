@@ -23,7 +23,43 @@
         .stato-svolgimento { background-color: #fef3c7; color: #92400e; }
         .stato-fatto { background-color: #d1fae5; color: #065f46; }
         .stato-bloccato { background-color: #fee2e2; color: #991b1b; }
-        .pratica-fatto { opacity: 0.75; }
+        /* Pratica FATTO: sfumata con linea colorata */
+        .pratica-fatto-card {
+            opacity: 0.6;
+            position: relative;
+            overflow: hidden;
+        }
+        .pratica-fatto-card::after {
+            content: '';
+            position: absolute;
+            left: 0; right: 0;
+            top: 50%;
+            height: 3px;
+            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+            transform: translateY(-50%);
+            pointer-events: none;
+            z-index: 10;
+        }
+        .fatto-strike {
+            text-decoration: line-through;
+            text-decoration-color: #6366f1;
+            text-decoration-thickness: 2px;
+            opacity: 0.7;
+        }
+        /* Riga tabella FATTO */
+        .tr-fatto td {
+            opacity: 0.55;
+            position: relative;
+        }
+        .tr-fatto td::after {
+            content: '';
+            position: absolute;
+            left: 0; right: 0;
+            top: 50%;
+            height: 2px;
+            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+            pointer-events: none;
+        }
         .badge-fatto { text-decoration: line-through; text-decoration-color: #065f46; text-decoration-thickness: 2px; }
         .avv-avatar { display:inline-flex;align-items:center;justify-content:center;width:2.2rem;height:2.2rem;border-radius:50%;font-size:0.65rem;font-weight:700;color:white;flex-shrink:0;letter-spacing:0.03em; }
         .avv-avatar-lg { display:inline-flex;align-items:center;justify-content:center;width:3rem;height:3rem;border-radius:50%;font-size:0.8rem;font-weight:700;color:white;flex-shrink:0; }
@@ -46,20 +82,17 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const TIPI_PRATICA = ['civile','penale','amministrativo','lavoro','famiglia','tributario'];
 const AUTORITA = ['Tribunale','CGT1','CGT2','Mediazione','Cassazione','Corte d\'Appello','Stragiudiziale'];
-
 const PALETTE_COLORI = [
     '#4f46e5','#7c3aed','#db2777','#059669','#d97706',
     '#dc2626','#0891b2','#65a30d','#9333ea','#c2410c',
     '#0ea5e9','#14b8a6','#f59e0b','#ef4444','#8b5cf6',
     '#10b981','#f97316','#6366f1','#ec4899','#84cc16'
 ];
-
 const AVV_COLORS = PALETTE_COLORI;
 const avvColorMap = {};
 
 function getAvvColor(nome) {
     if (!nome) return '#6b7280';
-    // Controlla se l'avvocato ha un colore personalizzato
     const avv = state.avvocati.find(a => a.nome_completo === nome);
     if (avv && avv.colore) return avv.colore;
     if (!avvColorMap[nome]) {
@@ -77,24 +110,36 @@ function avvAvatar(nome, lg=false) {
     return `<span class="${lg?'avv-avatar-lg':'avv-avatar'}" style="background:${getAvvColor(nome)}" title="${nome||''}">${getIniziali(nome)}</span>`;
 }
 
+function isAdmin() { return state.user?.username === 'admin'; }
+function isResp() { return state.user?.ruolo === 'responsabile_dipartimento'; }
+function isAvvocato() { return state.user?.ruolo === 'avvocato'; }
+
+// Avvocati del dipartimento del responsabile corrente
+function myAvvocati() {
+    if (isAdmin()) return state.avvocati.map(a=>a.nome_completo);
+    if (isResp()) return state.dipartimenti.filter(d=>d.responsabile===state.user.nome_completo).map(d=>d.avvocato);
+    return [state.user.nome_completo];
+}
+
 let state = {
     user:null, activeTab:'dashboard', viewMode:'cards',
-    pratiche:[], avvocati:[], utenti:[], noteAggiornamento:[], alertStorico:[],
+    pratiche:[], avvocati:[], utenti:[], noteAggiornamento:[], dipartimenti:[],
     searchTerm:'', filterStato:'tutti', filterTipo:'tutti', filterPriorita:'tutti', filterAvvocato:'tutti',
-    showModal:false, showAvvocatoModal:false, showUtenteModal:false, showNoteModal:false, showAlertModal:false,
+    showModal:false, showAvvocatoModal:false, showUtenteModal:false, showNoteModal:false,
+    showAlertModal:false, showDettaglioPratica:false,
     editingPratica:null, editingAvvocato:null, editingUtente:null, viewingPratica:null,
     alertList:[], successMessage:'',
     formData:{ cliente:'', tipo_pratica:'civile', autorita:'', descrizione:'', stato:'svolgimento',
         data_apertura:today(), data_aggiornamento_attivita:today(), scadenza:'', timeline:'',
-        priorita:'media', rgnr:'', avvocato:'', nota_aggiornamento:'', alert_giorni:'1' },
+        priorita:'media', rgnr:'', avvocato:'', nota_aggiornamento:'', alert_giorni:'1',
+        responsabile_dipartimento:'' },
     avvForm:{ nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile', colore:'#4f46e5' },
     utenteForm:{ username:'', password:'', nome_completo:'', email:'', ruolo:'avvocato' },
     noteForm:{ nota:'' },
-    alertArchivio:[], alertArchivioLoading:false
+    notifiche:[], notificheLoading:false
 };
 
 function today() { return new Date().toISOString().split('T')[0]; }
-function isAdmin() { return state.user?.username === 'admin'; }
 
 function isPraticaScaduta(p) {
     if (!p.scadenza || p.stato==='fatto') return false;
@@ -116,20 +161,17 @@ function checkAlertGiornaliero() {
 
 function eseguiCheckAlert() {
     const alerts = [];
+    const myAvv = myAvvocati();
     state.pratiche.forEach(p => {
         if (!p.scadenza || p.stato==='fatto') return;
+        // Filtra per visibilità
+        if (!isAdmin() && !myAvv.includes(p.avvocato)) return;
         const diff = Math.ceil((new Date(p.scadenza) - new Date()) / (1000*60*60*24));
         if (p.alert_giorni) {
             const giorni = p.alert_giorni==='1' ? 3 : 10;
-            if (diff > 0 && diff <= giorni) {
-                if (isAdmin() || state.user?.nome_completo === p.avvocato)
-                    alerts.push({ pratica:p, diff, tipo:'imminente' });
-            }
+            if (diff > 0 && diff <= giorni) alerts.push({ pratica:p, diff, tipo:'imminente' });
         }
-        if (diff <= 0 && p.stato==='svolgimento') {
-            if (isAdmin() || state.user?.nome_completo === p.avvocato)
-                alerts.push({ pratica:p, diff, tipo:'scaduta' });
-        }
+        if (diff <= 0 && p.stato==='svolgimento') alerts.push({ pratica:p, diff, tipo:'scaduta' });
     });
     if (alerts.length > 0) {
         state.alertList = alerts;
@@ -142,30 +184,16 @@ async function salvaStorico(alerts) {
     for (const a of alerts) {
         const utente = state.utenti.find(u => u.nome_completo === a.pratica.avvocato);
         await sb.from('alert_storico').insert([{
-            data_alert: today(),
-            pratica_id: a.pratica.id,
-            cliente: a.pratica.cliente,
-            scadenza: a.pratica.scadenza,
-            avvocato: a.pratica.avvocato,
-            avvocato_id: utente?.id || null,
-            tipo: a.tipo,
-            diff_giorni: a.diff
+            data_alert: today(), pratica_id: a.pratica.id,
+            cliente: a.pratica.cliente, scadenza: a.pratica.scadenza,
+            avvocato: a.pratica.avvocato, avvocato_id: utente?.id || null,
+            tipo: a.tipo, diff_giorni: a.diff
         }]);
     }
 }
 
-async function getStorico(nomeAvvocato) {
-    const { data, error } = await sb.from('alert_storico')
-        .select('*')
-        .eq('avvocato', nomeAvvocato)
-        .order('data_alert', { ascending: false })
-        .limit(10);
-    if (error) return [];
-    return data || [];
-}
-
 async function loadAll() {
-    await Promise.all([loadPratiche(), loadAvvocati(), loadUtenti()]);
+    await Promise.all([loadPratiche(), loadAvvocati(), loadUtenti(), loadDipartimenti()]);
 }
 async function loadPratiche() {
     const { data, error } = await sb.from('pratiche').select('*').order('numero',{ascending:false});
@@ -179,27 +207,38 @@ async function loadUtenti() {
     const { data, error } = await sb.from('utenti').select('*').order('nome_completo');
     if (!error) state.utenti = data||[];
 }
+async function loadDipartimenti() {
+    const { data, error } = await sb.from('dipartimenti').select('*');
+    if (!error) state.dipartimenti = data||[];
+}
 async function loadNote(praticaId) {
     const { data, error } = await sb.from('note_aggiornamento').select('*')
         .eq('pratica_id', praticaId).order('data_nota',{ascending:false});
     if (!error) state.noteAggiornamento = data||[];
 }
 
-// Carica archivio alert per la tab Alert
-async function loadAlertArchivio() {
-    state.alertArchivioLoading = true;
+async function loadNotifiche() {
+    state.notificheLoading = true;
     let query = sb.from('alert_storico').select('*').order('data_alert', { ascending: false });
     if (!isAdmin()) {
-        query = query.eq('avvocato', state.user.nome_completo);
+        const myAvv = myAvvocati();
+        if (myAvv.length === 1) query = query.eq('avvocato', myAvv[0]);
+        else if (myAvv.length > 1) query = query.in('avvocato', myAvv);
     }
     const { data, error } = await query;
-    state.alertArchivio = error ? [] : (data || []);
-    state.alertArchivioLoading = false;
+    state.notifiche = error ? [] : (data || []);
+    state.notificheLoading = false;
+}
+
+function getPraticheVisibili() {
+    if (isAdmin()) return state.pratiche;
+    const myAvv = myAvvocati();
+    return state.pratiche.filter(p => myAvv.includes(p.avvocato));
 }
 
 function cleanPratica(p) {
     const c = {...p};
-    ['timeline','scadenza','data_modifica','nota_aggiornamento','rgnr','autorita'].forEach(k => {
+    ['timeline','scadenza','data_modifica','nota_aggiornamento','rgnr','autorita','responsabile_dipartimento'].forEach(k => {
         if (!c[k]||c[k]==='') c[k]=null;
     });
     if (!c.data_aggiornamento_attivita) c.data_aggiornamento_attivita = today();
@@ -296,6 +335,19 @@ async function deleteUtente(id) {
     else alert('Errore: '+error.message);
 }
 
+// Dipartimenti
+async function saveDipartimento(responsabile, responsabileId, avvocato, avvocatoId) {
+    // Evita duplicati
+    const exists = state.dipartimenti.find(d=>d.responsabile===responsabile && d.avvocato===avvocato);
+    if (exists) return;
+    await sb.from('dipartimenti').insert([{ responsabile, responsabile_id:responsabileId, avvocato, avvocato_id:avvocatoId }]);
+    await loadDipartimenti();
+}
+async function deleteDipartimento(id) {
+    await sb.from('dipartimenti').delete().eq('id',id);
+    await loadDipartimenti();
+}
+
 async function login(username, password) {
     const { data, error } = await sb.from('utenti').select('*')
         .eq('username',username).eq('password',password).eq('attivo',true).single();
@@ -339,7 +391,7 @@ async function esportaTuttiCSV() {
 }
 
 async function esportaDati() {
-    const data={pratiche:state.pratiche,avvocati:state.avvocati,dataEsportazione:new Date().toISOString(),versione:'2.0'};
+    const data={pratiche:state.pratiche,avvocati:state.avvocati,dataEsportazione:new Date().toISOString(),versione:'3.0'};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
@@ -381,7 +433,8 @@ function getAvvStats(nome) {
 }
 
 function getFiltered() {
-    return state.pratiche.filter(p=>{
+    const visibili = getPraticheVisibili();
+    return visibili.filter(p=>{
         const s=state.searchTerm.toLowerCase();
         const match=p.cliente.toLowerCase().includes(s)||p.descrizione.toLowerCase().includes(s)||(p.rgnr||'').toLowerCase().includes(s);
         return match&&(state.filterStato==='tutti'||p.stato===state.filterStato)&&
@@ -393,26 +446,32 @@ function getFiltered() {
 
 function fmtDate(d) { return d?new Date(d).toLocaleDateString('it-IT'):''; }
 
+function getRuoloBadge(r) {
+    if (r==='amministratore'||r==='admin') return {label:'👑 Admin', cls:'text-red-600'};
+    if (r==='responsabile_dipartimento') return {label:'🏢 Resp. Dipartimento', cls:'text-purple-600'};
+    return {label:'⚖️ Avvocato', cls:'text-indigo-600'};
+}
+
 function render() {
     if (!state.user) { renderLogin(); return; }
+    const visibili = getPraticheVisibili();
     const stats={
-        totali:state.pratiche.length,
-        svolgimento:state.pratiche.filter(p=>p.stato==='svolgimento').length,
-        fatto:state.pratiche.filter(p=>p.stato==='fatto').length,
-        bloccato:state.pratiche.filter(p=>p.stato==='bloccato').length,
-        scadute:state.pratiche.filter(p=>isPraticaScaduta(p)).length,
-        inScadenza:state.pratiche.filter(p=>isPraticaInScadenza(p)).length
+        totali:visibili.length,
+        svolgimento:visibili.filter(p=>p.stato==='svolgimento').length,
+        fatto:visibili.filter(p=>p.stato==='fatto').length,
+        bloccato:visibili.filter(p=>p.stato==='bloccato').length,
+        scadute:visibili.filter(p=>isPraticaScaduta(p)).length,
+        inScadenza:visibili.filter(p=>isPraticaInScadenza(p)).length
     };
     const filtered=getFiltered();
-
-    // Tabs: aggiunta "alert" dopo "gestione" (solo admin) oppure sempre visibile
     const tabs=[
         {id:'dashboard',label:'Dashboard',icon:'📊',show:true},
         {id:'pratiche',label:'Pratiche',icon:'📁',show:true},
         {id:'avvocati',label:'Avvocati',icon:'👥',show:true},
         {id:'utenti',label:'Utenti',icon:'🔐',show:isAdmin()},
+        {id:'dipartimenti',label:'Dipartimenti',icon:'🏢',show:isAdmin()},
         {id:'gestione',label:'Gestione Dati',icon:'🗄️',show:isAdmin()},
-        {id:'alertarchivio',label:'Alert',icon:'🔔',show:true}
+        {id:'notifiche',label:'Notifiche',icon:'🔔',show:true}
     ].filter(t=>t.show);
 
     document.getElementById('app').innerHTML=`
@@ -427,7 +486,7 @@ function render() {
                     <div class="bg-white/10 rounded-full px-4 py-2 inline-flex items-center gap-2">
                         <span class="text-sm">👤 ${state.user.nome_completo}</span>
                         <span class="text-white/50">|</span>
-                        <span class="text-sm">${isAdmin()?'👑 Admin':'⚖️ Avvocato'}</span>
+                        <span class="text-sm">${getRuoloBadge(state.user.ruolo).label}</span>
                     </div>
                 </div>
             </div>
@@ -450,19 +509,21 @@ function render() {
         ${state.activeTab==='pratiche'?renderPratiche(filtered):''}
         ${state.activeTab==='avvocati'?'<div id="avvocatiContainer"><p class="text-center text-gray-400 py-8">Caricamento...</p></div>':''}
         ${state.activeTab==='utenti'?renderUtenti():''}
+        ${state.activeTab==='dipartimenti'?renderDipartimenti():''}
         ${state.activeTab==='gestione'?renderGestione():''}
-        ${state.activeTab==='alertarchivio'?renderAlertArchivio():''}
+        ${state.activeTab==='notifiche'?renderNotifiche():''}
 
         ${state.showModal?renderModalPratica():''}
         ${state.showAvvocatoModal?renderModalAvvocato():''}
         ${state.showUtenteModal?renderModalUtente():''}
         ${state.showNoteModal?renderModalNote():''}
         ${state.showAlertModal?renderModalAlert():''}
+        ${state.showDettaglioPratica?renderModalDettaglioPratica():''}
     </div>`;
 
     if (state.activeTab === 'avvocati') loadAndRenderAvvocati();
-    if (state.activeTab === 'alertarchivio' && !state.alertArchivioLoading && state.alertArchivio.length === 0) {
-        loadAlertArchivio().then(()=>render());
+    if (state.activeTab === 'notifiche' && !state.notificheLoading && state.notifiche.length === 0) {
+        loadNotifiche().then(()=>render());
     }
 }
 
@@ -525,7 +586,8 @@ function renderDashboard(stats) {
 }
 
 function renderPratiche(filtered) {
-    const avvocatiList=['tutti',...new Set(state.pratiche.map(p=>p.avvocato).filter(Boolean))];
+    const visibili = getPraticheVisibili();
+    const avvocatiList=['tutti',...new Set(visibili.map(p=>p.avvocato).filter(Boolean))];
     return `
     <div class="space-y-6">
         <div class="bg-white rounded-xl shadow-lg p-6 no-print">
@@ -581,35 +643,36 @@ function renderPraticheCards(filtered) {
             const inScad=isPraticaInScadenza(p);
             const fatto=p.stato==='fatto';
             return `
-            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all ${scaduta?'scaduta':inScad?'border-l-4 border-orange-400':''} ${fatto?'pratica-fatto':''}">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all relative
+                ${scaduta&&!fatto?'scaduta':inScad&&!fatto?'border-l-4 border-orange-400':''}
+                ${fatto?'pratica-fatto-card':''}">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 ${fatto?'fatto-strike':''}">
                     <div class="flex-1">
                         <div class="flex items-center gap-2 mb-3 flex-wrap">
-                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)} ${p.stato==='fatto'?'badge-fatto':''}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)} ${fatto?'badge-fatto':''}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
                             <span class="px-3 py-1 rounded-full text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
                             <span class="px-3 py-1 bg-gray-100 rounded-full text-xs font-semibold">${p.tipo_pratica}</span>
                             ${p.autorita?`<span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">🏛️ ${p.autorita}</span>`:''}
                             ${p.rgnr?`<span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">RGNR: ${p.rgnr}</span>`:''}
-                            ${inScad?`<span class="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold animate-pulse">🔔 Scade tra ${Math.ceil((new Date(p.scadenza)-new Date())/(1000*60*60*24))}gg</span>`:''}
-                            ${scaduta?`<span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">⚠️ SCADUTA</span>`:''}
+                            ${p.responsabile_dipartimento?`<span class="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-semibold">🏢 ${p.responsabile_dipartimento}</span>`:''}
+                            ${inScad&&!fatto?`<span class="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold animate-pulse">🔔 Scade tra ${Math.ceil((new Date(p.scadenza)-new Date())/(1000*60*60*24))}gg</span>`:''}
+                            ${scaduta&&!fatto?`<span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">⚠️ SCADUTA</span>`:''}
                         </div>
                         <h3 class="text-xl font-bold text-gray-800 mb-1">${p.cliente}</h3>
                         <p class="text-gray-600 mb-2">${p.descrizione}</p>
                         <div class="flex flex-wrap gap-4 text-sm text-gray-500 items-center">
                             <span class="flex items-center gap-1">${avvAvatar(p.avvocato)}<span class="font-semibold">${p.avvocato||'-'}</span></span>
                             <span>📅 ${fmtDate(p.data_apertura)}</span>
-                            ${p.scadenza?`<span class="${scaduta?'text-red-600 font-bold':inScad?'text-orange-600 font-bold':''}">⏰ ${fmtDate(p.scadenza)}</span>`:''}
-                            ${p.timeline?`<span>📍 ${fmtDate(p.timeline)}</span>`:''}
+                            ${p.scadenza?`<span class="${scaduta&&!fatto?'text-red-600 font-bold':inScad&&!fatto?'text-orange-600 font-bold':''}">⏰ ${fmtDate(p.scadenza)}</span>`:''}
                             ${p.data_aggiornamento_attivita?`<span>🔄 ${fmtDate(p.data_aggiornamento_attivita)}</span>`:''}
-                            ${p.alert_giorni?`<span class="text-xs bg-gray-100 px-2 py-1 rounded">Alert: ${p.alert_giorni==='1'?'3gg':'10gg'}</span>`:''}
                         </div>
                     </div>
-                    <div class="flex gap-2 no-print">
+                    <div class="flex gap-2 no-print" style="position:relative;z-index:20;">
                         <button onclick="viewPratica('${p.id}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600">👁️ Vedi</button>
-                        ${isAdmin()?`
+                        ${isAdmin()||isResp()?`
                         <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️</button>
-                        <button onclick="confirmDeletePratica('${p.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">🗑️</button>`:`
-                        <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️</button>`}
+                        ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">🗑️</button>`:''}
+                        `:`<button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️</button>`}
                     </div>
                 </div>
             </div>`;
@@ -643,18 +706,18 @@ function renderPraticheTable(filtered) {
                     const inScad=isPraticaInScadenza(p);
                     const fatto=p.stato==='fatto';
                     return `
-                    <tr class="border-b hover:bg-gray-50 ${scaduta?'bg-red-50':inScad?'bg-orange-50':fatto?'bg-green-50 opacity-70':''}">
+                    <tr class="border-b hover:bg-gray-50 ${fatto?'tr-fatto':scaduta?'bg-red-50':inScad?'bg-orange-50':''}">
                         <td class="px-4 py-3">
-                            <div class="font-semibold">${p.cliente}</div>
-                            <div class="text-xs text-gray-500">${p.descrizione.substring(0,40)}...</div>
+                            <div class="font-semibold ${fatto?'fatto-strike':''}">${p.cliente}</div>
+                            <div class="text-xs text-gray-500 ${fatto?'fatto-strike':''}">${p.descrizione.substring(0,40)}...</div>
                         </td>
-                        <td class="px-4 py-3 text-sm">${p.tipo_pratica}</td>
-                        <td class="px-4 py-3 text-sm">${p.autorita||'-'}</td>
-                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatoBadge(p.stato)} ${p.stato==='fatto'?'badge-fatto':''}">${p.stato}</span></td>
-                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${p.priorita}</span></td>
-                        <td class="px-4 py-3 text-sm ${scaduta?'text-red-600 font-bold':inScad?'text-orange-600 font-bold':''}">${fmtDate(p.scadenza)||'-'}</td>
-                        <td class="px-4 py-3">${avvAvatar(p.avvocato)}</td>
-                        <td class="px-4 py-3 no-print">
+                        <td class="px-4 py-3 text-sm ${fatto?'fatto-strike':''}">${p.tipo_pratica}</td>
+                        <td class="px-4 py-3 text-sm ${fatto?'fatto-strike':''}">${p.autorita||'-'}</td>
+                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatoBadge(p.stato)} ${fatto?'badge-fatto':''}">${p.stato}</span></td>
+                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getPrioritaBadge(p.priorita)} ${fatto?'fatto-strike':''}">${p.priorita}</span></td>
+                        <td class="px-4 py-3 text-sm ${fatto?'fatto-strike':scaduta?'text-red-600 font-bold':inScad?'text-orange-600 font-bold':''}">${fmtDate(p.scadenza)||'-'}</td>
+                        <td class="px-4 py-3 ${fatto?'fatto-strike':''}">${avvAvatar(p.avvocato)}</td>
+                        <td class="px-4 py-3 no-print" style="position:relative;z-index:20;">
                             <div class="flex gap-1">
                                 <button onclick="viewPratica('${p.id}')" class="px-2 py-1 bg-green-500 text-white rounded text-xs">👁️</button>
                                 <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">✏️</button>
@@ -671,9 +734,9 @@ function renderPraticheTable(filtered) {
 async function renderAvvocati() {
     const storicoMap = {};
     for (const a of state.avvocati) {
-        storicoMap[a.nome_completo] = await getStorico(a.nome_completo);
+        const { data } = await sb.from('alert_storico').select('*').eq('avvocato', a.nome_completo).order('data_alert',{ascending:false}).limit(10);
+        storicoMap[a.nome_completo] = data||[];
     }
-
     const html = `
     <div class="space-y-6">
         <div class="bg-white rounded-xl shadow-lg p-6">
@@ -687,8 +750,9 @@ async function renderAvvocati() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 ${state.avvocati.map(a => {
                     const st = getAvvStats(a.nome_completo);
-                    const storico = storicoMap[a.nome_completo] || [];
-                    const colore = a.colore || getAvvColor(a.nome_completo);
+                    const storico = storicoMap[a.nome_completo]||[];
+                    const colore = a.colore||getAvvColor(a.nome_completo);
+                    const resp = state.dipartimenti.find(d=>d.avvocato===a.nome_completo)?.responsabile;
                     return `
                     <div class="rounded-xl p-6 border-2" style="background:${colore}18;border-color:${colore}40;">
                         <div class="flex items-center gap-3 mb-4">
@@ -696,6 +760,7 @@ async function renderAvvocati() {
                             <div>
                                 <h3 class="text-xl font-bold text-gray-800">${a.nome_completo}</h3>
                                 <p class="text-sm font-semibold" style="color:${colore}">${a.specializzazione}</p>
+                                ${resp?`<p class="text-xs text-purple-600">🏢 Resp: ${resp}</p>`:''}
                             </div>
                         </div>
                         <div class="space-y-1 mb-4">
@@ -710,25 +775,25 @@ async function renderAvvocati() {
                                 <div><p class="text-lg font-bold text-red-600">${st.bloccato}</p><p class="text-xs text-gray-500">Bloccato</p></div>
                             </div>
                         </div>
-                        ${storico.length > 0 ? `
+                        ${storico.length>0?`
                         <div class="mb-4">
                             <p class="text-xs font-semibold text-gray-500 mb-2">📋 Storico Alert (ultimi ${storico.length})</p>
                             <div class="space-y-1 max-h-36 overflow-y-auto">
-                                ${storico.map(s => `
-                                    <div class="text-xs p-2 rounded flex justify-between items-center ${s.tipo==='scaduta'?'bg-red-50 text-red-700':'bg-orange-50 text-orange-700'}">
-                                        <span>${s.tipo==='scaduta'?'⚠️':'🔔'} <strong>${s.cliente}</strong> — scad. ${fmtDate(s.scadenza)}</span>
-                                        <span class="text-gray-400 ml-2">${fmtDate(s.data_alert)}</span>
-                                    </div>`).join('')}
+                                ${storico.map(s=>`
+                                <div class="text-xs p-2 rounded flex justify-between items-center ${s.tipo==='scaduta'?'bg-red-50 text-red-700':'bg-orange-50 text-orange-700'}">
+                                    <span>${s.tipo==='scaduta'?'⚠️':'🔔'} <strong>${s.cliente}</strong> — scad. ${fmtDate(s.scadenza)}</span>
+                                    <span class="text-gray-400 ml-2">${fmtDate(s.data_alert)}</span>
+                                </div>`).join('')}
                             </div>
-                        </div>` : `
+                        </div>`:`
                         <div class="mb-4 p-3 bg-gray-50 rounded-lg text-center">
                             <p class="text-xs text-gray-400">Nessun alert registrato</p>
                         </div>`}
-                        ${isAdmin() ? `
+                        ${isAdmin()?`
                         <div class="flex gap-2 no-print">
                             <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️ Modifica</button>
                             <button onclick="confirmDeleteAvvocato('${a.id}')" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">🗑️ Elimina</button>
-                        </div>` : `
+                        </div>`:`
                         <div class="flex gap-2 no-print">
                             <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">🎨 Cambia Colore</button>
                         </div>`}
@@ -740,19 +805,67 @@ async function renderAvvocati() {
     return html;
 }
 
-// ── NUOVA TAB ARCHIVIO ALERT ──────────────────────────────────────────
-function renderAlertArchivio() {
-    const lista = state.alertArchivio;
-    const loading = state.alertArchivioLoading;
+// ── TAB DIPARTIMENTI (solo Admin) ──────────────────────────────────────
+function renderDipartimenti() {
+    const responsabili = state.utenti.filter(u=>u.ruolo==='responsabile_dipartimento');
+    return `
+    <div class="space-y-6">
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">🏢 Gestione Dipartimenti</h2>
+            ${responsabili.length===0?`
+            <div class="text-center py-12">
+                <div class="text-6xl mb-4">🏢</div>
+                <p class="text-gray-400">Nessun Responsabile di Dipartimento ancora creato.</p>
+                <p class="text-gray-400 text-sm mt-1">Crea un utente con ruolo "Responsabile Dipartimento" nella sezione Utenti.</p>
+            </div>`:`
+            <div class="space-y-6">
+                ${responsabili.map(r => {
+                    const miei = state.dipartimenti.filter(d=>d.responsabile===r.nome_completo);
+                    const avvLiberi = state.avvocati.filter(a=>!state.dipartimenti.find(d=>d.responsabile===r.nome_completo&&d.avvocato===a.nome_completo));
+                    return `
+                    <div class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 border-2 border-purple-200">
+                        <div class="flex items-center gap-3 mb-4">
+                            ${avvAvatar(r.nome_completo, true)}
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">${r.nome_completo}</h3>
+                                <p class="text-sm text-purple-600 font-semibold">🏢 Responsabile Dipartimento</p>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <p class="text-sm font-semibold text-gray-600 mb-2">Avvocati nel dipartimento (${miei.length}):</p>
+                            ${miei.length===0?`<p class="text-xs text-gray-400 italic">Nessun avvocato assegnato</p>`:`
+                            <div class="flex flex-wrap gap-2">
+                                ${miei.map(d=>`
+                                <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-purple-200 text-sm">
+                                    ${avvAvatar(d.avvocato)}
+                                    <span class="font-semibold">${d.avvocato}</span>
+                                    <button onclick="confirmDeleteDip('${d.id}')" class="text-red-400 hover:text-red-600 ml-1">✕</button>
+                                </div>`).join('')}
+                            </div>`}
+                        </div>
+                        ${avvLiberi.length>0?`
+                        <div class="flex gap-2 items-center mt-3">
+                            <select id="addAvv_${r.id}" class="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-sm">
+                                <option value="">— Aggiungi avvocato —</option>
+                                ${avvLiberi.map(a=>`<option value="${a.nome_completo}">${a.nome_completo}</option>`).join('')}
+                            </select>
+                            <button onclick="aggiungiAlDip('${r.id}','${r.nome_completo}')" class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700">➕ Aggiungi</button>
+                        </div>`:'<p class="text-xs text-gray-400 mt-2">Tutti gli avvocati sono già assegnati.</p>'}
+                    </div>`;
+                }).join('')}
+            </div>`}
+        </div>
+    </div>`;
+}
 
-    // Filtro per avvocato (solo admin)
-    const avvList = isAdmin() ? [...new Set(lista.map(a=>a.avvocato).filter(Boolean))] : [];
-
-    // Raggruppa per data
+// ── TAB NOTIFICHE ──────────────────────────────────────────────────────
+function renderNotifiche() {
+    const lista = state.notifiche;
+    const loading = state.notificheLoading;
     const grouped = {};
     lista.forEach(a => {
-        const k = a.data_alert || 'N/D';
-        if (!grouped[k]) grouped[k] = [];
+        const k = a.data_alert||'N/D';
+        if (!grouped[k]) grouped[k]=[];
         grouped[k].push(a);
     });
 
@@ -761,25 +874,24 @@ function renderAlertArchivio() {
         <div class="bg-white rounded-xl shadow-lg p-6">
             <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
                 <div>
-                    <h2 class="text-2xl font-bold text-gray-800">🔔 Archivio Alert</h2>
-                    <p class="text-sm text-gray-500 mt-1">${isAdmin()?'Tutti gli alert dello studio':'I tuoi alert personali'}</p>
+                    <h2 class="text-2xl font-bold text-gray-800">🔔 Notifiche</h2>
+                    <p class="text-sm text-gray-500 mt-1">${isAdmin()?'Tutte le notifiche dello studio':'Le tue notifiche personali'}</p>
                 </div>
-                <button onclick="loadAlertArchivio().then(()=>render())" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-all">🔄 Aggiorna</button>
+                <button onclick="loadNotifiche().then(()=>render())" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700">🔄 Aggiorna</button>
             </div>
 
-            ${loading ? `<div class="text-center py-12"><p class="text-gray-400 text-lg">Caricamento...</p></div>` :
-            lista.length === 0 ? `
+            ${loading?`<div class="text-center py-12"><p class="text-gray-400 text-lg">Caricamento...</p></div>`:
+            lista.length===0?`
                 <div class="text-center py-16">
                     <div class="text-6xl mb-4">🔕</div>
-                    <p class="text-gray-400 text-lg">Nessun alert registrato</p>
-                    <p class="text-gray-300 text-sm mt-1">Gli alert compariranno qui al primo accesso giornaliero</p>
-                </div>` : `
+                    <p class="text-gray-400 text-lg">Nessuna notifica registrata</p>
+                    <p class="text-gray-300 text-sm mt-1">Le notifiche compariranno qui al primo accesso giornaliero</p>
+                </div>`:`
 
-            <!-- Riepilogo -->
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                 <div class="bg-gray-50 rounded-xl p-4 text-center border border-gray-200">
                     <p class="text-2xl font-bold text-gray-700">${lista.length}</p>
-                    <p class="text-xs text-gray-500">Alert totali</p>
+                    <p class="text-xs text-gray-500">Totali</p>
                 </div>
                 <div class="bg-red-50 rounded-xl p-4 text-center border border-red-200">
                     <p class="text-2xl font-bold text-red-600">${lista.filter(a=>a.tipo==='scaduta').length}</p>
@@ -791,9 +903,8 @@ function renderAlertArchivio() {
                 </div>
             </div>
 
-            <!-- Lista per data -->
             <div class="space-y-6">
-                ${Object.keys(grouped).sort((a,b)=>b.localeCompare(a)).map(data => `
+                ${Object.keys(grouped).sort((a,b)=>b.localeCompare(a)).map(data=>`
                     <div>
                         <div class="flex items-center gap-3 mb-3">
                             <div class="h-px flex-1 bg-gray-200"></div>
@@ -801,8 +912,12 @@ function renderAlertArchivio() {
                             <div class="h-px flex-1 bg-gray-200"></div>
                         </div>
                         <div class="space-y-2">
-                            ${grouped[data].map(a => `
-                                <div class="flex items-center justify-between p-4 rounded-xl border-2 ${a.tipo==='scaduta'?'bg-red-50 border-red-200':'bg-orange-50 border-orange-200'}">
+                            ${grouped[data].map(a => {
+                                const pratica = state.pratiche.find(p=>p.id===a.pratica_id);
+                                return `
+                                <div class="flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer hover:shadow-md transition-shadow
+                                    ${a.tipo==='scaduta'?'bg-red-50 border-red-200 hover:border-red-400':'bg-orange-50 border-orange-200 hover:border-orange-400'}"
+                                    onclick="apriDettaglioNotifica('${a.pratica_id}')">
                                     <div class="flex items-center gap-3">
                                         ${avvAvatar(a.avvocato)}
                                         <div>
@@ -810,14 +925,18 @@ function renderAlertArchivio() {
                                             <div class="flex gap-3 text-xs text-gray-500 mt-0.5 flex-wrap">
                                                 <span>👤 ${a.avvocato||'-'}</span>
                                                 <span>⏰ Scadenza: <strong>${fmtDate(a.scadenza)}</strong></span>
-                                                ${a.diff_giorni !== null && a.diff_giorni !== undefined ? `<span>${a.diff_giorni <= 0 ? `Scaduta da ${Math.abs(a.diff_giorni)}gg` : `${a.diff_giorni}gg al termine`}</span>` : ''}
+                                                ${a.diff_giorni!==null&&a.diff_giorni!==undefined?`<span>${a.diff_giorni<=0?`Scaduta da ${Math.abs(a.diff_giorni)}gg`:`${a.diff_giorni}gg al termine`}</span>`:''}
                                             </div>
                                         </div>
                                     </div>
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${a.tipo==='scaduta'?'bg-red-200 text-red-800':'bg-orange-200 text-orange-800'}">
-                                        ${a.tipo==='scaduta'?'⚠️ Scaduta':'🔔 Imminente'}
-                                    </span>
-                                </div>`).join('')}
+                                    <div class="flex items-center gap-2">
+                                        <span class="px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${a.tipo==='scaduta'?'bg-red-200 text-red-800':'bg-orange-200 text-orange-800'}">
+                                            ${a.tipo==='scaduta'?'⚠️ Scaduta':'🔔 Imminente'}
+                                        </span>
+                                        ${pratica?`<span class="text-xs text-indigo-600 font-semibold no-print">📂 Apri →</span>`:''}
+                                    </div>
+                                </div>`;
+                            }).join('')}
                         </div>
                     </div>`).join('')}
             </div>`}
@@ -834,14 +953,16 @@ function renderUtenti() {
                 <button onclick="openUtenteModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">➕ Nuovo</button>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                ${state.utenti.map(u=>`
+                ${state.utenti.map(u=>{
+                    const rb = getRuoloBadge(u.ruolo);
+                    return `
                     <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-100">
                         <div class="flex justify-between items-start mb-3">
                             <div>
                                 <h3 class="text-xl font-bold text-gray-800">${u.nome_completo}</h3>
-                                <p class="text-sm ${u.ruolo==='amministratore'?'text-red-600':'text-indigo-600'} font-semibold">${u.ruolo==='amministratore'?'👑 Amministratore':'⚖️ Avvocato'}</p>
+                                <p class="text-sm ${rb.cls} font-semibold">${rb.label}</p>
                             </div>
-                            <span class="text-3xl">${u.ruolo==='amministratore'?'👑':'👤'}</span>
+                            <span class="text-3xl">${u.ruolo==='amministratore'?'👑':u.ruolo==='responsabile_dipartimento'?'🏢':'👤'}</span>
                         </div>
                         <div class="space-y-1 mb-4">
                             <p class="text-sm text-gray-600">🔑 <strong>${u.username}</strong></p>
@@ -852,7 +973,8 @@ function renderUtenti() {
                             <button onclick="openUtenteModal(${JSON.stringify(u).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg">✏️ Modifica</button>
                             <button onclick="confirmDeleteUtente('${u.id}')" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg">🗑️ Elimina</button>
                         </div>
-                    </div>`).join('')}
+                    </div>`;
+                }).join('')}
             </div>
         </div>
     </div>`;
@@ -895,12 +1017,74 @@ function renderGestione() {
     </div>`;
 }
 
+// ── MODAL DETTAGLIO PRATICA (da Notifiche) ─────────────────────────────
+function renderModalDettaglioPratica() {
+    const p = state.viewingPratica;
+    if (!p) return '';
+    const scaduta = isPraticaScaduta(p);
+    const inScad = isPraticaInScadenza(p);
+    const canEdit = isAdmin() || isResp() || p.avvocato === state.user.nome_completo;
+    return `
+    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full my-8 animate-slidedown">
+            <div class="bg-gradient-to-r from-indigo-700 to-purple-700 text-white p-6 flex justify-between items-center">
+                <h2 class="text-xl font-bold">📂 Dettaglio Pratica</h2>
+                <button onclick="state.showDettaglioPratica=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="flex items-center gap-3 mb-2">
+                    ${avvAvatar(p.avvocato, true)}
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-800">${p.cliente}</h3>
+                        <p class="text-sm text-gray-500">${p.avvocato||'-'}</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
+                    <span class="px-3 py-1 bg-gray-100 rounded-full text-xs font-semibold">${p.tipo_pratica}</span>
+                    ${p.autorita?`<span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">🏛️ ${p.autorita}</span>`:''}
+                    ${p.rgnr?`<span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">RGNR: ${p.rgnr}</span>`:''}
+                    ${scaduta?`<span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">⚠️ SCADUTA</span>`:''}
+                    ${inScad?`<span class="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">🔔 In scadenza</span>`:''}
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4 space-y-2">
+                    <p class="text-gray-700"><strong>Descrizione:</strong> ${p.descrizione}</p>
+                    <div class="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                        <p>📅 Apertura: <strong>${fmtDate(p.data_apertura)}</strong></p>
+                        ${p.scadenza?`<p class="${scaduta?'text-red-600':inScad?'text-orange-600':''}">⏰ Scadenza: <strong>${fmtDate(p.scadenza)}</strong></p>`:''}
+                        ${p.responsabile_dipartimento?`<p>🏢 Responsabile: <strong>${p.responsabile_dipartimento}</strong></p>`:''}
+                        ${p.data_aggiornamento_attivita?`<p>🔄 Aggiornamento: <strong>${fmtDate(p.data_aggiornamento_attivita)}</strong></p>`:''}
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    ${canEdit?`
+                    <button onclick="state.showDettaglioPratica=false;openPraticaModal(state.viewingPratica)" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">
+                        ✏️ Modifica Pratica
+                    </button>`:''}
+                    <button onclick="state.showDettaglioPratica=false;state.showNoteModal=true;render()" class="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg font-semibold">
+                        📝 Vedi Note
+                    </button>
+                    <button onclick="state.showDettaglioPratica=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold">Chiudi</button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
 function renderModalPratica() {
     const isNuova = !state.editingPratica;
-    const origScadenza = state.editingPratica?.scadenza || '';
-    const origAggAttivita = state.editingPratica?.data_aggiornamento_attivita || '';
-    const minScadenza = !isAdmin() && origScadenza ? origScadenza : '';
-    const minAggAttivita = !isAdmin() && origAggAttivita ? origAggAttivita : '';
+    const origScadenza = state.editingPratica?.scadenza||'';
+    const origAggAttivita = state.editingPratica?.data_aggiornamento_attivita||'';
+    const minScadenza = !isAdmin()&&origScadenza?origScadenza:'';
+    const minAggAttivita = !isAdmin()&&origAggAttivita?origAggAttivita:'';
+
+    // Avvocati selezionabili: resp vede solo i suoi, admin vede tutti
+    const avvSelezionabili = isAdmin() ? state.avvocati :
+        isResp() ? state.avvocati.filter(a=>myAvvocati().includes(a.nome_completo)) :
+        state.avvocati.filter(a=>a.nome_completo===state.user.nome_completo);
+
+    const responsabili = state.utenti.filter(u=>u.ruolo==='responsabile_dipartimento');
 
     return `
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
@@ -937,13 +1121,23 @@ function renderModalPratica() {
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Avvocato Responsabile *</label>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Avvocato Responsabile *
+                            ${isResp()?'<span class="text-purple-500 text-xs">(modifica consentita)</span>':''}
+                        </label>
                         <select onchange="state.formData.avvocato=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
                             <option value="">-- Seleziona --</option>
-                            ${state.avvocati.map(a=>`<option value="${a.nome_completo}" ${state.formData.avvocato===a.nome_completo?'selected':''}>${a.nome_completo}</option>`).join('')}
+                            ${avvSelezionabili.map(a=>`<option value="${a.nome_completo}" ${state.formData.avvocato===a.nome_completo?'selected':''}>${a.nome_completo}</option>`).join('')}
                         </select>
                     </div>
                 </div>
+                ${isAdmin()&&responsabili.length>0?`
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">🏢 Responsabile Dipartimento</label>
+                    <select onchange="state.formData.responsabile_dipartimento=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                        <option value="">-- Nessuno --</option>
+                        ${responsabili.map(r=>`<option value="${r.nome_completo}" ${state.formData.responsabile_dipartimento===r.nome_completo?'selected':''}>${r.nome_completo}</option>`).join('')}
+                    </select>
+                </div>`:''}
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Descrizione *</label>
                     <textarea oninput="state.formData.descrizione=this.value" rows="3"
@@ -967,32 +1161,30 @@ function renderModalPratica() {
                         <input type="date" value="${state.formData.data_apertura}"
                             ${!isAdmin()&&!isNuova?'disabled':''}
                             oninput="state.formData.data_apertura=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none ${!isAdmin()&&!isNuova?'bg-gray-100 cursor-not-allowed':''}"/>
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg ${!isAdmin()&&!isNuova?'bg-gray-100 cursor-not-allowed':''}"/>
                         ${!isAdmin()&&!isNuova?'<p class="text-xs text-gray-400 mt-1">Non modificabile</p>':''}
                     </div>
                 </div>
-                <div class="grid grid-cols-3 gap-4">
+                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Scadenza ${!isAdmin()&&origScadenza?'(solo in avanti)':''}</label>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Scadenza</label>
                         <input type="date" value="${state.formData.scadenza||''}"
                             ${minScadenza?`min="${minScadenza}"`:''}
                             oninput="state.formData.scadenza=this.value"
                             class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                        ${!isAdmin()&&origScadenza?`<p class="text-xs text-orange-500 mt-1">⚠️ Non puoi retrodatare</p>`:''}
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Agg.to Attività ${!isAdmin()&&origAggAttivita?'(solo in avanti)':''}</label>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Agg.to Attività</label>
                         <input type="date" value="${state.formData.data_aggiornamento_attivita||today()}"
                             ${minAggAttivita?`min="${minAggAttivita}"`:''}
                             oninput="state.formData.data_aggiornamento_attivita=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none bg-blue-50"/>
-                        ${!isAdmin()&&origAggAttivita?`<p class="text-xs text-orange-500 mt-1">⚠️ Non puoi retrodatare</p>`:''}
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-blue-50"/>
                     </div>
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">🔔 Alert Scadenza</label>
                     <div class="grid grid-cols-3 gap-3">
-                        ${[['','Nessuno','gray'],['1','⚡ 3 giorni prima','orange'],['2','🕐 10 giorni prima','yellow']].map(([v,l,c])=>`
+                        ${[['','Nessuno'],['1','⚡ 3 giorni prima'],['2','🕐 10 giorni prima']].map(([v,l])=>`
                         <label class="flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${state.formData.alert_giorni===v?'border-indigo-400 bg-indigo-50':'border-gray-200'}">
                             <input type="radio" name="alertGiorni" value="${v}" ${state.formData.alert_giorni===v?'checked':''} onchange="state.formData.alert_giorni=this.value;render()"/>
                             <span class="text-sm font-semibold text-gray-700">${l}</span>
@@ -1000,10 +1192,7 @@ function renderModalPratica() {
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">
-                        📝 Nota Aggiornamento
-                        ${!isAdmin()&&!isNuova?'<span class="text-red-500">* obbligatoria se modifichi date</span>':''}
-                    </label>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">📝 Nota Aggiornamento</label>
                     <textarea oninput="state.formData.nota_aggiornamento=this.value" rows="3"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"
                         placeholder="Questa nota verrà aggiunta allo storico...">${state.formData.nota_aggiornamento||''}</textarea>
@@ -1019,63 +1208,48 @@ function renderModalPratica() {
     </div>`;
 }
 
-// ── MODAL AVVOCATO con selezione colore ───────────────────────────────
 function renderModalAvvocato() {
-    const coloreSelezionato = state.avvForm.colore || '#4f46e5';
-    // Se non è admin, mostra solo selezione colore per se stesso
-    const soloColore = !isAdmin() && state.editingAvvocato;
-
+    const coloreSelezionato = state.avvForm.colore||'#4f46e5';
+    const soloColore = !isAdmin()&&state.editingAvvocato;
     return `
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${soloColore?'🎨 Colore Avvocato':state.editingAvvocato?'✏️ Modifica Avvocato':'➕ Nuovo Avvocato'}</h2>
+                <h2 class="text-2xl font-bold">${soloColore?'🎨 Colore':state.editingAvvocato?'✏️ Modifica':'➕ Nuovo'} Avvocato</h2>
                 <button onclick="state.showAvvocatoModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6 space-y-4">
-                ${soloColore ? '' : `
+                ${soloColore?'':`
                 <div class="grid grid-cols-2 gap-4">
                     <div><label class="block text-sm font-semibold text-gray-700 mb-2">Nome *</label>
-                    <input type="text" value="${state.avvForm.nome}" oninput="state.avvForm.nome=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/></div>
+                    <input type="text" value="${state.avvForm.nome}" oninput="state.avvForm.nome=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
                     <div><label class="block text-sm font-semibold text-gray-700 mb-2">Cognome *</label>
-                    <input type="text" value="${state.avvForm.cognome}" oninput="state.avvForm.cognome=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/></div>
+                    <input type="text" value="${state.avvForm.cognome}" oninput="state.avvForm.cognome=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
                 </div>
                 <div><label class="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-                <input type="email" value="${state.avvForm.email}" oninput="state.avvForm.email=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/></div>
+                <input type="email" value="${state.avvForm.email}" oninput="state.avvForm.email=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
                 <div><label class="block text-sm font-semibold text-gray-700 mb-2">Telefono *</label>
-                <input type="tel" value="${state.avvForm.telefono}" oninput="state.avvForm.telefono=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/></div>
+                <input type="tel" value="${state.avvForm.telefono}" oninput="state.avvForm.telefono=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
                 <div><label class="block text-sm font-semibold text-gray-700 mb-2">Specializzazione *</label>
-                <select onchange="state.avvForm.specializzazione=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                <select onchange="state.avvForm.specializzazione=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg">
                     ${TIPI_PRATICA.map(s=>`<option value="${s}" ${state.avvForm.specializzazione===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
                 </select></div>`}
-
-                <!-- Selezione colore -->
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-3">🎨 Colore Avatar</label>
                     <div class="flex items-center gap-3 mb-3 p-3 bg-gray-50 rounded-xl">
-                        <span class="avv-avatar-lg" style="background:${coloreSelezionato}">${getIniziali((state.avvForm.nome||'') + ' ' + (state.avvForm.cognome||'')) || getIniziali(state.editingAvvocato?.nome_completo || '?')}</span>
-                        <div>
-                            <p class="font-semibold text-gray-700">${state.avvForm.nome||''} ${state.avvForm.cognome||state.editingAvvocato?.nome_completo||''}</p>
-                            <p class="text-xs text-gray-400">Anteprima colore selezionato</p>
-                        </div>
+                        <span class="avv-avatar-lg" style="background:${coloreSelezionato}">${getIniziali((state.avvForm.nome||'')+' '+(state.avvForm.cognome||state.editingAvvocato?.nome_completo||''))}</span>
+                        <div><p class="font-semibold text-gray-700">${state.avvForm.nome||''} ${state.avvForm.cognome||state.editingAvvocato?.nome_completo||''}</p>
+                        <p class="text-xs text-gray-400">Anteprima</p></div>
                     </div>
                     <div class="flex flex-wrap gap-3 p-3 bg-gray-50 rounded-xl">
-                        ${PALETTE_COLORI.map(c=>`
-                            <div class="color-swatch ${coloreSelezionato===c?'selected':''}"
-                                style="background:${c}"
-                                onclick="state.avvForm.colore='${c}';render()"
-                                title="${c}">
-                            </div>`).join('')}
+                        ${PALETTE_COLORI.map(c=>`<div class="color-swatch ${coloreSelezionato===c?'selected':''}" style="background:${c}" onclick="state.avvForm.colore='${c}';render()"></div>`).join('')}
                     </div>
                     <div class="flex items-center gap-3 mt-3">
                         <label class="text-sm text-gray-600 font-semibold">Personalizzato:</label>
-                        <input type="color" value="${coloreSelezionato}"
-                            oninput="state.avvForm.colore=this.value;render()"
-                            class="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-200"/>
+                        <input type="color" value="${coloreSelezionato}" oninput="state.avvForm.colore=this.value;render()" class="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-200"/>
                         <span class="text-sm text-gray-500 font-mono">${coloreSelezionato}</span>
                     </div>
                 </div>
-
                 <div class="flex gap-3 pt-4">
                     <button onclick="submitAvvocato()" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">💾 ${state.editingAvvocato?'Aggiorna':'Salva'}</button>
                     <button onclick="state.showAvvocatoModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold">Annulla</button>
@@ -1097,7 +1271,7 @@ function renderModalUtente() {
                 <div><label class="block text-sm font-semibold text-gray-700 mb-2">Username *</label>
                 <input type="text" value="${state.utenteForm.username}" ${state.editingUtente?'disabled':''} oninput="state.utenteForm.username=this.value"
                     class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg ${state.editingUtente?'bg-gray-100':''}"/></div>
-                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Password ${state.editingUtente?'(vuoto = non modificare)':'*'}</label>
+                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Password ${state.editingUtente?'(vuoto = invariata)':'*'}</label>
                 <input type="password" value="${state.utenteForm.password||''}" oninput="state.utenteForm.password=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
                 <div><label class="block text-sm font-semibold text-gray-700 mb-2">Nome Completo *</label>
                 <input type="text" value="${state.utenteForm.nome_completo}" oninput="state.utenteForm.nome_completo=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
@@ -1106,6 +1280,7 @@ function renderModalUtente() {
                 <div><label class="block text-sm font-semibold text-gray-700 mb-2">Ruolo *</label>
                 <select onchange="state.utenteForm.ruolo=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg">
                     <option value="avvocato" ${state.utenteForm.ruolo==='avvocato'?'selected':''}>⚖️ Avvocato</option>
+                    <option value="responsabile_dipartimento" ${state.utenteForm.ruolo==='responsabile_dipartimento'?'selected':''}>🏢 Responsabile Dipartimento</option>
                     <option value="amministratore" ${state.utenteForm.ruolo==='amministratore'?'selected':''}>👑 Amministratore</option>
                 </select></div>
                 <div class="flex gap-3 pt-4">
@@ -1128,20 +1303,15 @@ function renderModalNote() {
                         ${avvAvatar(p?.avvocato,true)}
                         <h2 class="text-xl font-bold">${p?.cliente}</h2>
                     </div>
-                    <div class="flex items-center justify-center gap-2 flex-wrap">
-                        ${p?.autorita?`<span class="text-xs bg-white/20 px-2 py-1 rounded-full">🏛️ ${p.autorita}</span>`:''}
-                        <span class="text-xs bg-white/20 px-2 py-1 rounded-full">${p?.tipo_pratica}</span>
-                        ${p?.rgnr?`<span class="text-xs bg-white/20 px-2 py-1 rounded-full">RGNR: ${p.rgnr}</span>`:''}
-                    </div>
                     <p class="text-sm text-blue-200 mt-1">${p?.descrizione}</p>
                 </div>
                 <button onclick="state.showNoteModal=false;render()" class="absolute top-6 right-6 hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
             </div>
             <div class="p-6">
-                ${isAdmin()?`<div class="mb-4 flex justify-end"><button onclick="state.showNoteModal=false;openPraticaModal(state.viewingPratica)" class="px-5 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold">✏️ Modifica Pratica</button></div>`:''}
+                ${isAdmin()||isResp()?`<div class="mb-4 flex justify-end"><button onclick="state.showNoteModal=false;openPraticaModal(state.viewingPratica)" class="px-5 py-2 bg-blue-500 text-white rounded-lg font-semibold">✏️ Modifica Pratica</button></div>`:''}
                 <div class="mb-6 bg-indigo-50 rounded-xl p-4 border border-indigo-100">
                     <label class="block text-sm font-semibold text-gray-700 mb-2">📝 Aggiungi Nota</label>
-                    <textarea id="noteTextarea" oninput="state.noteForm.nota=this.value" rows="3"
+                    <textarea oninput="state.noteForm.nota=this.value" rows="3"
                         class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none mb-3 bg-white"
                         placeholder="Scrivi qui la nota...">${state.noteForm.nota||''}</textarea>
                     <button onclick="submitNota()" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">➕ Aggiungi Nota</button>
@@ -1173,39 +1343,36 @@ function renderModalAlert() {
             </div>
             <div class="p-6 space-y-4">
                 ${state.alertList.filter(a=>a.tipo==='scaduta').length>0?`
-                <div>
-                    <h3 class="font-bold text-red-600 mb-3">⚠️ Pratiche già scadute</h3>
-                    ${state.alertList.filter(a=>a.tipo==='scaduta').map(({pratica:p,diff})=>`
-                        <div class="p-4 bg-red-50 rounded-xl border-2 border-red-200 mb-2">
-                            <div class="flex items-center justify-between mb-1">
-                                <div class="flex items-center gap-2">${avvAvatar(p.avvocato)}<span class="font-bold">${p.cliente}</span></div>
-                                <span class="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-bold">Scaduta da ${Math.abs(diff)}gg</span>
-                            </div>
-                            <div class="flex gap-3 text-xs text-gray-500 flex-wrap mt-1">
-                                ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
-                                <span>📅 Scadenza: <strong class="text-red-700">${fmtDate(p.scadenza)}</strong></span>
-                                <span>👤 ${p.avvocato}</span>
-                            </div>
-                        </div>`).join('')}
+                <div><h3 class="font-bold text-red-600 mb-3">⚠️ Pratiche già scadute</h3>
+                ${state.alertList.filter(a=>a.tipo==='scaduta').map(({pratica:p,diff})=>`
+                    <div class="p-4 bg-red-50 rounded-xl border-2 border-red-200 mb-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="flex items-center gap-2">${avvAvatar(p.avvocato)}<span class="font-bold">${p.cliente}</span></div>
+                            <span class="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-bold">Scaduta da ${Math.abs(diff)}gg</span>
+                        </div>
+                        <div class="flex gap-3 text-xs text-gray-500 flex-wrap mt-1">
+                            ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
+                            <span>📅 <strong class="text-red-700">${fmtDate(p.scadenza)}</strong></span>
+                            <span>👤 ${p.avvocato}</span>
+                        </div>
+                    </div>`).join('')}
                 </div>`:''}
                 ${state.alertList.filter(a=>a.tipo==='imminente').length>0?`
-                <div>
-                    <h3 class="font-bold text-orange-600 mb-3">🔔 In scadenza</h3>
-                    ${state.alertList.filter(a=>a.tipo==='imminente').map(({pratica:p,diff})=>`
-                        <div class="p-4 bg-orange-50 rounded-xl border-2 border-orange-200 mb-2">
-                            <div class="flex items-center justify-between mb-1">
-                                <div class="flex items-center gap-2">${avvAvatar(p.avvocato)}<span class="font-bold">${p.cliente}</span></div>
-                                <span class="px-3 py-1 bg-orange-200 text-orange-800 rounded-full text-sm font-bold">Scade tra ${diff}gg</span>
-                            </div>
-                            <div class="flex gap-3 text-xs text-gray-500 flex-wrap mt-1">
-                                ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
-                                <span>📅 Scadenza: <strong class="text-orange-700">${fmtDate(p.scadenza)}</strong></span>
-                                <span>👤 ${p.avvocato}</span>
-                                <span>Alert: ${p.alert_giorni==='1'?'⚡ 3gg':'🕐 10gg'}</span>
-                            </div>
-                        </div>`).join('')}
+                <div><h3 class="font-bold text-orange-600 mb-3">🔔 In scadenza</h3>
+                ${state.alertList.filter(a=>a.tipo==='imminente').map(({pratica:p,diff})=>`
+                    <div class="p-4 bg-orange-50 rounded-xl border-2 border-orange-200 mb-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="flex items-center gap-2">${avvAvatar(p.avvocato)}<span class="font-bold">${p.cliente}</span></div>
+                            <span class="px-3 py-1 bg-orange-200 text-orange-800 rounded-full text-sm font-bold">Scade tra ${diff}gg</span>
+                        </div>
+                        <div class="flex gap-3 text-xs text-gray-500 flex-wrap mt-1">
+                            ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
+                            <span>📅 <strong class="text-orange-700">${fmtDate(p.scadenza)}</strong></span>
+                            <span>👤 ${p.avvocato}</span>
+                        </div>
+                    </div>`).join('')}
                 </div>`:''}
-                <button onclick="state.showAlertModal=false;render()" class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-semibold mt-2">✅ Ho capito</button>
+                <button onclick="state.showAlertModal=false;render()" class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-semibold">✅ Ho capito</button>
             </div>
         </div>
     </div>`;
@@ -1222,13 +1389,9 @@ function renderPraticheResult() {
 
 function switchTab(tab) {
     state.activeTab = tab;
-    // Reset archivio alert quando si cambia tab
-    if (tab === 'alertarchivio') {
-        state.alertArchivio = [];
-        state.alertArchivioLoading = false;
-    }
+    if (tab==='notifiche') { state.notifiche=[]; state.notificheLoading=false; }
     render();
-    if (tab === 'avvocati') loadAndRenderAvvocati();
+    if (tab==='avvocati') loadAndRenderAvvocati();
 }
 
 async function loadAndRenderAvvocati() {
@@ -1249,16 +1412,16 @@ function openPraticaModal(p) {
     state.formData=p?{...p,nota_aggiornamento:'',alert_giorni:p.alert_giorni||''}:{
         cliente:'',tipo_pratica:'civile',autorita:'',descrizione:'',stato:'svolgimento',
         data_apertura:today(),data_aggiornamento_attivita:today(),scadenza:'',timeline:'',
-        priorita:'media',rgnr:'',avvocato:'',nota_aggiornamento:'',alert_giorni:'1'
+        priorita:'media',rgnr:'',avvocato:'',nota_aggiornamento:'',alert_giorni:'1',responsabile_dipartimento:''
     };
-    state.showModal=true; state.showNoteModal=false; render();
+    state.showModal=true; state.showNoteModal=false; state.showDettaglioPratica=false; render();
 }
 
 function openAvvocatoModal(a) {
     state.editingAvvocato=a;
     state.avvForm=a
-        ? {nome:a.nome,cognome:a.cognome,email:a.email,telefono:a.telefono,specializzazione:a.specializzazione,colore:a.colore||getAvvColor(a.nome_completo)}
-        : {nome:'',cognome:'',email:'',telefono:'',specializzazione:'civile',colore:'#4f46e5'};
+        ?{nome:a.nome,cognome:a.cognome,email:a.email,telefono:a.telefono,specializzazione:a.specializzazione,colore:a.colore||getAvvColor(a.nome_completo)}
+        :{nome:'',cognome:'',email:'',telefono:'',specializzazione:'civile',colore:'#4f46e5'};
     state.showAvvocatoModal=true; render();
 }
 
@@ -1278,42 +1441,54 @@ async function openNoteModal(praticaId) {
 
 async function viewPratica(praticaId) { await openNoteModal(praticaId); }
 
+async function apriDettaglioNotifica(praticaId) {
+    const p = state.pratiche.find(pr=>pr.id===praticaId);
+    if (!p) { alert('Pratica non trovata o non più disponibile.'); return; }
+    state.viewingPratica = p;
+    await loadNote(praticaId);
+    state.showDettaglioPratica = true;
+    render();
+}
+
+async function aggiungiAlDip(respId, respNome) {
+    const sel = document.getElementById(`addAvv_${respId}`);
+    if (!sel||!sel.value) return;
+    const avvNome = sel.value;
+    const avvUtente = state.utenti.find(u=>u.nome_completo===avvNome);
+    const respUtente = state.utenti.find(u=>u.nome_completo===respNome);
+    await saveDipartimento(respNome, respUtente?.id||null, avvNome, avvUtente?.id||null);
+    showSuccess(`${avvNome} aggiunto al dipartimento di ${respNome}`);
+    render();
+}
+
+async function confirmDeleteDip(id) {
+    if (confirm('Rimuovere questo avvocato dal dipartimento?')) {
+        await deleteDipartimento(id);
+        showSuccess('Avvocato rimosso dal dipartimento.');
+        render();
+    }
+}
+
 async function submitPratica() {
     const f=state.formData;
     const orig=state.editingPratica;
     const isNuova=!orig;
-
     if (!f.cliente||!f.descrizione||!f.avvocato) { alert('Compila tutti i campi obbligatori (*)'); return; }
-
-    if (!isAdmin()&&!isNuova) {
-        const scadenzaCambiata = f.scadenza && orig.scadenza && f.scadenza !== orig.scadenza;
-        const aggCambiata = f.data_aggiornamento_attivita && orig.data_aggiornamento_attivita && f.data_aggiornamento_attivita !== orig.data_aggiornamento_attivita;
-
-        if (f.scadenza && orig.scadenza && f.scadenza < orig.scadenza) {
-            alert('⚠️ Non puoi retrodatare la scadenza!'); return;
-        }
-        if (f.data_aggiornamento_attivita && orig.data_aggiornamento_attivita && f.data_aggiornamento_attivita < orig.data_aggiornamento_attivita) {
-            alert('⚠️ Non puoi retrodatare l\'aggiornamento attività!'); return;
-        }
-        if ((scadenzaCambiata||aggCambiata) && !f.nota_aggiornamento?.trim()) {
-            alert('⚠️ Devi inserire una nota di aggiornamento quando modifichi le date!'); return;
-        }
+    if (!isAdmin()&&!isResp()&&!isNuova) {
+        if (f.scadenza&&orig.scadenza&&f.scadenza<orig.scadenza) { alert('⚠️ Non puoi retrodatare la scadenza!'); return; }
+        if (f.data_aggiornamento_attivita&&orig.data_aggiornamento_attivita&&f.data_aggiornamento_attivita<orig.data_aggiornamento_attivita) { alert('⚠️ Non puoi retrodatare l\'aggiornamento!'); return; }
         f.data_apertura = orig.data_apertura;
     }
-
     const p={...f};
     if (orig) p.id=orig.id;
-    p.data_modifica=today();
-    p.data_aggiornamento_attivita=today();
+    p.data_modifica=today(); p.data_aggiornamento_attivita=today();
     const ok=await savePratica(p);
     if (ok) { state.showModal=false; state.editingPratica=null; showSuccess('Pratica salvata!'); render(); }
 }
 
 async function submitAvvocato() {
-    const soloColore = !isAdmin() && state.editingAvvocato;
-    if (!soloColore && (!state.avvForm.nome||!state.avvForm.cognome||!state.avvForm.email||!state.avvForm.telefono)) {
-        alert('Compila tutti i campi'); return;
-    }
+    const soloColore = !isAdmin()&&state.editingAvvocato;
+    if (!soloColore&&(!state.avvForm.nome||!state.avvForm.cognome||!state.avvForm.email||!state.avvForm.telefono)) { alert('Compila tutti i campi'); return; }
     const a={...state.avvForm};
     if (state.editingAvvocato) a.id=state.editingAvvocato.id;
     const ok=await saveAvvocato(a);
@@ -1344,6 +1519,7 @@ render();
 </script>
 </body>
 </html>
+
 
 
 
