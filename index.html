@@ -219,7 +219,9 @@ async function loadNote(praticaId) {
 
 async function loadNotifiche() {
     state.notificheLoading = true;
-    let query = sb.from('alert_storico').select('*').order('data_alert', { ascending: false });
+    let query = sb.from('alert_storico').select('*')
+        .eq('cancellata', false)
+        .order('data_alert', { ascending: false });
     if (!isAdmin()) {
         const myAvv = myAvvocati();
         if (myAvv.length === 1) query = query.eq('avvocato', myAvv[0]);
@@ -228,6 +230,22 @@ async function loadNotifiche() {
     const { data, error } = await query;
     state.notifiche = error ? [] : (data || []);
     state.notificheLoading = false;
+}
+
+async function cancellaNotifica(id) {
+    await sb.from('alert_storico').update({ cancellata: true }).eq('id', id);
+    state.notifiche = state.notifiche.filter(n => n.id !== id);
+    render();
+}
+
+async function cancellaNotificheScadenzaSpostata(praticaId, nuovaScadenza) {
+    // Cancella notifiche di tipo "scaduta" o "imminente" per questa pratica
+    // se la nuova scadenza è in avanti rispetto a oggi
+    if (!nuovaScadenza || nuovaScadenza <= today()) return;
+    await sb.from('alert_storico')
+        .update({ cancellata: true })
+        .eq('pratica_id', praticaId)
+        .in('tipo', ['scaduta', 'imminente']);
 }
 
 function getPraticheVisibili() {
@@ -1483,7 +1501,13 @@ async function submitPratica() {
     if (orig) p.id=orig.id;
     p.data_modifica=today(); p.data_aggiornamento_attivita=today();
     const ok=await savePratica(p);
-    if (ok) { state.showModal=false; state.editingPratica=null; showSuccess('Pratica salvata!'); render(); }
+    if (ok) {
+        // Se la scadenza è stata spostata in avanti, cancella le notifiche relative
+        if (orig && f.scadenza && f.scadenza > today()) {
+            await cancellaNotificheScadenzaSpostata(orig.id, f.scadenza);
+        }
+        state.showModal=false; state.editingPratica=null; showSuccess('Pratica salvata!'); render();
+    }
 }
 
 async function submitAvvocato() {
@@ -1519,6 +1543,7 @@ render();
 </script>
 </body>
 </html>
+
 
 
 
