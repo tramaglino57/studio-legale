@@ -354,12 +354,19 @@ async function deleteUtente(id) {
 }
 
 // Dipartimenti
-async function saveDipartimento(responsabile, responsabileId, avvocato, avvocatoId) {
-    // Evita duplicati
+async function saveDipartimento(responsabile, responsabileId, avvocato, avvocatoId, nomeDip) {
     const exists = state.dipartimenti.find(d=>d.responsabile===responsabile && d.avvocato===avvocato);
     if (exists) return;
-    await sb.from('dipartimenti').insert([{ responsabile, responsabile_id:responsabileId, avvocato, avvocato_id:avvocatoId }]);
+    await sb.from('dipartimenti').insert([{ responsabile, responsabile_id:responsabileId, avvocato, avvocato_id:avvocatoId, nome_dipartimento:nomeDip||null }]);
     await loadDipartimenti();
+}
+
+async function aggiornaNomeDip(responsabile, nomeDip) {
+    // Aggiorna nome_dipartimento per tutte le righe di quel responsabile
+    await sb.from('dipartimenti').update({ nome_dipartimento: nomeDip }).eq('responsabile', responsabile);
+    await loadDipartimenti();
+    showSuccess('Nome dipartimento aggiornato!');
+    render();
 }
 async function deleteDipartimento(id) {
     await sb.from('dipartimenti').delete().eq('id',id);
@@ -839,6 +846,7 @@ function renderDipartimenti() {
             <div class="space-y-6">
                 ${responsabili.map(r => {
                     const miei = state.dipartimenti.filter(d=>d.responsabile===r.nome_completo);
+                    const nomeDip = miei[0]?.nome_dipartimento || '';
                     const avvLiberi = state.avvocati.filter(a=>!state.dipartimenti.find(d=>d.responsabile===r.nome_completo&&d.avvocato===a.nome_completo));
                     return `
                     <div class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 border-2 border-purple-200">
@@ -849,8 +857,19 @@ function renderDipartimenti() {
                                 <p class="text-sm text-purple-600 font-semibold">🏢 Responsabile Dipartimento</p>
                             </div>
                         </div>
+                        <!-- Nome dipartimento -->
                         <div class="mb-4">
-                            <p class="text-sm font-semibold text-gray-600 mb-2">Avvocati nel dipartimento (${miei.length}):</p>
+                            <label class="block text-xs font-semibold text-gray-500 mb-1">Nome Dipartimento</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="nomeDip_${r.id}" value="${nomeDip}"
+                                    placeholder="Es. Diritto Civile, Penale..."
+                                    class="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-purple-400 focus:outline-none"/>
+                                <button onclick="aggiornaNomeDip('${r.nome_completo}', document.getElementById('nomeDip_${r.id}').value)"
+                                    class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700">💾</button>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <p class="text-sm font-semibold text-gray-600 mb-2">Avvocati nel dipartimento <span class="text-purple-600">${nomeDip?`— ${nomeDip}`:''}</span> (${miei.length}):</p>
                             ${miei.length===0?`<p class="text-xs text-gray-400 italic">Nessun avvocato assegnato</p>`:`
                             <div class="flex flex-wrap gap-2">
                                 ${miei.map(d=>`
@@ -1474,7 +1493,9 @@ async function aggiungiAlDip(respId, respNome) {
     const avvNome = sel.value;
     const avvUtente = state.utenti.find(u=>u.nome_completo===avvNome);
     const respUtente = state.utenti.find(u=>u.nome_completo===respNome);
-    await saveDipartimento(respNome, respUtente?.id||null, avvNome, avvUtente?.id||null);
+    const nomeDipInput = document.getElementById(`nomeDip_${respId}`);
+    const nomeDip = nomeDipInput?.value || state.dipartimenti.find(d=>d.responsabile===respNome)?.nome_dipartimento || '';
+    await saveDipartimento(respNome, respUtente?.id||null, avvNome, avvUtente?.id||null, nomeDip);
     showSuccess(`${avvNome} aggiunto al dipartimento di ${respNome}`);
     render();
 }
@@ -1543,19 +1564,3 @@ render();
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
