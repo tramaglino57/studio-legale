@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SLS Studio Legale - Gestione Pratiche</title>
-    <script src="https://cdn.tailwindcss.com"><\/script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
     <style>
         * { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -194,7 +194,7 @@ async function savePratica(p) {
     }catch(e){alert('Errore: '+e.message);return false;}
 }
 async function aggiungiNota(praticaId,nota) { try{const{error}=await sb.from('note_aggiornamento').insert([{pratica_id:praticaId,data_nota:today(),nota,autore:state.user.nome_completo,autore_id:state.user.id}]);if(error)throw error;await loadNote(praticaId);return true;}catch(e){alert('Errore: '+e.message);return false;} }
-async function deletePratica(id) { if(!isAdmin()){alert('Solo admin puÃ² eliminare pratiche');return;} const{error}=await sb.from('pratiche').delete().eq('id',id); if(!error){await loadPratiche();showSuccess('Pratica eliminata!');}else alert('Errore: '+error.message); }
+async function deletePratica(id) { if(!isAdmin()){alert('Solo admin può eliminare pratiche');return;} const{error}=await sb.from('pratiche').delete().eq('id',id); if(!error){await loadPratiche();showSuccess('Pratica eliminata!');}else alert('Errore: '+error.message); }
 async function saveAvvocato(avv) { try{avv.nome_completo=avv.nome+' '+avv.cognome;if(avv.id){const{error}=await sb.from('avvocati').update(avv).eq('id',avv.id);if(error)throw error;}else{avv.data_creazione=today();const{error}=await sb.from('avvocati').insert([avv]);if(error)throw error;}await loadAvvocati();return true;}catch(e){alert('Errore: '+e.message);return false;} }
 async function deleteAvvocato(id) { if(!isAdmin()){alert('Solo admin');return;} const nome=state.avvocati.find(a=>a.id===id)?.nome_completo; if(state.pratiche.filter(p=>p.avvocato===nome).length>0){alert('Impossibile: ci sono pratiche assegnate!');return;} const{error}=await sb.from('avvocati').delete().eq('id',id); if(!error){await loadAvvocati();showSuccess('Avvocato eliminato!');}else alert('Errore: '+error.message); }
 async function saveUtente(u) { try{if(u.id){const upd={...u};if(!upd.password||upd.password==='')delete upd.password;const{error}=await sb.from('utenti').update(upd).eq('id',u.id);if(error)throw error;}else{const{error}=await sb.from('utenti').insert([u]);if(error)throw error;}await loadUtenti();return true;}catch(e){alert('Errore: '+e.message);return false;} }
@@ -211,20 +211,20 @@ function importaDati(e) { const file=e.target.files[0];if(!file)return; const re
 function stampa(){window.print();}
 function showSuccess(msg){state.successMessage=msg;render();setTimeout(()=>{state.successMessage='';render();},3000);}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('it-IT'):'';}
-function getRuoloBadge(r){ if(r==='amministratore'||r==='admin')return{label:'ðŸ‘‘ Admin',cls:'color:#9333ea'}; if(r==='responsabile_dipartimento')return{label:'ðŸ¢ Resp. Dipartimento',cls:'color:#7c3aed'}; return{label:'âš–ï¸ Avvocato',cls:'color:#6b7280'}; }
+function getRuoloBadge(r){ if(r==='amministratore'||r==='admin')return{label:'👑 Admin',cls:'color:#9333ea'}; if(r==='responsabile_dipartimento')return{label:'🏢 Resp. Dipartimento',cls:'color:#7c3aed'}; return{label:'⚖️ Avvocato',cls:'color:#6b7280'}; }
 function getStatoBadge(s){return{svolgimento:'badge badge-svolgimento',fatto:'badge badge-fatto',bloccato:'badge badge-bloccato'}[s]||'badge badge-svolgimento';}
-function getStatoIcon(s){return s==='fatto'?'âœ…':s==='bloccato'?'ðŸš«':'ðŸ”„';}
+function getStatoIcon(s){return s==='fatto'?'✅':s==='bloccato'?'🚫':'🔄';}
 function getPrioritaBadge(p){return{bassa:'badge badge-bassa',media:'badge badge-media',alta:'badge badge-alta'}[p]||'badge badge-media';}
 function getAvvStats(nome){ const ps=state.pratiche.filter(p=>p.avvocato===nome); return{totali:ps.length,svolgimento:ps.filter(p=>p.stato==='svolgimento').length,fatto:ps.filter(p=>p.stato==='fatto').length,bloccato:ps.filter(p=>p.stato==='bloccato').length}; }
 function getFiltered(){ const visibili=getPraticheVisibili(); return visibili.filter(p=>{ const s=state.searchTerm.toLowerCase(); const match=p.cliente.toLowerCase().includes(s)||p.descrizione.toLowerCase().includes(s)||(p.rgnr||'').toLowerCase().includes(s); return match&&(state.filterStato==='tutti'||p.stato===state.filterStato)&&(state.filterTipo==='tutti'||p.tipo_pratica===state.filterTipo)&&(state.filterPriorita==='tutti'||p.priorita===state.filterPriorita)&&(state.filterAvvocato==='tutti'||p.avvocato===state.filterAvvocato); }); }
 
-// â”€â”€ RENDER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── RENDER ────────────────────────────────────────────────
 function render() {
     if(!state.user){renderLogin();return;}
     const visibili=getPraticheVisibili();
     const stats={totali:visibili.length,svolgimento:visibili.filter(p=>p.stato==='svolgimento').length,fatto:visibili.filter(p=>p.stato==='fatto').length,bloccato:visibili.filter(p=>p.stato==='bloccato').length,scadute:visibili.filter(p=>isPraticaScaduta(p)).length,inScadenza:visibili.filter(p=>isPraticaInScadenza(p)).length};
     const filtered=getFiltered();
-    const tabs=[{id:'dashboard',label:'Dashboard',icon:'ðŸ“Š',show:true},{id:'pratiche',label:'Pratiche',icon:'ðŸ“',show:true},{id:'avvocati',label:'Avvocati',icon:'ðŸ‘¥',show:true},{id:'utenti',label:'Utenti',icon:'ðŸ”',show:isAdmin()},{id:'dipartimenti',label:'Dipartimenti',icon:'ðŸ¢',show:isAdmin()},{id:'gestione',label:'Gestione Dati',icon:'ðŸ—„ï¸',show:isAdmin()},{id:'notifiche',label:'Notifiche',icon:'ðŸ””',show:true}].filter(t=>t.show);
+    const tabs=[{id:'dashboard',label:'Dashboard',icon:'📊',show:true},{id:'pratiche',label:'Pratiche',icon:'📁',show:true},{id:'avvocati',label:'Avvocati',icon:'👥',show:true},{id:'utenti',label:'Utenti',icon:'🔐',show:isAdmin()},{id:'dipartimenti',label:'Dipartimenti',icon:'🏢',show:isAdmin()},{id:'gestione',label:'Gestione Dati',icon:'🗄️',show:isAdmin()},{id:'notifiche',label:'Notifiche',icon:'🔔',show:true}].filter(t=>t.show);
 
     document.getElementById('app').innerHTML=`
     <div style="max-width:1400px;margin:0 auto;width:100%;">
@@ -241,13 +241,13 @@ function render() {
                     ${avvAvatar(state.user.nome_completo)}
                     <span style="font-size:13px;font-weight:600;color:#7c3aed;">${state.user.nome_completo}</span>
                 </div>
-                <button onclick="logout()" class="btn-purple" style="padding:10px 18px;font-size:13px;display:flex;align-items:center;gap:6px;"><span>ðŸšª</span> Esci</button>
+                <button onclick="logout()" class="btn-purple" style="padding:10px 18px;font-size:13px;display:flex;align-items:center;gap:6px;"><span>🚪</span> Esci</button>
             </div>
         </header>
         <nav style="background:#f9fafb;border-bottom:1px solid #e5e7eb;display:flex;overflow-x:auto;" class="no-print">
             ${tabs.map(t=>`<button onclick="switchTab('${t.id}')" class="nav-tab ${state.activeTab===t.id?'active':'inactive'}">${t.icon} ${t.label}</button>`).join('')}
-            ${stats.inScadenza>0||stats.scadute>0?`<button onclick="state.showAlertModal=true;render()" style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:12px 20px;font-weight:700;font-size:13px;color:#dc2626;background:none;border:none;cursor:pointer;white-space:nowrap;" class="no-print">ðŸ”” ${stats.inScadenza+stats.scadute} alert</button>`:''}</nav>
-        ${state.successMessage?`<div style="background:#dcfce7;border-left:4px solid #16a34a;color:#166534;padding:14px 20px;margin:16px 16px 0;border-radius:12px;font-weight:600;" class="no-print">âœ… ${state.successMessage}</div>`:''}
+            ${stats.inScadenza>0||stats.scadute>0?`<button onclick="state.showAlertModal=true;render()" style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:12px 20px;font-weight:700;font-size:13px;color:#dc2626;background:none;border:none;cursor:pointer;white-space:nowrap;" class="no-print">🔔 ${stats.inScadenza+stats.scadute} alert</button>`:''}</nav>
+        ${state.successMessage?`<div style="background:#dcfce7;border-left:4px solid #16a34a;color:#166534;padding:14px 20px;margin:16px 16px 0;border-radius:12px;font-weight:600;" class="no-print">✅ ${state.successMessage}</div>`:''}
         <main style="padding:24px 20px;">
             ${state.activeTab==='dashboard'?renderDashboard(stats):''}
             ${state.activeTab==='pratiche'?renderPratiche(filtered):''}
@@ -263,7 +263,7 @@ function render() {
         ${state.showNoteModal?renderModalNote():''}
         ${state.showAlertModal?renderModalAlert():''}
         ${state.showDettaglioPratica?renderModalDettaglioPratica():''}
-        <footer style="text-align:center;padding:20px;font-size:11px;color:#9ca3af;letter-spacing:1px;text-transform:uppercase;">VERSION 2.5.0 â€¢ SLS TECH</footer>
+        <footer style="text-align:center;padding:20px;font-size:11px;color:#9ca3af;letter-spacing:1px;text-transform:uppercase;">VERSION 2.5.0 • SLS TECH</footer>
     </div>`;
     if(state.activeTab==='avvocati') loadAndRenderAvvocati();
     if(state.activeTab==='notifiche'&&!state.notificheLoading&&state.notifiche.length===0) loadNotifiche().then(()=>render());
@@ -287,10 +287,10 @@ function renderLogin() {
                     <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Password</label>
                     <input type="password" id="loginPassword" class="sls-input" placeholder="La tua password" onkeypress="if(event.key==='Enter')doLogin()"/>
                 </div>
-                <button onclick="doLogin()" class="btn-purple" style="padding:14px;font-size:15px;border-radius:14px;margin-top:4px;">âž¡ï¸ Accedi</button>
+                <button onclick="doLogin()" class="btn-purple" style="padding:14px;font-size:15px;border-radius:14px;margin-top:4px;">➡️ Accedi</button>
                 <p style="text-align:center;margin:4px 0 0;"><a href="#" style="color:#9333ea;font-size:13px;text-decoration:none;">Password dimenticata?</a></p>
             </div>
-            <div style="text-align:center;margin-top:24px;font-size:11px;color:#9ca3af;letter-spacing:1px;text-transform:uppercase;">VERSION 2.5.0 â€¢ SLS TECH</div>
+            <div style="text-align:center;margin-top:24px;font-size:11px;color:#9ca3af;letter-spacing:1px;text-transform:uppercase;">VERSION 2.5.0 • SLS TECH</div>
         </div>
     </div>`;
 }
@@ -317,12 +317,12 @@ function renderDashboard(stats) {
             </div>`).join('')}
         </div>
         <div style="display:flex;gap:12px;">
-            <button onclick="switchTab('pratiche');openPraticaModal(null)" class="btn-purple" style="flex:1;padding:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;">âž• Nuova Pratica</button>
-            <button onclick="switchTab('pratiche')" class="btn-white" style="flex:1;padding:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;">ðŸ” Cerca Pratica</button>
+            <button onclick="switchTab('pratiche');openPraticaModal(null)" class="btn-purple" style="flex:1;padding:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;">➕ Nuova Pratica</button>
+            <button onclick="switchTab('pratiche')" class="btn-white" style="flex:1;padding:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;">🔍 Cerca Pratica</button>
         </div>
         ${stats.scadute>0||stats.inScadenza>0?`
         <div class="sls-card" style="padding:20px;">
-            <h2 class="section-title">ðŸ”” Situazione Scadenze</h2>
+            <h2 class="section-title">🔔 Situazione Scadenze</h2>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div onclick="state.showAlertModal=true;render()" style="background:#fff0f0;border:2px solid #fecaca;border-radius:14px;padding:16px;text-align:center;cursor:pointer;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#ef4444'" onmouseout="this.style.borderColor='#fecaca'"><div style="font-size:30px;font-weight:700;color:#dc2626;">${stats.scadute}</div><div style="font-size:12px;color:#6b7280;margin-top:2px;">Pratiche scadute</div></div>
                 <div onclick="state.showAlertModal=true;render()" style="background:#fff7ed;border:2px solid #fed7aa;border-radius:14px;padding:16px;text-align:center;cursor:pointer;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#f97316'" onmouseout="this.style.borderColor='#fed7aa'"><div style="font-size:30px;font-weight:700;color:#ea580c;">${stats.inScadenza}</div><div style="font-size:12px;color:#6b7280;margin-top:2px;">In scadenza</div></div>
@@ -338,7 +338,7 @@ function renderPratiche(filtered) {
         <div class="sls-card" style="padding:20px;" id="filtriCard">
             <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:14px;">
                 <div style="flex:1;min-width:200px;position:relative;">
-                    <span style="position:absolute;left:14px;top:13px;color:#9ca3af;">ðŸ”</span>
+                    <span style="position:absolute;left:14px;top:13px;color:#9ca3af;">🔍</span>
                     <input type="text" id="searchInput" placeholder="Cerca cliente, descrizione, RGNR..."
                         value="${state.searchTerm}"
                         oninput="state.searchTerm=this.value;renderPraticheResult();"
@@ -346,10 +346,10 @@ function renderPratiche(filtered) {
                         class="sls-input" style="padding-left:40px;"/>
                 </div>
                 <div style="display:flex;gap:8px;">
-                    <button onclick="state.viewMode='cards';render()" class="${state.viewMode==='cards'?'btn-purple':'btn-white'}" style="padding:10px 16px;font-size:13px;">ðŸ“‹ Card</button>
-                    <button onclick="state.viewMode='table';render()" class="${state.viewMode==='table'?'btn-purple':'btn-white'}" style="padding:10px 16px;font-size:13px;">ðŸ“Š Tabella</button>
+                    <button onclick="state.viewMode='cards';render()" class="${state.viewMode==='cards'?'btn-purple':'btn-white'}" style="padding:10px 16px;font-size:13px;">📋 Card</button>
+                    <button onclick="state.viewMode='table';render()" class="${state.viewMode==='table'?'btn-purple':'btn-white'}" style="padding:10px 16px;font-size:13px;">📊 Tabella</button>
                 </div>
-                <button onclick="openPraticaModal(null)" class="btn-purple" style="padding:12px 20px;font-size:14px;white-space:nowrap;">âž• Nuova Pratica</button>
+                <button onclick="openPraticaModal(null)" class="btn-purple" style="padding:12px 20px;font-size:14px;white-space:nowrap;">➕ Nuova Pratica</button>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">
                 <select onchange="state.filterStato=this.value;render()" class="sls-input" style="padding:10px 14px;">
@@ -363,13 +363,13 @@ function renderPratiche(filtered) {
                     ${TIPI_PRATICA.map(t=>`<option value="${t}" ${state.filterTipo===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
                 </select>
                 <select onchange="state.filterPriorita=this.value;render()" class="sls-input" style="padding:10px 14px;">
-                    <option value="tutti">Tutte prioritÃ </option>
+                    <option value="tutti">Tutte priorità</option>
                     <option value="bassa">Bassa</option><option value="media">Media</option><option value="alta">Alta</option>
                 </select>
                 <select onchange="state.filterAvvocato=this.value;render()" class="sls-input" style="padding:10px 14px;">
                     ${avvocatiList.map(a=>`<option value="${a}" ${state.filterAvvocato===a?'selected':''}>${a==='tutti'?'Tutti avvocati':a}</option>`).join('')}
                 </select>
-                <button onclick="stampa()" class="btn-white" style="padding:10px 16px;font-size:13px;">ðŸ–¨ï¸ Stampa</button>
+                <button onclick="stampa()" class="btn-white" style="padding:10px 16px;font-size:13px;">🖨️ Stampa</button>
             </div>
         </div>
         <div id="praticheResult">
@@ -390,31 +390,31 @@ function renderPraticheCards(filtered) {
                         <span class="${getStatoBadge(p.stato)}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
                         <span class="${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
                         <span class="badge" style="background:#f3f4f6;color:#374151;">${p.tipo_pratica}</span>
-                        ${p.autorita?`<span class="badge" style="background:#eff6ff;color:#1d4ed8;">ðŸ›ï¸ ${p.autorita}</span>`:''}
+                        ${p.autorita?`<span class="badge" style="background:#eff6ff;color:#1d4ed8;">🏛️ ${p.autorita}</span>`:''}
                         ${p.rgnr?`<span class="badge" style="background:#f5f3ff;color:#6d28d9;">RGNR: ${p.rgnr}</span>`:''}
-                        ${p.responsabile_dipartimento?`<span class="badge" style="background:#f5f3ff;color:#7c3aed;">ðŸ¢ ${p.responsabile_dipartimento}</span>`:''}
-                        ${inScad&&!fatto?`<span class="badge" style="background:#fff7ed;color:#c2410c;">ðŸ”” Scade tra ${Math.ceil((new Date(p.scadenza)-new Date())/(1000*60*60*24))}gg</span>`:''}
-                        ${scaduta&&!fatto?`<span class="badge" style="background:#fef2f2;color:#dc2626;">âš ï¸ SCADUTA</span>`:''}
+                        ${p.responsabile_dipartimento?`<span class="badge" style="background:#f5f3ff;color:#7c3aed;">🏢 ${p.responsabile_dipartimento}</span>`:''}
+                        ${inScad&&!fatto?`<span class="badge" style="background:#fff7ed;color:#c2410c;">🔔 Scade tra ${Math.ceil((new Date(p.scadenza)-new Date())/(1000*60*60*24))}gg</span>`:''}
+                        ${scaduta&&!fatto?`<span class="badge" style="background:#fef2f2;color:#dc2626;">⚠️ SCADUTA</span>`:''}
                     </div>
                     <h3 style="font-size:17px;font-weight:700;color:#111;margin:0 0 4px;" class="${fatto?'fatto-strike':''}">${p.cliente}</h3>
                     <p style="color:#6b7280;font-size:14px;margin:0 0 10px;" class="${fatto?'fatto-strike':''}">${p.descrizione}</p>
                     <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:#9ca3af;align-items:center;">
                         <span style="display:flex;align-items:center;gap:6px;">${avvAvatar(p.avvocato)}<strong style="color:#374151;">${p.avvocato||'-'}</strong></span>
-                        <span>ðŸ“… ${fmtDate(p.data_apertura)}</span>
-                        ${p.scadenza?`<span style="${scaduta&&!fatto?'color:#dc2626;font-weight:600;':inScad&&!fatto?'color:#ea580c;font-weight:600;':''}">â° ${fmtDate(p.scadenza)}</span>`:''}
-                        ${p.data_aggiornamento_attivita?`<span>ðŸ”„ ${fmtDate(p.data_aggiornamento_attivita)}</span>`:''}
+                        <span>📅 ${fmtDate(p.data_apertura)}</span>
+                        ${p.scadenza?`<span style="${scaduta&&!fatto?'color:#dc2626;font-weight:600;':inScad&&!fatto?'color:#ea580c;font-weight:600;':''}">⏰ ${fmtDate(p.scadenza)}</span>`:''}
+                        ${p.data_aggiornamento_attivita?`<span>🔄 ${fmtDate(p.data_aggiornamento_attivita)}</span>`:''}
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;position:relative;z-index:20;" class="no-print">
-                    <button onclick="viewPratica('${p.id}')" class="btn-green" style="padding:9px 16px;font-size:13px;">ðŸ‘ï¸ Vedi</button>
-                    <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="btn-purple" style="padding:9px 16px;font-size:13px;">âœï¸</button>
-                    ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="btn-danger" style="padding:9px 16px;font-size:13px;">ðŸ—‘ï¸</button>`:''}
+                    <button onclick="viewPratica('${p.id}')" class="btn-green" style="padding:9px 16px;font-size:13px;">👁️ Vedi</button>
+                    <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="btn-purple" style="padding:9px 16px;font-size:13px;">✏️</button>
+                    ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="btn-danger" style="padding:9px 16px;font-size:13px;">🗑️</button>`:''}
                 </div>
             </div>
         </div>`;
     }).join(''):`
     <div class="sls-card" style="padding:60px;text-align:center;">
-        <div style="font-size:56px;margin-bottom:12px;">ðŸ“</div>
+        <div style="font-size:56px;margin-bottom:12px;">📁</div>
         <p style="color:#9ca3af;font-size:16px;">Nessuna pratica trovata</p>
     </div>`}
     </div>`;
@@ -428,9 +428,9 @@ function renderPraticheTable(filtered) {
                 <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
                     <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Cliente</th>
                     <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Tipo</th>
-                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">AutoritÃ </th>
+                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Autorità</th>
                     <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Stato</th>
-                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">PrioritÃ </th>
+                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Priorità</th>
                     <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Scadenza</th>
                     <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Avv.</th>
                     <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;" class="no-print">Azioni</th>
@@ -453,9 +453,9 @@ function renderPraticheTable(filtered) {
                         <td style="padding:14px 16px;">${avvAvatar(p.avvocato)}</td>
                         <td style="padding:14px 16px;position:relative;z-index:20;" class="no-print">
                             <div style="display:flex;gap:6px;">
-                                <button onclick="viewPratica('${p.id}')" class="btn-green" style="padding:6px 12px;font-size:12px;">ðŸ‘ï¸</button>
-                                <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="btn-purple" style="padding:6px 12px;font-size:12px;">âœï¸</button>
-                                ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="btn-danger" style="padding:6px 12px;font-size:12px;">ðŸ—‘ï¸</button>`:''}
+                                <button onclick="viewPratica('${p.id}')" class="btn-green" style="padding:6px 12px;font-size:12px;">👁️</button>
+                                <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="btn-purple" style="padding:6px 12px;font-size:12px;">✏️</button>
+                                ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="btn-danger" style="padding:6px 12px;font-size:12px;">🗑️</button>`:''}
                             </div>
                         </td>
                     </tr>`;
@@ -471,10 +471,10 @@ async function renderAvvocati() {
     const html=`
     <div style="display:flex;flex-direction:column;gap:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-            <h2 class="section-title" style="margin:0;">ðŸ‘¥ Archivio Avvocati</h2>
+            <h2 class="section-title" style="margin:0;">👥 Archivio Avvocati</h2>
             <div style="display:flex;gap:8px;">
-                <button onclick="stampa()" class="btn-white" style="padding:10px 16px;font-size:13px;" class="no-print">ðŸ–¨ï¸ Stampa</button>
-                ${isAdmin()?`<button onclick="openAvvocatoModal(null)" class="btn-purple" style="padding:10px 20px;font-size:14px;" class="no-print">âž• Nuovo</button>`:''}
+                <button onclick="stampa()" class="btn-white" style="padding:10px 16px;font-size:13px;" class="no-print">🖨️ Stampa</button>
+                ${isAdmin()?`<button onclick="openAvvocatoModal(null)" class="btn-purple" style="padding:10px 20px;font-size:14px;" class="no-print">➕ Nuovo</button>`:''}
             </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
@@ -490,12 +490,12 @@ async function renderAvvocati() {
                         <div>
                             <h3 style="font-size:16px;font-weight:700;color:#111;margin:0;">${a.nome_completo}</h3>
                             <p style="font-size:12px;font-weight:600;color:${colore};margin:2px 0;">${a.specializzazione}</p>
-                            ${resp?`<p style="font-size:11px;color:#9333ea;margin:0;">ðŸ¢ ${resp}</p>`:''}
+                            ${resp?`<p style="font-size:11px;color:#9333ea;margin:0;">🏢 ${resp}</p>`:''}
                         </div>
                     </div>
                     <div style="margin-bottom:12px;">
-                        <p style="font-size:13px;color:#6b7280;margin:2px 0;">ðŸ“§ ${a.email}</p>
-                        <p style="font-size:13px;color:#6b7280;margin:2px 0;">ðŸ“± ${a.telefono}</p>
+                        <p style="font-size:13px;color:#6b7280;margin:2px 0;">📧 ${a.email}</p>
+                        <p style="font-size:13px;color:#6b7280;margin:2px 0;">📱 ${a.telefono}</p>
                     </div>
                     <div style="background:#f9fafb;border-radius:12px;padding:12px;margin-bottom:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;">
                         <div><div style="font-size:18px;font-weight:700;color:#111;">${st.totali}</div><div style="font-size:11px;color:#9ca3af;">Totali</div></div>
@@ -505,20 +505,20 @@ async function renderAvvocati() {
                     </div>
                     ${storico.length>0?`
                     <div style="margin-bottom:14px;">
-                        <p style="font-size:11px;font-weight:600;color:#9ca3af;margin:0 0 6px;">ðŸ“‹ Ultimi alert</p>
+                        <p style="font-size:11px;font-weight:600;color:#9ca3af;margin:0 0 6px;">📋 Ultimi alert</p>
                         <div style="display:flex;flex-direction:column;gap:4px;max-height:100px;overflow-y:auto;">
                             ${storico.map(s=>`
                             <div style="font-size:11px;padding:6px 10px;border-radius:8px;display:flex;justify-content:space-between;${s.tipo==='scaduta'?'background:#fef2f2;color:#dc2626;':'background:#fff7ed;color:#c2410c;'}">
-                                <span>${s.tipo==='scaduta'?'âš ï¸':'ðŸ””'} <strong>${s.cliente}</strong></span>
+                                <span>${s.tipo==='scaduta'?'⚠️':'🔔'} <strong>${s.cliente}</strong></span>
                                 <span style="color:#9ca3af;">${fmtDate(s.data_alert)}</span>
                             </div>`).join('')}
                         </div>
                     </div>`:`<div style="text-align:center;padding:10px;background:#f9fafb;border-radius:10px;margin-bottom:14px;"><p style="font-size:12px;color:#9ca3af;margin:0;">Nessun alert</p></div>`}
                     <div style="display:flex;gap:8px;" class="no-print">
                         ${isAdmin()?`
-                        <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">âœï¸ Modifica</button>
-                        <button onclick="confirmDeleteAvvocato('${a.id}')" class="btn-danger" style="flex:1;padding:10px;font-size:13px;">ðŸ—‘ï¸ Elimina</button>
-                        `:`<button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">ðŸŽ¨ Cambia Colore</button>`}
+                        <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">✏️ Modifica</button>
+                        <button onclick="confirmDeleteAvvocato('${a.id}')" class="btn-danger" style="flex:1;padding:10px;font-size:13px;">🗑️ Elimina</button>
+                        `:`<button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">🎨 Cambia Colore</button>`}
                     </div>
                 </div>`;
             }).join('')}
@@ -531,10 +531,10 @@ function renderDipartimenti() {
     const responsabili=state.utenti.filter(u=>u.ruolo==='responsabile_dipartimento');
     return `
     <div style="display:flex;flex-direction:column;gap:20px;">
-        <h2 class="section-title">ðŸ¢ Gestione Dipartimenti</h2>
+        <h2 class="section-title">🏢 Gestione Dipartimenti</h2>
         ${responsabili.length===0?`
         <div class="sls-card" style="padding:60px;text-align:center;">
-            <div style="font-size:52px;margin-bottom:12px;">ðŸ¢</div>
+            <div style="font-size:52px;margin-bottom:12px;">🏢</div>
             <p style="color:#9ca3af;">Nessun Responsabile creato. Aggiungine uno nella sezione Utenti.</p>
         </div>`:`
         <div style="display:flex;flex-direction:column;gap:16px;">
@@ -548,35 +548,35 @@ function renderDipartimenti() {
                         ${avvAvatar(r.nome_completo,true)}
                         <div>
                             <h3 style="font-size:17px;font-weight:700;color:#111;margin:0;">${r.nome_completo}</h3>
-                            <p style="font-size:12px;color:#9333ea;font-weight:600;margin:2px 0;">ðŸ¢ Responsabile Dipartimento</p>
+                            <p style="font-size:12px;color:#9333ea;font-weight:600;margin:2px 0;">🏢 Responsabile Dipartimento</p>
                         </div>
                     </div>
                     <div style="margin-bottom:16px;">
                         <label style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;display:block;">Nome Dipartimento</label>
                         <div style="display:flex;gap:8px;">
                             <input type="text" id="nomeDip_${r.id}" value="${nomeDip}" placeholder="Es. Diritto Civile, Penale..." class="sls-input" style="flex:1;"/>
-                            <button onclick="aggiornaNomeDip('${r.nome_completo}',document.getElementById('nomeDip_${r.id}').value)" class="btn-purple" style="padding:10px 16px;font-size:13px;white-space:nowrap;">ðŸ’¾ Salva</button>
+                            <button onclick="aggiornaNomeDip('${r.nome_completo}',document.getElementById('nomeDip_${r.id}').value)" class="btn-purple" style="padding:10px 16px;font-size:13px;white-space:nowrap;">💾 Salva</button>
                         </div>
                     </div>
                     <div style="margin-bottom:14px;">
-                        <p style="font-size:13px;font-weight:600;color:#374151;margin:0 0 8px;">Avvocati nel dipartimento <span style="color:#9333ea;">${nomeDip?`â€” ${nomeDip}`:''}</span> (${miei.length}):</p>
+                        <p style="font-size:13px;font-weight:600;color:#374151;margin:0 0 8px;">Avvocati nel dipartimento <span style="color:#9333ea;">${nomeDip?`— ${nomeDip}`:''}</span> (${miei.length}):</p>
                         ${miei.length===0?`<p style="font-size:12px;color:#9ca3af;font-style:italic;">Nessun avvocato assegnato</p>`:`
                         <div style="display:flex;flex-wrap:wrap;gap:8px;">
                             ${miei.map(d=>`
                             <div style="display:flex;align-items:center;gap:8px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:8px 12px;">
                                 ${avvAvatar(d.avvocato)}
                                 <span style="font-size:13px;font-weight:600;">${d.avvocato}</span>
-                                <button onclick="confirmDeleteDip('${d.id}')" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:14px;padding:0 2px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">âœ•</button>
+                                <button onclick="confirmDeleteDip('${d.id}')" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:14px;padding:0 2px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">✕</button>
                             </div>`).join('')}
                         </div>`}
                     </div>
                     ${avvLiberi.length>0?`
                     <div style="display:flex;gap:8px;align-items:center;">
                         <select id="addAvv_${r.id}" class="sls-input" style="flex:1;padding:10px 14px;">
-                            <option value="">â€” Aggiungi avvocato â€”</option>
+                            <option value="">— Aggiungi avvocato —</option>
                             ${avvLiberi.map(a=>`<option value="${a.nome_completo}">${a.nome_completo}</option>`).join('')}
                         </select>
-                        <button onclick="aggiungiAlDip('${r.id}','${r.nome_completo}')" class="btn-purple" style="padding:10px 16px;font-size:13px;white-space:nowrap;">âž• Aggiungi</button>
+                        <button onclick="aggiungiAlDip('${r.id}','${r.nome_completo}')" class="btn-purple" style="padding:10px 16px;font-size:13px;white-space:nowrap;">➕ Aggiungi</button>
                     </div>`:''}
                 </div>`;
             }).join('')}
@@ -592,15 +592,15 @@ function renderNotifiche() {
     <div style="display:flex;flex-direction:column;gap:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
             <div>
-                <h2 class="section-title" style="margin:0;">ðŸ”” Notifiche</h2>
+                <h2 class="section-title" style="margin:0;">🔔 Notifiche</h2>
                 <p style="font-size:13px;color:#9ca3af;margin:4px 0 0;">${isAdmin()?'Tutte le notifiche dello studio':'Le tue notifiche personali'}</p>
             </div>
-            <button onclick="loadNotifiche().then(()=>render())" class="btn-purple" style="padding:10px 20px;font-size:13px;">ðŸ”„ Aggiorna</button>
+            <button onclick="loadNotifiche().then(()=>render())" class="btn-purple" style="padding:10px 20px;font-size:13px;">🔄 Aggiorna</button>
         </div>
         ${loading?`<div class="sls-card" style="padding:60px;text-align:center;"><p style="color:#9ca3af;">Caricamento...</p></div>`:
         lista.length===0?`
         <div class="sls-card" style="padding:60px;text-align:center;">
-            <div style="font-size:52px;margin-bottom:12px;">ðŸ”•</div>
+            <div style="font-size:52px;margin-bottom:12px;">🔕</div>
             <p style="color:#9ca3af;font-size:16px;">Nessuna notifica</p>
         </div>`:`
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
@@ -622,7 +622,7 @@ function renderNotifiche() {
             <div>
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
                     <div style="height:1px;flex:1;background:#e5e7eb;"></div>
-                    <span style="font-size:12px;font-weight:600;color:#9ca3af;background:#f3f4f6;padding:4px 12px;border-radius:20px;">ðŸ“… ${fmtDate(data)}</span>
+                    <span style="font-size:12px;font-weight:600;color:#9ca3af;background:#f3f4f6;padding:4px 12px;border-radius:20px;">📅 ${fmtDate(data)}</span>
                     <div style="height:1px;flex:1;background:#e5e7eb;"></div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:8px;">
@@ -635,16 +635,16 @@ function renderNotifiche() {
                                 <div style="min-width:0;">
                                     <p style="font-weight:700;color:#111;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.cliente}</p>
                                     <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#9ca3af;margin-top:2px;">
-                                        <span>ðŸ‘¤ ${a.avvocato||'-'}</span>
-                                        <span>â° ${fmtDate(a.scadenza)}</span>
+                                        <span>👤 ${a.avvocato||'-'}</span>
+                                        <span>⏰ ${fmtDate(a.scadenza)}</span>
                                         ${a.diff_giorni!==null?`<span>${a.diff_giorni<=0?`Scaduta da ${Math.abs(a.diff_giorni)}gg`:`${a.diff_giorni}gg al termine`}</span>`:''}
                                     </div>
                                 </div>
                             </div>
                             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;" onclick="event.stopPropagation()">
-                                <span class="badge" style="${a.tipo==='scaduta'?'background:#fecaca;color:#dc2626;':'background:#fed7aa;color:#c2410c;'}">${a.tipo==='scaduta'?'âš ï¸ Scaduta':'ðŸ”” Imminente'}</span>
-                                ${pratica?`<span style="font-size:12px;color:#9333ea;font-weight:600;">ðŸ“‚</span>`:''}
-                                <button onclick="event.stopPropagation();cancellaNotifica('${a.id}')" style="width:28px;height:28px;border-radius:50%;background:#f3f4f6;border:none;color:#9ca3af;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626'" onmouseout="this.style.background='#f3f4f6';this.style.color='#9ca3af'">âœ•</button>
+                                <span class="badge" style="${a.tipo==='scaduta'?'background:#fecaca;color:#dc2626;':'background:#fed7aa;color:#c2410c;'}">${a.tipo==='scaduta'?'⚠️ Scaduta':'🔔 Imminente'}</span>
+                                ${pratica?`<span style="font-size:12px;color:#9333ea;font-weight:600;">📂</span>`:''}
+                                <button onclick="event.stopPropagation();cancellaNotifica('${a.id}')" style="width:28px;height:28px;border-radius:50%;background:#f3f4f6;border:none;color:#9ca3af;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626'" onmouseout="this.style.background='#f3f4f6';this.style.color='#9ca3af'">✕</button>
                             </div>
                         </div>`;
                     }).join('')}
@@ -658,8 +658,8 @@ function renderUtenti() {
     return `
     <div style="display:flex;flex-direction:column;gap:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-            <h2 class="section-title" style="margin:0;">ðŸ” Gestione Utenti</h2>
-            <button onclick="openUtenteModal(null)" class="btn-purple" style="padding:10px 20px;font-size:14px;">âž• Nuovo</button>
+            <h2 class="section-title" style="margin:0;">🔐 Gestione Utenti</h2>
+            <button onclick="openUtenteModal(null)" class="btn-purple" style="padding:10px 20px;font-size:14px;">➕ Nuovo</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
             ${state.utenti.map(u=>{
@@ -671,16 +671,16 @@ function renderUtenti() {
                             <h3 style="font-size:16px;font-weight:700;color:#111;margin:0 0 4px;">${u.nome_completo}</h3>
                             <p style="font-size:13px;font-weight:600;margin:0;${rb.cls}">${rb.label}</p>
                         </div>
-                        <span style="font-size:28px;">${u.ruolo==='amministratore'?'ðŸ‘‘':u.ruolo==='responsabile_dipartimento'?'ðŸ¢':'ðŸ‘¤'}</span>
+                        <span style="font-size:28px;">${u.ruolo==='amministratore'?'👑':u.ruolo==='responsabile_dipartimento'?'🏢':'👤'}</span>
                     </div>
                     <div style="margin-bottom:14px;">
-                        <p style="font-size:13px;color:#6b7280;margin:3px 0;">ðŸ”‘ <strong>${u.username}</strong></p>
-                        <p style="font-size:13px;color:#6b7280;margin:3px 0;">ðŸ“§ ${u.email}</p>
-                        <p style="font-size:13px;margin:3px 0;${u.attivo?'color:#16a34a;':'color:#dc2626;'}">${u.attivo?'âœ… Attivo':'âŒ Disattivato'}</p>
+                        <p style="font-size:13px;color:#6b7280;margin:3px 0;">🔑 <strong>${u.username}</strong></p>
+                        <p style="font-size:13px;color:#6b7280;margin:3px 0;">📧 ${u.email}</p>
+                        <p style="font-size:13px;margin:3px 0;${u.attivo?'color:#16a34a;':'color:#dc2626;'}">${u.attivo?'✅ Attivo':'❌ Disattivato'}</p>
                     </div>
                     <div style="display:flex;gap:8px;">
-                        <button onclick="openUtenteModal(${JSON.stringify(u).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">âœï¸ Modifica</button>
-                        <button onclick="confirmDeleteUtente('${u.id}')" class="btn-danger" style="flex:1;padding:10px;font-size:13px;">ðŸ—‘ï¸ Elimina</button>
+                        <button onclick="openUtenteModal(${JSON.stringify(u).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">✏️ Modifica</button>
+                        <button onclick="confirmDeleteUtente('${u.id}')" class="btn-danger" style="flex:1;padding:10px;font-size:13px;">🗑️ Elimina</button>
                     </div>
                 </div>`;
             }).join('')}
@@ -691,7 +691,7 @@ function renderUtenti() {
 function renderGestione() {
     return `
     <div style="display:flex;flex-direction:column;gap:20px;">
-        <h2 class="section-title">ðŸ—„ï¸ Gestione Database</h2>
+        <h2 class="section-title">🗄️ Gestione Database</h2>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
             <div class="sls-card" style="padding:24px;border-top:4px solid #10b981;">
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
@@ -701,14 +701,14 @@ function renderGestione() {
                     <div><h3 style="font-size:16px;font-weight:700;margin:0;">Esporta CSV</h3><p style="font-size:12px;color:#9ca3af;margin:0;">File Excel-compatibili</p></div>
                 </div>
                 <div style="background:#f9fafb;border-radius:10px;padding:12px;margin-bottom:14px;">
-                    <p style="font-size:13px;margin:3px 0;">ðŸ“ pratiche.csv â€” ${state.pratiche.length} record</p>
-                    <p style="font-size:13px;margin:3px 0;">ðŸ‘¥ avvocati.csv â€” ${state.avvocati.length} record</p>
-                    <p style="font-size:13px;margin:3px 0;">ðŸ” utenti.csv Â· ðŸ“ note.csv</p>
+                    <p style="font-size:13px;margin:3px 0;">📁 pratiche.csv — ${state.pratiche.length} record</p>
+                    <p style="font-size:13px;margin:3px 0;">👥 avvocati.csv — ${state.avvocati.length} record</p>
+                    <p style="font-size:13px;margin:3px 0;">🔐 utenti.csv · 📝 note.csv</p>
                 </div>
-                <button onclick="esportaTuttiCSV()" style="width:100%;padding:12px;background:linear-gradient(135deg,#34d399,#10b981);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;margin-bottom:8px;">ðŸ“Š Esporta tutti i CSV</button>
+                <button onclick="esportaTuttiCSV()" style="width:100%;padding:12px;background:linear-gradient(135deg,#34d399,#10b981);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;margin-bottom:8px;">📊 Esporta tutti i CSV</button>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                    <button onclick="esportaCSV('pratiche-${today()}.csv',state.pratiche)" class="btn-white" style="padding:8px;font-size:12px;">ðŸ“ Pratiche</button>
-                    <button onclick="esportaCSV('avvocati-${today()}.csv',state.avvocati)" class="btn-white" style="padding:8px;font-size:12px;">ðŸ‘¥ Avvocati</button>
+                    <button onclick="esportaCSV('pratiche-${today()}.csv',state.pratiche)" class="btn-white" style="padding:8px;font-size:12px;">📁 Pratiche</button>
+                    <button onclick="esportaCSV('avvocati-${today()}.csv',state.avvocati)" class="btn-white" style="padding:8px;font-size:12px;">👥 Avvocati</button>
                 </div>
             </div>
             <div style="display:flex;flex-direction:column;gap:16px;">
@@ -717,7 +717,7 @@ function renderGestione() {
                         <div class="purple-icon" style="width:48px;height:48px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
                         <div><h3 style="font-size:16px;font-weight:700;margin:0;">Backup JSON</h3><p style="font-size:12px;color:#9ca3af;margin:0;">File di backup completo</p></div>
                     </div>
-                    <button onclick="esportaDati()" class="btn-purple" style="width:100%;padding:12px;font-size:14px;">ðŸ“¥ Esporta JSON</button>
+                    <button onclick="esportaDati()" class="btn-purple" style="width:100%;padding:12px;font-size:14px;">📥 Esporta JSON</button>
                 </div>
                 <div class="sls-card" style="padding:24px;border-top:4px solid #f97316;">
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
@@ -725,7 +725,7 @@ function renderGestione() {
                         <div><h3 style="font-size:16px;font-weight:700;margin:0;">Importa Dati</h3><p style="font-size:12px;color:#9ca3af;margin:0;">Ripristina da backup</p></div>
                     </div>
                     <label style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;background:linear-gradient(135deg,#fb923c,#f97316);color:#fff;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;">
-                        ðŸ“¤ Seleziona File <input type="file" accept=".json" onchange="importaDati(event)" style="display:none;"/>
+                        📤 Seleziona File <input type="file" accept=".json" onchange="importaDati(event)" style="display:none;"/>
                     </label>
                 </div>
             </div>
@@ -733,7 +733,7 @@ function renderGestione() {
     </div>`;
 }
 
-// â”€â”€ MODALS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── MODALS ──────────────────────────────────────────────────────────────
 function modalOverlay(content) {
     return `<div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;overflow-y:auto;">${content}</div>`;
 }
@@ -745,8 +745,8 @@ function renderModalDettaglioPratica() {
     return modalOverlay(`
     <div class="sls-modal animate-slidedown" style="margin:auto;">
         <div class="sls-modal-header">
-            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">ðŸ“‚ Dettaglio Pratica</h2>
-            <button class="sls-modal-close" onclick="state.showDettaglioPratica=false;render()">âœ•</button>
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">📂 Dettaglio Pratica</h2>
+            <button class="sls-modal-close" onclick="state.showDettaglioPratica=false;render()">✕</button>
         </div>
         <div style="padding:28px;display:flex;flex-direction:column;gap:18px;">
             <div style="display:flex;align-items:center;gap:14px;">
@@ -760,21 +760,21 @@ function renderModalDettaglioPratica() {
                 <span class="${getStatoBadge(p.stato)}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
                 <span class="${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
                 <span class="badge" style="background:#f3f4f6;color:#374151;">${p.tipo_pratica}</span>
-                ${p.autorita?`<span class="badge" style="background:#eff6ff;color:#1d4ed8;">ðŸ›ï¸ ${p.autorita}</span>`:''}
-                ${scaduta?`<span class="badge" style="background:#fef2f2;color:#dc2626;">âš ï¸ SCADUTA</span>`:''}
-                ${inScad?`<span class="badge" style="background:#fff7ed;color:#c2410c;">ðŸ”” In scadenza</span>`:''}
+                ${p.autorita?`<span class="badge" style="background:#eff6ff;color:#1d4ed8;">🏛️ ${p.autorita}</span>`:''}
+                ${scaduta?`<span class="badge" style="background:#fef2f2;color:#dc2626;">⚠️ SCADUTA</span>`:''}
+                ${inScad?`<span class="badge" style="background:#fff7ed;color:#c2410c;">🔔 In scadenza</span>`:''}
             </div>
             <div style="background:#f9fafb;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;">
                 <p style="color:#374151;font-size:14px;margin:0;"><strong>Descrizione:</strong> ${p.descrizione}</p>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;color:#6b7280;">
-                    <p style="margin:0;">ðŸ“… Apertura: <strong>${fmtDate(p.data_apertura)}</strong></p>
-                    ${p.scadenza?`<p style="margin:0;${scaduta?'color:#dc2626;':inScad?'color:#ea580c;':''}">â° Scadenza: <strong>${fmtDate(p.scadenza)}</strong></p>`:''}
-                    ${p.responsabile_dipartimento?`<p style="margin:0;">ðŸ¢ Resp: <strong>${p.responsabile_dipartimento}</strong></p>`:''}
+                    <p style="margin:0;">📅 Apertura: <strong>${fmtDate(p.data_apertura)}</strong></p>
+                    ${p.scadenza?`<p style="margin:0;${scaduta?'color:#dc2626;':inScad?'color:#ea580c;':''}">⏰ Scadenza: <strong>${fmtDate(p.scadenza)}</strong></p>`:''}
+                    ${p.responsabile_dipartimento?`<p style="margin:0;">🏢 Resp: <strong>${p.responsabile_dipartimento}</strong></p>`:''}
                 </div>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                ${canEdit?`<button onclick="state.showDettaglioPratica=false;openPraticaModal(state.viewingPratica)" class="btn-purple" style="flex:1;padding:12px;font-size:14px;">âœï¸ Modifica Pratica</button>`:''}
-                <button onclick="state.showDettaglioPratica=false;state.showNoteModal=true;render()" class="btn-green" style="flex:1;padding:12px;font-size:14px;">ðŸ“ Vedi Note</button>
+                ${canEdit?`<button onclick="state.showDettaglioPratica=false;openPraticaModal(state.viewingPratica)" class="btn-purple" style="flex:1;padding:12px;font-size:14px;">✏️ Modifica Pratica</button>`:''}
+                <button onclick="state.showDettaglioPratica=false;state.showNoteModal=true;render()" class="btn-green" style="flex:1;padding:12px;font-size:14px;">📝 Vedi Note</button>
                 <button onclick="state.showDettaglioPratica=false;render()" class="btn-white" style="padding:12px 20px;font-size:14px;">Chiudi</button>
             </div>
         </div>
@@ -792,8 +792,8 @@ function renderModalPratica() {
     return modalOverlay(`
     <div class="sls-modal animate-slidedown" style="margin:auto;max-height:90vh;display:flex;flex-direction:column;">
         <div class="sls-modal-header" style="flex-shrink:0;">
-            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${isNuova?'âž• Nuova Pratica':'âœï¸ Modifica Pratica'}</h2>
-            <button class="sls-modal-close" onclick="state.showModal=false;render()">âœ•</button>
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${isNuova?'➕ Nuova Pratica':'✏️ Modifica Pratica'}</h2>
+            <button class="sls-modal-close" onclick="state.showModal=false;render()">✕</button>
         </div>
         <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
             <div>
@@ -808,7 +808,7 @@ function renderModalPratica() {
                     </select>
                 </div>
                 <div>
-                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">AutoritÃ </label>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Autorità</label>
                     <select onchange="state.formData.autorita=this.value" class="sls-input">
                         <option value="">-- Nessuna --</option>
                         ${AUTORITA.map(a=>`<option value="${a}" ${state.formData.autorita===a?'selected':''}>${a}</option>`).join('')}
@@ -830,7 +830,7 @@ function renderModalPratica() {
             </div>
             ${isAdmin()&&responsabili.length>0?`
             <div>
-                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">ðŸ¢ Responsabile Dipartimento</label>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">🏢 Responsabile Dipartimento</label>
                 <select onchange="state.formData.responsabile_dipartimento=this.value" class="sls-input">
                     <option value="">-- Nessuno --</option>
                     ${responsabili.map(r=>`<option value="${r.nome_completo}" ${state.formData.responsabile_dipartimento===r.nome_completo?'selected':''}>${r.nome_completo}</option>`).join('')}
@@ -848,7 +848,7 @@ function renderModalPratica() {
                     </select>
                 </div>
                 <div>
-                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">PrioritÃ  *</label>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Priorità *</label>
                     <select onchange="state.formData.priorita=this.value" class="sls-input">
                         ${[['bassa','Bassa'],['media','Media'],['alta','Alta']].map(([v,l])=>`<option value="${v}" ${state.formData.priorita===v?'selected':''}>${l}</option>`).join('')}
                     </select>
@@ -864,14 +864,14 @@ function renderModalPratica() {
                     <input type="date" value="${state.formData.scadenza||''}" ${minScadenza?`min="${minScadenza}"`:''}  oninput="state.formData.scadenza=this.value" class="sls-input"/>
                 </div>
                 <div>
-                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Agg.to AttivitÃ </label>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Agg.to Attività</label>
                     <input type="date" value="${state.formData.data_aggiornamento_attivita||today()}" ${minAggAttivita?`min="${minAggAttivita}"`:''}  oninput="state.formData.data_aggiornamento_attivita=this.value" class="sls-input" style="background:#f0fdf4;"/>
                 </div>
             </div>
             <div>
-                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">ðŸ”” Alert Scadenza</label>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">🔔 Alert Scadenza</label>
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-                    ${[['','Nessuno'],['1','âš¡ 3 giorni prima'],['2','ðŸ• 10 giorni prima']].map(([v,l])=>`
+                    ${[['','Nessuno'],['1','⚡ 3 giorni prima'],['2','🕐 10 giorni prima']].map(([v,l])=>`
                     <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid ${state.formData.alert_giorni===v?'#9333ea':'#e5e7eb'};border-radius:12px;cursor:pointer;background:${state.formData.alert_giorni===v?'#f5f3ff':'#fff'};">
                         <input type="radio" name="alertGiorni" value="${v}" ${state.formData.alert_giorni===v?'checked':''} onchange="state.formData.alert_giorni=this.value;render()"/>
                         <span style="font-size:13px;font-weight:600;">${l}</span>
@@ -879,11 +879,11 @@ function renderModalPratica() {
                 </div>
             </div>
             <div>
-                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">ðŸ“ Nota Aggiornamento</label>
-                <textarea oninput="state.formData.nota_aggiornamento=this.value" rows="3" class="sls-input" style="resize:vertical;" placeholder="Questa nota verrÃ  aggiunta allo storico...">${state.formData.nota_aggiornamento||''}</textarea>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📝 Nota Aggiornamento</label>
+                <textarea oninput="state.formData.nota_aggiornamento=this.value" rows="3" class="sls-input" style="resize:vertical;" placeholder="Questa nota verrà aggiunta allo storico...">${state.formData.nota_aggiornamento||''}</textarea>
             </div>
             <div style="display:flex;gap:10px;padding-top:8px;">
-                <button onclick="submitPratica()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">ðŸ’¾ ${isNuova?'Salva':'Aggiorna'}</button>
+                <button onclick="submitPratica()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">💾 ${isNuova?'Salva':'Aggiorna'}</button>
                 <button onclick="state.showModal=false;render()" class="btn-white" style="padding:14px 20px;font-size:14px;">Annulla</button>
             </div>
         </div>
@@ -896,8 +896,8 @@ function renderModalAvvocato() {
     return modalOverlay(`
     <div class="sls-modal animate-slidedown" style="margin:auto;max-height:90vh;display:flex;flex-direction:column;">
         <div class="sls-modal-header" style="flex-shrink:0;">
-            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${soloColore?'ðŸŽ¨ Colore':state.editingAvvocato?'âœï¸ Modifica':'âž• Nuovo'} Avvocato</h2>
-            <button class="sls-modal-close" onclick="state.showAvvocatoModal=false;render()">âœ•</button>
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${soloColore?'🎨 Colore':state.editingAvvocato?'✏️ Modifica':'➕ Nuovo'} Avvocato</h2>
+            <button class="sls-modal-close" onclick="state.showAvvocatoModal=false;render()">✕</button>
         </div>
         <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
             ${soloColore?'':`
@@ -912,7 +912,7 @@ function renderModalAvvocato() {
                 ${TIPI_PRATICA.map(s=>`<option value="${s}" ${state.avvForm.specializzazione===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
             </select></div>`}
             <div>
-                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">ðŸŽ¨ Colore Avatar</label>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">🎨 Colore Avatar</label>
                 <div style="display:flex;align-items:center;gap:12px;background:#f9fafb;border-radius:14px;padding:14px;margin-bottom:12px;">
                     <span class="avv-avatar-lg" style="background:${col};">${getIniziali((state.avvForm.nome||'')+' '+(state.avvForm.cognome||state.editingAvvocato?.nome_completo||''))}</span>
                     <div><p style="font-weight:600;color:#111;margin:0;">${state.avvForm.nome||''} ${state.avvForm.cognome||state.editingAvvocato?.nome_completo||''}</p><p style="font-size:12px;color:#9ca3af;margin:2px 0;">Anteprima colore</p></div>
@@ -927,7 +927,7 @@ function renderModalAvvocato() {
                 </div>
             </div>
             <div style="display:flex;gap:10px;padding-top:8px;">
-                <button onclick="submitAvvocato()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">ðŸ’¾ ${state.editingAvvocato?'Aggiorna':'Salva'}</button>
+                <button onclick="submitAvvocato()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">💾 ${state.editingAvvocato?'Aggiorna':'Salva'}</button>
                 <button onclick="state.showAvvocatoModal=false;render()" class="btn-white" style="padding:14px 20px;font-size:14px;">Annulla</button>
             </div>
         </div>
@@ -938,8 +938,8 @@ function renderModalUtente() {
     return modalOverlay(`
     <div class="sls-modal animate-slidedown" style="margin:auto;">
         <div class="sls-modal-header">
-            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${state.editingUtente?'âœï¸ Modifica':'âž• Nuovo'} Utente</h2>
-            <button class="sls-modal-close" onclick="state.showUtenteModal=false;render()">âœ•</button>
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${state.editingUtente?'✏️ Modifica':'➕ Nuovo'} Utente</h2>
+            <button class="sls-modal-close" onclick="state.showUtenteModal=false;render()">✕</button>
         </div>
         <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
             <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Username *</label><input type="text" value="${state.utenteForm.username}" ${state.editingUtente?'disabled':''} oninput="state.utenteForm.username=this.value" class="sls-input" style="${state.editingUtente?'background:#f3f4f6;':''}"/></div>
@@ -948,12 +948,12 @@ function renderModalUtente() {
             <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Email *</label><input type="email" value="${state.utenteForm.email}" oninput="state.utenteForm.email=this.value" class="sls-input"/></div>
             <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Ruolo *</label>
             <select onchange="state.utenteForm.ruolo=this.value" class="sls-input">
-                <option value="avvocato" ${state.utenteForm.ruolo==='avvocato'?'selected':''}>âš–ï¸ Avvocato</option>
-                <option value="responsabile_dipartimento" ${state.utenteForm.ruolo==='responsabile_dipartimento'?'selected':''}>ðŸ¢ Responsabile Dipartimento</option>
-                <option value="amministratore" ${state.utenteForm.ruolo==='amministratore'?'selected':''}>ðŸ‘‘ Amministratore</option>
+                <option value="avvocato" ${state.utenteForm.ruolo==='avvocato'?'selected':''}>⚖️ Avvocato</option>
+                <option value="responsabile_dipartimento" ${state.utenteForm.ruolo==='responsabile_dipartimento'?'selected':''}>🏢 Responsabile Dipartimento</option>
+                <option value="amministratore" ${state.utenteForm.ruolo==='amministratore'?'selected':''}>👑 Amministratore</option>
             </select></div>
             <div style="display:flex;gap:10px;padding-top:8px;">
-                <button onclick="submitUtente()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">ðŸ’¾ ${state.editingUtente?'Aggiorna':'Crea'}</button>
+                <button onclick="submitUtente()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">💾 ${state.editingUtente?'Aggiorna':'Crea'}</button>
                 <button onclick="state.showUtenteModal=false;render()" class="btn-white" style="padding:14px 20px;font-size:14px;">Annulla</button>
             </div>
         </div>
@@ -972,23 +972,23 @@ function renderModalNote() {
                 </div>
                 <p style="color:rgba(255,255,255,0.7);font-size:13px;margin:0;">${p?.descrizione}</p>
             </div>
-            <button class="sls-modal-close" onclick="state.showNoteModal=false;render()">âœ•</button>
+            <button class="sls-modal-close" onclick="state.showNoteModal=false;render()">✕</button>
         </div>
         <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
-            ${isAdmin()||isResp()?`<div style="display:flex;justify-content:flex-end;"><button onclick="state.showNoteModal=false;openPraticaModal(state.viewingPratica)" class="btn-purple" style="padding:10px 18px;font-size:13px;">âœï¸ Modifica Pratica</button></div>`:''}
+            ${isAdmin()||isResp()?`<div style="display:flex;justify-content:flex-end;"><button onclick="state.showNoteModal=false;openPraticaModal(state.viewingPratica)" class="btn-purple" style="padding:10px 18px;font-size:13px;">✏️ Modifica Pratica</button></div>`:''}
             <div style="background:#f5f3ff;border-radius:16px;padding:18px;border:1px solid #ede9fe;">
-                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">ðŸ“ Aggiungi Nota</label>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📝 Aggiungi Nota</label>
                 <textarea oninput="state.noteForm.nota=this.value" rows="3" class="sls-input" style="background:#fff;margin-bottom:10px;" placeholder="Scrivi qui la nota...">${state.noteForm.nota||''}</textarea>
-                <button onclick="submitNota()" class="btn-purple" style="padding:10px 20px;font-size:14px;">âž• Aggiungi Nota</button>
+                <button onclick="submitNota()" class="btn-purple" style="padding:10px 20px;font-size:14px;">➕ Aggiungi Nota</button>
             </div>
-            <h3 style="font-size:16px;font-weight:700;color:#111;margin:0;">ðŸ“œ Storico Note</h3>
+            <h3 style="font-size:16px;font-weight:700;color:#111;margin:0;">📜 Storico Note</h3>
             ${state.noteAggiornamento.length>0?`
             <div style="display:flex;flex-direction:column;gap:10px;">
                 ${state.noteAggiornamento.map(n=>`
                 <div style="padding:16px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:14px;border-left:4px solid #9333ea;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                         <div style="display:flex;align-items:center;gap:8px;">${avvAvatar(n.autore)}<strong style="font-size:13px;">${n.autore}</strong></div>
-                        <span style="font-size:12px;color:#9ca3af;">ðŸ“… ${fmtDate(n.data_nota)}</span>
+                        <span style="font-size:12px;color:#9ca3af;">📅 ${fmtDate(n.data_nota)}</span>
                     </div>
                     <p style="color:#374151;font-size:14px;margin:0;">${n.nota}</p>
                 </div>`).join('')}
@@ -1001,13 +1001,13 @@ function renderModalAlert() {
     return modalOverlay(`
     <div class="sls-modal animate-slidedown" style="margin:auto;max-height:85vh;display:flex;flex-direction:column;">
         <div style="background:linear-gradient(135deg,#f97316,#dc2626);border-radius:20px 20px 0 0;padding:24px 28px;display:flex;justify-content:space-between;align-items:center;">
-            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">ðŸ”” Alert Scadenze</h2>
-            <button class="sls-modal-close" onclick="state.showAlertModal=false;render()">âœ•</button>
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">🔔 Alert Scadenze</h2>
+            <button class="sls-modal-close" onclick="state.showAlertModal=false;render()">✕</button>
         </div>
         <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
             ${state.alertList.filter(a=>a.tipo==='scaduta').length>0?`
             <div>
-                <h3 style="font-size:15px;font-weight:700;color:#dc2626;margin:0 0 10px;">âš ï¸ Pratiche giÃ  scadute</h3>
+                <h3 style="font-size:15px;font-weight:700;color:#dc2626;margin:0 0 10px;">⚠️ Pratiche già scadute</h3>
                 ${state.alertList.filter(a=>a.tipo==='scaduta').map(({pratica:p,diff})=>`
                 <div style="padding:16px;background:#fef2f2;border:2px solid #fecaca;border-radius:14px;margin-bottom:8px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -1015,15 +1015,15 @@ function renderModalAlert() {
                         <span class="badge" style="background:#fecaca;color:#dc2626;">Scaduta da ${Math.abs(diff)}gg</span>
                     </div>
                     <div style="display:flex;gap:12px;font-size:12px;color:#9ca3af;flex-wrap:wrap;">
-                        ${p.autorita?`<span>ðŸ›ï¸ ${p.autorita}</span>`:''}
-                        <span>ðŸ“… <strong style="color:#dc2626;">${fmtDate(p.scadenza)}</strong></span>
-                        <span>ðŸ‘¤ ${p.avvocato}</span>
+                        ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
+                        <span>📅 <strong style="color:#dc2626;">${fmtDate(p.scadenza)}</strong></span>
+                        <span>👤 ${p.avvocato}</span>
                     </div>
                 </div>`).join('')}
             </div>`:''}
             ${state.alertList.filter(a=>a.tipo==='imminente').length>0?`
             <div>
-                <h3 style="font-size:15px;font-weight:700;color:#ea580c;margin:0 0 10px;">ðŸ”” In scadenza</h3>
+                <h3 style="font-size:15px;font-weight:700;color:#ea580c;margin:0 0 10px;">🔔 In scadenza</h3>
                 ${state.alertList.filter(a=>a.tipo==='imminente').map(({pratica:p,diff})=>`
                 <div style="padding:16px;background:#fff7ed;border:2px solid #fed7aa;border-radius:14px;margin-bottom:8px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -1031,13 +1031,13 @@ function renderModalAlert() {
                         <span class="badge" style="background:#fed7aa;color:#c2410c;">Scade tra ${diff}gg</span>
                     </div>
                     <div style="display:flex;gap:12px;font-size:12px;color:#9ca3af;flex-wrap:wrap;">
-                        ${p.autorita?`<span>ðŸ›ï¸ ${p.autorita}</span>`:''}
-                        <span>ðŸ“… <strong style="color:#ea580c;">${fmtDate(p.scadenza)}</strong></span>
-                        <span>ðŸ‘¤ ${p.avvocato}</span>
+                        ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
+                        <span>📅 <strong style="color:#ea580c;">${fmtDate(p.scadenza)}</strong></span>
+                        <span>👤 ${p.avvocato}</span>
                     </div>
                 </div>`).join('')}
             </div>`:''}
-            <button onclick="state.showAlertModal=false;render()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f97316,#dc2626);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;">âœ… Ho capito</button>
+            <button onclick="state.showAlertModal=false;render()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f97316,#dc2626);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;">✅ Ho capito</button>
         </div>
     </div>`);
 }
@@ -1122,8 +1122,8 @@ async function submitPratica() {
     const f=state.formData,orig=state.editingPratica,isNuova=!orig;
     if(!f.cliente||!f.descrizione||!f.avvocato){alert('Compila tutti i campi obbligatori (*)');return;}
     if(!isAdmin()&&!isResp()&&!isNuova){
-        if(f.scadenza&&orig.scadenza&&f.scadenza<orig.scadenza){alert('âš ï¸ Non puoi retrodatare la scadenza!');return;}
-        if(f.data_aggiornamento_attivita&&orig.data_aggiornamento_attivita&&f.data_aggiornamento_attivita<orig.data_aggiornamento_attivita){alert('âš ï¸ Non puoi retrodatare!');return;}
+        if(f.scadenza&&orig.scadenza&&f.scadenza<orig.scadenza){alert('⚠️ Non puoi retrodatare la scadenza!');return;}
+        if(f.data_aggiornamento_attivita&&orig.data_aggiornamento_attivita&&f.data_aggiornamento_attivita<orig.data_aggiornamento_attivita){alert('⚠️ Non puoi retrodatare!');return;}
         f.data_apertura=orig.data_apertura;
     }
     const p={...f};if(orig)p.id=orig.id;
@@ -1166,7 +1166,7 @@ render();
 </script>
 </body>
 </html>
-
                                                                                             
+
 
 
