@@ -6,7 +6,10 @@
     <title>SLS Studio Legale - Gestione Pratiche</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
     <style>
+        * { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        body { background: #f3f4f6; }
         @keyframes fadeIn { from {opacity:0;transform:translateY(10px);} to {opacity:1;transform:translateY(0);}}
         @keyframes slideDown { from {opacity:0;transform:translateY(-20px);} to {opacity:1;transform:translateY(0);}}
         .animate-fadein { animation: fadeIn 0.3s; }
@@ -14,65 +17,69 @@
         @media print {
             .no-print { display: none !important; }
             body { background: white !important; }
-            .print-full { width: 100% !important; max-width: 100% !important; padding: 20px !important; }
         }
-        .scaduta { background-color: #fee2e2 !important; border-left: 4px solid #dc2626 !important; }
-        .priorita-bassa { background-color: #dbeafe; }
-        .priorita-media { background-color: #3b82f6; color: white; }
-        .priorita-alta { background-color: #1e3a8a; color: white; }
-        .stato-svolgimento { background-color: #fef3c7; color: #92400e; }
-        .stato-fatto { background-color: #d1fae5; color: #065f46; }
-        .stato-bloccato { background-color: #fee2e2; color: #991b1b; }
-        /* Pratica FATTO: sfumata con linea colorata */
-        .pratica-fatto-card {
-            opacity: 0.6;
-            position: relative;
-            overflow: hidden;
-        }
-        .pratica-fatto-card::after {
-            content: '';
-            position: absolute;
-            left: 0; right: 0;
-            top: 50%;
-            height: 3px;
-            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
-            transform: translateY(-50%);
-            pointer-events: none;
-            z-index: 10;
-        }
-        .fatto-strike {
-            text-decoration: line-through;
-            text-decoration-color: #6366f1;
-            text-decoration-thickness: 2px;
-            opacity: 0.7;
-        }
-        /* Riga tabella FATTO */
-        .tr-fatto td {
-            opacity: 0.55;
-            position: relative;
-        }
-        .tr-fatto td::after {
-            content: '';
-            position: absolute;
-            left: 0; right: 0;
-            top: 50%;
-            height: 2px;
-            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
-            pointer-events: none;
-        }
-        .badge-fatto { text-decoration: line-through; text-decoration-color: #065f46; text-decoration-thickness: 2px; }
-        .avv-avatar { display:inline-flex;align-items:center;justify-content:center;width:2.2rem;height:2.2rem;border-radius:50%;font-size:0.65rem;font-weight:700;color:white;flex-shrink:0;letter-spacing:0.03em; }
+        /* Card hover */
+        .sls-card { background:#fff; border-radius:16px; box-shadow:0 1px 4px rgba(0,0,0,0.06); transition:box-shadow 0.2s, transform 0.2s; }
+        .sls-card:hover { box-shadow:0 6px 20px rgba(147,51,234,0.13); transform:translateY(-1px); }
+        /* Stat card icon */
+        .purple-icon { background:linear-gradient(135deg,#c084fc 0%,#a855f7 50%,#9333ea 100%); border-radius:14px; display:flex;align-items:center;justify-content:center; box-shadow:0 4px 12px rgba(147,51,234,0.35); flex-shrink:0; }
+        /* Buttons */
+        .btn-purple { background:linear-gradient(135deg,#c084fc 0%,#a855f7 50%,#9333ea 100%); color:#fff; border:none; border-radius:12px; font-weight:600; cursor:pointer; transition:opacity 0.2s, transform 0.15s; box-shadow:0 4px 14px rgba(147,51,234,0.3); }
+        .btn-purple:hover { opacity:0.92; transform:scale(1.02); }
+        .btn-white { background:#fff; border:2px solid #e5e7eb; border-radius:12px; font-weight:600; cursor:pointer; transition:border-color 0.15s; color:#374151; }
+        .btn-white:hover { border-color:#a855f7; }
+        .btn-danger { background:#ef4444; color:#fff; border:none; border-radius:10px; font-weight:600; cursor:pointer; }
+        .btn-danger:hover { background:#dc2626; }
+        .btn-green { background:#10b981; color:#fff; border:none; border-radius:10px; font-weight:600; cursor:pointer; }
+        .btn-green:hover { background:#059669; }
+        /* Nav tabs */
+        .nav-tab { display:flex;align-items:center;gap:8px;padding:12px 20px;font-weight:600;font-size:14px;transition:all 0.2s;white-space:nowrap;border:none;background:none;cursor:pointer; }
+        .nav-tab.active { background:#fff;color:#9333ea;border-bottom:3px solid #9333ea; }
+        .nav-tab.inactive { color:#6b7280; }
+        .nav-tab.inactive:hover { background:#f3e8ff;color:#9333ea; }
+        /* Badges */
+        .badge { display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600; }
+        .badge-svolgimento { background:#f3e8ff;color:#7c3aed; }
+        .badge-fatto { background:#dcfce7;color:#16a34a; }
+        .badge-bloccato { background:#fee2e2;color:#dc2626; }
+        .badge-bassa { background:#dbeafe;color:#1d4ed8; }
+        .badge-media { background:#a855f7;color:#fff; }
+        .badge-alta { background:#1e3a8a;color:#fff; }
+        /* Input / select */
+        .sls-input { width:100%;padding:12px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:14px;outline:none;transition:border-color 0.2s;font-family:inherit; }
+        .sls-input:focus { border-color:#a855f7; }
+        /* Pratiche fatto */
+        .pratica-fatto-card { opacity:0.6;position:relative;overflow:hidden; }
+        .pratica-fatto-card::after { content:'';position:absolute;left:0;right:0;top:50%;height:3px;background:linear-gradient(90deg,#6366f1,#a855f7,#ec4899);transform:translateY(-50%);pointer-events:none;z-index:10; }
+        .fatto-strike { text-decoration:line-through;text-decoration-color:#a855f7;text-decoration-thickness:2px;opacity:0.7; }
+        .tr-fatto td { opacity:0.55;position:relative; }
+        .tr-fatto td::after { content:'';position:absolute;left:0;right:0;top:50%;height:2px;background:linear-gradient(90deg,#6366f1,#a855f7,#ec4899);pointer-events:none; }
+        .scaduta { background:#fee2e2!important;border-left:4px solid #dc2626!important; }
+        /* Avatar */
+        .avv-avatar { display:inline-flex;align-items:center;justify-content:center;width:2.2rem;height:2.2rem;border-radius:50%;font-size:0.65rem;font-weight:700;color:white;flex-shrink:0; }
         .avv-avatar-lg { display:inline-flex;align-items:center;justify-content:center;width:3rem;height:3rem;border-radius:50%;font-size:0.8rem;font-weight:700;color:white;flex-shrink:0; }
+        /* Color swatches */
         .color-swatch { width:2rem;height:2rem;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px #e5e7eb;cursor:pointer;transition:transform 0.15s; }
         .color-swatch:hover { transform:scale(1.2); }
-        .color-swatch.selected { box-shadow:0 0 0 3px #4f46e5; transform:scale(1.15); }
+        .color-swatch.selected { box-shadow:0 0 0 3px #9333ea;transform:scale(1.15); }
+        /* Modal */
+        .sls-modal { background:#fff;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.18);max-width:720px;width:100%; }
+        .sls-modal-header { background:linear-gradient(135deg,#9b59b6 0%,#8e44ad 50%,#7b2d8e 100%);border-radius:20px 20px 0 0;padding:24px 28px;display:flex;justify-content:space-between;align-items:center; }
+        .sls-modal-close { background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:36px;height:36px;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s; }
+        .sls-modal-close:hover { background:rgba(255,255,255,0.3); }
+        /* Section title */
+        .section-title { font-size:17px;font-weight:700;color:#111;margin:0 0 12px; }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width:6px; }
+        ::-webkit-scrollbar-track { background:#f1f1f1;border-radius:3px; }
+        ::-webkit-scrollbar-thumb { background:#c084fc;border-radius:3px; }
     </style>
 </head>
 <body>
-<div id="app" class="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center">
-    <div class="text-white text-center">
-        <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="SLS Studio Legale" class="w-72 h-72 mx-auto mb-4 object-contain animate-pulse">
-        <p class="text-xl">Caricamento...</p>
+<div id="app" style="min-height:100vh;background:#f3f4f6;display:flex;align-items:center;justify-content:center;">
+    <div style="text-align:center;color:#9333ea;">
+        <div style="width:80px;height:80px;background:linear-gradient(135deg,#c084fc,#9333ea);border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px;font-weight:700;color:#fff;animation:fadeIn 1s;">SLS</div>
+        <p style="color:#6b7280;font-size:16px;">Caricamento...</p>
     </div>
 </div>
 <script>
@@ -82,13 +89,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const TIPI_PRATICA = ['civile','penale','amministrativo','lavoro','famiglia','tributario'];
 const AUTORITA = ['Tribunale','CGT1','CGT2','Mediazione','Cassazione','Corte d\'Appello','Stragiudiziale'];
-const PALETTE_COLORI = [
-    '#4f46e5','#7c3aed','#db2777','#059669','#d97706',
-    '#dc2626','#0891b2','#65a30d','#9333ea','#c2410c',
-    '#0ea5e9','#14b8a6','#f59e0b','#ef4444','#8b5cf6',
-    '#10b981','#f97316','#6366f1','#ec4899','#84cc16'
-];
-const AVV_COLORS = PALETTE_COLORI;
+const PALETTE_COLORI = ['#4f46e5','#7c3aed','#db2777','#059669','#d97706','#dc2626','#0891b2','#65a30d','#9333ea','#c2410c','#0ea5e9','#14b8a6','#f59e0b','#ef4444','#8b5cf6','#10b981','#f97316','#6366f1','#ec4899','#84cc16'];
 const avvColorMap = {};
 
 function getAvvColor(nome) {
@@ -98,7 +99,7 @@ function getAvvColor(nome) {
     if (!avvColorMap[nome]) {
         let h = 0;
         for (let i = 0; i < nome.length; i++) h = nome.charCodeAt(i) + ((h<<5)-h);
-        avvColorMap[nome] = AVV_COLORS[Math.abs(h) % AVV_COLORS.length];
+        avvColorMap[nome] = PALETTE_COLORI[Math.abs(h) % PALETTE_COLORI.length];
     }
     return avvColorMap[nome];
 }
@@ -112,9 +113,7 @@ function avvAvatar(nome, lg=false) {
 
 function isAdmin() { return state.user?.username === 'admin'; }
 function isResp() { return state.user?.ruolo === 'responsabile_dipartimento'; }
-function isAvvocato() { return state.user?.ruolo === 'avvocato'; }
 
-// Avvocati del dipartimento del responsabile corrente
 function myAvvocati() {
     if (isAdmin()) return state.avvocati.map(a=>a.nome_completo);
     if (isResp()) return state.dipartimenti.filter(d=>d.responsabile===state.user.nome_completo).map(d=>d.avvocato);
@@ -131,9 +130,8 @@ let state = {
     alertList:[], successMessage:'',
     formData:{ cliente:'', tipo_pratica:'civile', autorita:'', descrizione:'', stato:'svolgimento',
         data_apertura:today(), data_aggiornamento_attivita:today(), scadenza:'', timeline:'',
-        priorita:'media', rgnr:'', avvocato:'', nota_aggiornamento:'', alert_giorni:'1',
-        responsabile_dipartimento:'' },
-    avvForm:{ nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile', colore:'#4f46e5' },
+        priorita:'media', rgnr:'', avvocato:'', nota_aggiornamento:'', alert_giorni:'1', responsabile_dipartimento:'' },
+    avvForm:{ nome:'', cognome:'', email:'', telefono:'', specializzazione:'civile', colore:'#9333ea' },
     utenteForm:{ username:'', password:'', nome_completo:'', email:'', ruolo:'avvocato' },
     noteForm:{ nota:'' },
     notifiche:[], notificheLoading:false
@@ -164,7 +162,6 @@ function eseguiCheckAlert() {
     const myAvv = myAvvocati();
     state.pratiche.forEach(p => {
         if (!p.scadenza || p.stato==='fatto') return;
-        // Filtra per visibilità
         if (!isAdmin() && !myAvv.includes(p.avvocato)) return;
         const diff = Math.ceil((new Date(p.scadenza) - new Date()) / (1000*60*60*24));
         if (p.alert_giorni) {
@@ -192,301 +189,185 @@ async function salvaStorico(alerts) {
     }
 }
 
-async function loadAll() {
-    await Promise.all([loadPratiche(), loadAvvocati(), loadUtenti(), loadDipartimenti()]);
-}
-async function loadPratiche() {
-    const { data, error } = await sb.from('pratiche').select('*').order('numero',{ascending:false});
-    if (!error) state.pratiche = data||[];
-}
-async function loadAvvocati() {
-    const { data, error } = await sb.from('avvocati').select('*').order('cognome');
-    if (!error) state.avvocati = data||[];
-}
-async function loadUtenti() {
-    const { data, error } = await sb.from('utenti').select('*').order('nome_completo');
-    if (!error) state.utenti = data||[];
-}
-async function loadDipartimenti() {
-    const { data, error } = await sb.from('dipartimenti').select('*');
-    if (!error) state.dipartimenti = data||[];
-}
-async function loadNote(praticaId) {
-    const { data, error } = await sb.from('note_aggiornamento').select('*')
-        .eq('pratica_id', praticaId).order('data_nota',{ascending:false});
-    if (!error) state.noteAggiornamento = data||[];
-}
+async function loadAll() { await Promise.all([loadPratiche(), loadAvvocati(), loadUtenti(), loadDipartimenti()]); }
+async function loadPratiche() { const {data,error}=await sb.from('pratiche').select('*').order('numero',{ascending:false}); if(!error) state.pratiche=data||[]; }
+async function loadAvvocati() { const {data,error}=await sb.from('avvocati').select('*').order('cognome'); if(!error) state.avvocati=data||[]; }
+async function loadUtenti() { const {data,error}=await sb.from('utenti').select('*').order('nome_completo'); if(!error) state.utenti=data||[]; }
+async function loadDipartimenti() { const {data,error}=await sb.from('dipartimenti').select('*'); if(!error) state.dipartimenti=data||[]; }
+async function loadNote(praticaId) { const {data,error}=await sb.from('note_aggiornamento').select('*').eq('pratica_id',praticaId).order('data_nota',{ascending:false}); if(!error) state.noteAggiornamento=data||[]; }
 
 async function loadNotifiche() {
     state.notificheLoading = true;
-    let query = sb.from('alert_storico').select('*')
-        .eq('cancellata', false)
-        .order('data_alert', { ascending: false });
+    let query = sb.from('alert_storico').select('*').eq('cancellata',false).order('data_alert',{ascending:false});
     if (!isAdmin()) {
         const myAvv = myAvvocati();
-        if (myAvv.length === 1) query = query.eq('avvocato', myAvv[0]);
-        else if (myAvv.length > 1) query = query.in('avvocato', myAvv);
+        if (myAvv.length===1) query=query.eq('avvocato',myAvv[0]);
+        else if (myAvv.length>1) query=query.in('avvocato',myAvv);
     }
-    const { data, error } = await query;
-    state.notifiche = error ? [] : (data || []);
+    const {data,error} = await query;
+    state.notifiche = error?[]:(data||[]);
     state.notificheLoading = false;
 }
 
 async function cancellaNotifica(id) {
-    await sb.from('alert_storico').update({ cancellata: true }).eq('id', id);
-    state.notifiche = state.notifiche.filter(n => n.id !== id);
+    await sb.from('alert_storico').update({cancellata:true}).eq('id',id);
+    state.notifiche = state.notifiche.filter(n=>n.id!==id);
     render();
 }
 
 async function cancellaNotificheScadenzaSpostata(praticaId, nuovaScadenza) {
-    // Cancella notifiche di tipo "scaduta" o "imminente" per questa pratica
-    // se la nuova scadenza è in avanti rispetto a oggi
     if (!nuovaScadenza || nuovaScadenza <= today()) return;
-    await sb.from('alert_storico')
-        .update({ cancellata: true })
-        .eq('pratica_id', praticaId)
-        .in('tipo', ['scaduta', 'imminente']);
+    await sb.from('alert_storico').update({cancellata:true}).eq('pratica_id',praticaId).in('tipo',['scaduta','imminente']);
 }
 
 function getPraticheVisibili() {
     if (isAdmin()) return state.pratiche;
     const myAvv = myAvvocati();
-    return state.pratiche.filter(p => myAvv.includes(p.avvocato));
+    return state.pratiche.filter(p=>myAvv.includes(p.avvocato));
 }
 
 function cleanPratica(p) {
-    const c = {...p};
-    ['timeline','scadenza','data_modifica','nota_aggiornamento','rgnr','autorita','responsabile_dipartimento'].forEach(k => {
-        if (!c[k]||c[k]==='') c[k]=null;
-    });
-    if (!c.data_aggiornamento_attivita) c.data_aggiornamento_attivita = today();
+    const c={...p};
+    ['timeline','scadenza','data_modifica','nota_aggiornamento','rgnr','autorita','responsabile_dipartimento'].forEach(k=>{if(!c[k]||c[k]==='')c[k]=null;});
+    if(!c.data_aggiornamento_attivita) c.data_aggiornamento_attivita=today();
     return c;
 }
 
 async function savePratica(p) {
     try {
-        const cp = cleanPratica(p);
-        let praticaId;
-        if (cp.id) {
-            const { error } = await sb.from('pratiche').update(cp).eq('id',cp.id);
-            if (error) throw error;
-            praticaId = cp.id;
-        } else {
-            cp.numero = Date.now(); cp.data_modifica = today();
-            const { data, error } = await sb.from('pratiche').insert([cp]).select().single();
-            if (error) throw error;
-            praticaId = data.id;
-        }
-        if (p.nota_aggiornamento?.trim()) {
-            await sb.from('note_aggiornamento').insert([{
-                pratica_id:praticaId, data_nota:today(),
-                nota:p.nota_aggiornamento.trim(),
-                autore:state.user.nome_completo, autore_id:state.user.id
-            }]);
-        }
+        const cp=cleanPratica(p); let praticaId;
+        if(cp.id){const{error}=await sb.from('pratiche').update(cp).eq('id',cp.id);if(error)throw error;praticaId=cp.id;}
+        else{cp.numero=Date.now();cp.data_modifica=today();const{data,error}=await sb.from('pratiche').insert([cp]).select().single();if(error)throw error;praticaId=data.id;}
+        if(p.nota_aggiornamento?.trim()) await sb.from('note_aggiornamento').insert([{pratica_id:praticaId,data_nota:today(),nota:p.nota_aggiornamento.trim(),autore:state.user.nome_completo,autore_id:state.user.id}]);
         await loadPratiche(); return true;
-    } catch(e) { alert('Errore: '+e.message); return false; }
+    }catch(e){alert('Errore: '+e.message);return false;}
 }
 
-async function aggiungiNota(praticaId, nota) {
-    try {
-        const { error } = await sb.from('note_aggiornamento').insert([{
-            pratica_id:praticaId, data_nota:today(), nota,
-            autore:state.user.nome_completo, autore_id:state.user.id
-        }]);
-        if (error) throw error;
-        await loadNote(praticaId); return true;
-    } catch(e) { alert('Errore: '+e.message); return false; }
+async function aggiungiNota(praticaId,nota) {
+    try{const{error}=await sb.from('note_aggiornamento').insert([{pratica_id:praticaId,data_nota:today(),nota,autore:state.user.nome_completo,autore_id:state.user.id}]);if(error)throw error;await loadNote(praticaId);return true;}
+    catch(e){alert('Errore: '+e.message);return false;}
 }
 
 async function deletePratica(id) {
-    if (!isAdmin()) { alert('Solo admin può eliminare pratiche'); return; }
-    const { error } = await sb.from('pratiche').delete().eq('id',id);
-    if (!error) { await loadPratiche(); showSuccess('Pratica eliminata!'); }
-    else alert('Errore: '+error.message);
+    if(!isAdmin()){alert('Solo admin può eliminare pratiche');return;}
+    const{error}=await sb.from('pratiche').delete().eq('id',id);
+    if(!error){await loadPratiche();showSuccess('Pratica eliminata!');}else alert('Errore: '+error.message);
 }
 
 async function saveAvvocato(avv) {
-    try {
-        avv.nome_completo = avv.nome+' '+avv.cognome;
-        if (avv.id) {
-            const { error } = await sb.from('avvocati').update(avv).eq('id',avv.id);
-            if (error) throw error;
-        } else {
-            avv.data_creazione = today();
-            const { error } = await sb.from('avvocati').insert([avv]);
-            if (error) throw error;
-        }
-        await loadAvvocati(); return true;
-    } catch(e) { alert('Errore: '+e.message); return false; }
+    try{avv.nome_completo=avv.nome+' '+avv.cognome;if(avv.id){const{error}=await sb.from('avvocati').update(avv).eq('id',avv.id);if(error)throw error;}else{avv.data_creazione=today();const{error}=await sb.from('avvocati').insert([avv]);if(error)throw error;}await loadAvvocati();return true;}
+    catch(e){alert('Errore: '+e.message);return false;}
 }
 
 async function deleteAvvocato(id) {
-    if (!isAdmin()) { alert('Solo admin può eliminare avvocati'); return; }
-    const nome = state.avvocati.find(a=>a.id===id)?.nome_completo;
-    if (state.pratiche.filter(p=>p.avvocato===nome).length>0) {
-        alert('Impossibile eliminare: ci sono pratiche assegnate!'); return;
-    }
-    const { error } = await sb.from('avvocati').delete().eq('id',id);
-    if (!error) { await loadAvvocati(); showSuccess('Avvocato eliminato!'); }
-    else alert('Errore: '+error.message);
+    if(!isAdmin()){alert('Solo admin');return;}
+    const nome=state.avvocati.find(a=>a.id===id)?.nome_completo;
+    if(state.pratiche.filter(p=>p.avvocato===nome).length>0){alert('Impossibile: ci sono pratiche assegnate!');return;}
+    const{error}=await sb.from('avvocati').delete().eq('id',id);
+    if(!error){await loadAvvocati();showSuccess('Avvocato eliminato!');}else alert('Errore: '+error.message);
 }
 
 async function saveUtente(u) {
-    try {
-        if (u.id) {
-            const upd={...u}; if (!upd.password||upd.password==='') delete upd.password;
-            const { error } = await sb.from('utenti').update(upd).eq('id',u.id);
-            if (error) throw error;
-        } else {
-            const { error } = await sb.from('utenti').insert([u]);
-            if (error) throw error;
-        }
-        await loadUtenti(); return true;
-    } catch(e) { alert('Errore: '+e.message); return false; }
+    try{if(u.id){const upd={...u};if(!upd.password||upd.password==='')delete upd.password;const{error}=await sb.from('utenti').update(upd).eq('id',u.id);if(error)throw error;}else{const{error}=await sb.from('utenti').insert([u]);if(error)throw error;}await loadUtenti();return true;}
+    catch(e){alert('Errore: '+e.message);return false;}
 }
 
 async function deleteUtente(id) {
-    if (id===state.user.id) { alert('Non puoi eliminare il tuo account!'); return; }
-    const { error } = await sb.from('utenti').delete().eq('id',id);
-    if (!error) { await loadUtenti(); showSuccess('Utente eliminato!'); }
-    else alert('Errore: '+error.message);
+    if(id===state.user.id){alert('Non puoi eliminare il tuo account!');return;}
+    const{error}=await sb.from('utenti').delete().eq('id',id);
+    if(!error){await loadUtenti();showSuccess('Utente eliminato!');}else alert('Errore: '+error.message);
 }
 
-// Dipartimenti
-async function saveDipartimento(responsabile, responsabileId, avvocato, avvocatoId, nomeDip) {
-    const exists = state.dipartimenti.find(d=>d.responsabile===responsabile && d.avvocato===avvocato);
-    if (exists) return;
-    await sb.from('dipartimenti').insert([{ responsabile, responsabile_id:responsabileId, avvocato, avvocato_id:avvocatoId, nome_dipartimento:nomeDip||null }]);
+async function saveDipartimento(responsabile,responsabileId,avvocato,avvocatoId,nomeDip) {
+    const exists=state.dipartimenti.find(d=>d.responsabile===responsabile&&d.avvocato===avvocato);
+    if(exists)return;
+    await sb.from('dipartimenti').insert([{responsabile,responsabile_id:responsabileId,avvocato,avvocato_id:avvocatoId,nome_dipartimento:nomeDip||null}]);
     await loadDipartimenti();
 }
 
-async function aggiornaNomeDip(responsabile, nomeDip) {
-    // Aggiorna nome_dipartimento per tutte le righe di quel responsabile
-    await sb.from('dipartimenti').update({ nome_dipartimento: nomeDip }).eq('responsabile', responsabile);
-    await loadDipartimenti();
-    showSuccess('Nome dipartimento aggiornato!');
-    render();
-}
-async function deleteDipartimento(id) {
-    await sb.from('dipartimenti').delete().eq('id',id);
-    await loadDipartimenti();
+async function deleteDipartimento(id) { await sb.from('dipartimenti').delete().eq('id',id); await loadDipartimenti(); }
+
+async function aggiornaNomeDip(responsabile,nomeDip) {
+    await sb.from('dipartimenti').update({nome_dipartimento:nomeDip}).eq('responsabile',responsabile);
+    await loadDipartimenti(); showSuccess('Nome dipartimento aggiornato!'); render();
 }
 
-async function login(username, password) {
-    const { data, error } = await sb.from('utenti').select('*')
-        .eq('username',username).eq('password',password).eq('attivo',true).single();
-    if (error||!data) { alert('Username o password errati!'); return false; }
-    state.user = data;
-    await loadAll();
-    checkAlertGiornaliero();
-    eseguiCheckAlert();
-    render(); return true;
+async function login(username,password) {
+    const{data,error}=await sb.from('utenti').select('*').eq('username',username).eq('password',password).eq('attivo',true).single();
+    if(error||!data){alert('Username o password errati!');return false;}
+    state.user=data; await loadAll(); checkAlertGiornaliero(); eseguiCheckAlert(); render(); return true;
 }
 
-function logout() { state.user=null; state.activeTab='dashboard'; render(); }
+function logout(){state.user=null;state.activeTab='dashboard';render();}
 
-function esportaCSV(nomeFile, righe) {
-    if (!righe||righe.length===0) { alert('Nessun dato!'); return; }
-    const headers = Object.keys(righe[0]);
-    const csv = [headers.join(';'), ...righe.map(r=>headers.map(h=>{
-        const v=r[h]===null||r[h]===undefined?'':String(r[h]);
-        return '"'+v.replace(/"/g,'""')+'"';
-    }).join(';'))].join('\n');
-    const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href=url; a.download=nomeFile;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
+function esportaCSV(nomeFile,righe) {
+    if(!righe||righe.length===0){alert('Nessun dato!');return;}
+    const headers=Object.keys(righe[0]);
+    const csv=[headers.join(';'),...righe.map(r=>headers.map(h=>{const v=r[h]===null||r[h]===undefined?'':String(r[h]);return '"'+v.replace(/"/g,'""')+'"';}).join(';'))].join('\n');
+    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=nomeFile;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
 }
 
 async function esportaTuttiCSV() {
-    const [note,utenti] = await Promise.all([
-        sb.from('note_aggiornamento').select('*').order('data_nota',{ascending:false}),
-        sb.from('utenti').select('id,username,nome_completo,email,ruolo,attivo')
-    ]);
-    esportaCSV(`pratiche-${today()}.csv`,state.pratiche);
-    await new Promise(r=>setTimeout(r,300));
-    esportaCSV(`avvocati-${today()}.csv`,state.avvocati);
-    await new Promise(r=>setTimeout(r,300));
-    if (!utenti.error&&utenti.data?.length) { esportaCSV(`utenti-${today()}.csv`,utenti.data); await new Promise(r=>setTimeout(r,300)); }
-    if (!note.error&&note.data?.length) esportaCSV(`note-${today()}.csv`,note.data);
+    const[note,utenti]=await Promise.all([sb.from('note_aggiornamento').select('*').order('data_nota',{ascending:false}),sb.from('utenti').select('id,username,nome_completo,email,ruolo,attivo')]);
+    esportaCSV(`pratiche-${today()}.csv`,state.pratiche);await new Promise(r=>setTimeout(r,300));
+    esportaCSV(`avvocati-${today()}.csv`,state.avvocati);await new Promise(r=>setTimeout(r,300));
+    if(!utenti.error&&utenti.data?.length){esportaCSV(`utenti-${today()}.csv`,utenti.data);await new Promise(r=>setTimeout(r,300));}
+    if(!note.error&&note.data?.length)esportaCSV(`note-${today()}.csv`,note.data);
     showSuccess('CSV esportati!');
 }
 
 async function esportaDati() {
-    const data={pratiche:state.pratiche,avvocati:state.avvocati,dataEsportazione:new Date().toISOString(),versione:'3.0'};
+    const data={pratiche:state.pratiche,avvocati:state.avvocati,dataEsportazione:new Date().toISOString(),versione:'4.0'};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url; a.download=`sls-backup-${today()}.json`;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`sls-backup-${today()}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
     showSuccess('Backup JSON esportato!');
 }
 
 function importaDati(e) {
-    const file=e.target.files[0]; if(!file) return;
+    const file=e.target.files[0];if(!file)return;
     const reader=new FileReader();
-    reader.onload=async(ev)=>{
-        try {
-            const data=JSON.parse(ev.target.result);
-            if(!confirm(`Importare ${data.pratiche?.length||0} pratiche?`)) return;
-            for(const a of (data.avvocati||[])) { delete a.id; delete a.created_at; await sb.from('avvocati').insert([a]); }
-            for(const p of (data.pratiche||[])) { delete p.id; delete p.created_at; await sb.from('pratiche').insert([p]); }
-            await loadAll(); showSuccess('Importati!');
-        } catch(er) { alert('Errore: '+er.message); }
-    };
-    reader.readAsText(file); e.target.value='';
+    reader.onload=async(ev)=>{try{const data=JSON.parse(ev.target.result);if(!confirm(`Importare ${data.pratiche?.length||0} pratiche?`))return;for(const a of(data.avvocati||[])){delete a.id;delete a.created_at;await sb.from('avvocati').insert([a]);}for(const p of(data.pratiche||[])){delete p.id;delete p.created_at;await sb.from('pratiche').insert([p]);}await loadAll();showSuccess('Importati!');}catch(er){alert('Errore: '+er.message);}};
+    reader.readAsText(file);e.target.value='';
 }
 
-function stampa() { window.print(); }
-function showSuccess(msg) {
-    state.successMessage=msg; render();
-    setTimeout(()=>{ state.successMessage=''; render(); },3000);
+function stampa(){window.print();}
+function showSuccess(msg){state.successMessage=msg;render();setTimeout(()=>{state.successMessage='';render();},3000);}
+
+function fmtDate(d){return d?new Date(d).toLocaleDateString('it-IT'):'';}
+
+function getRuoloBadge(r){
+    if(r==='amministratore'||r==='admin')return{label:'👑 Admin',cls:'color:#9333ea'};
+    if(r==='responsabile_dipartimento')return{label:'🏢 Resp. Dipartimento',cls:'color:#7c3aed'};
+    return{label:'⚖️ Avvocato',cls:'color:#6b7280'};
 }
 
-function getStatoBadge(s) { return {svolgimento:'stato-svolgimento',fatto:'stato-fatto',bloccato:'stato-bloccato'}[s]||'stato-svolgimento'; }
-function getStatoIcon(s) { return s==='fatto'?'✅':s==='bloccato'?'🚫':'🔄'; }
-function getPrioritaBadge(p) { return {bassa:'priorita-bassa',media:'priorita-media',alta:'priorita-alta'}[p]||'priorita-media'; }
+function getStatoBadge(s){return{svolgimento:'badge badge-svolgimento',fatto:'badge badge-fatto',bloccato:'badge badge-bloccato'}[s]||'badge badge-svolgimento';}
+function getStatoIcon(s){return s==='fatto'?'✅':s==='bloccato'?'🚫':'🔄';}
+function getPrioritaBadge(p){return{bassa:'badge badge-bassa',media:'badge badge-media',alta:'badge badge-alta'}[p]||'badge badge-media';}
 
-function getAvvStats(nome) {
+function getAvvStats(nome){
     const ps=state.pratiche.filter(p=>p.avvocato===nome);
-    return {totali:ps.length,svolgimento:ps.filter(p=>p.stato==='svolgimento').length,
-        fatto:ps.filter(p=>p.stato==='fatto').length,bloccato:ps.filter(p=>p.stato==='bloccato').length};
+    return{totali:ps.length,svolgimento:ps.filter(p=>p.stato==='svolgimento').length,fatto:ps.filter(p=>p.stato==='fatto').length,bloccato:ps.filter(p=>p.stato==='bloccato').length};
 }
 
-function getFiltered() {
-    const visibili = getPraticheVisibili();
+function getFiltered(){
+    const visibili=getPraticheVisibili();
     return visibili.filter(p=>{
         const s=state.searchTerm.toLowerCase();
         const match=p.cliente.toLowerCase().includes(s)||p.descrizione.toLowerCase().includes(s)||(p.rgnr||'').toLowerCase().includes(s);
-        return match&&(state.filterStato==='tutti'||p.stato===state.filterStato)&&
-            (state.filterTipo==='tutti'||p.tipo_pratica===state.filterTipo)&&
-            (state.filterPriorita==='tutti'||p.priorita===state.filterPriorita)&&
-            (state.filterAvvocato==='tutti'||p.avvocato===state.filterAvvocato);
+        return match&&(state.filterStato==='tutti'||p.stato===state.filterStato)&&(state.filterTipo==='tutti'||p.tipo_pratica===state.filterTipo)&&(state.filterPriorita==='tutti'||p.priorita===state.filterPriorita)&&(state.filterAvvocato==='tutti'||p.avvocato===state.filterAvvocato);
     });
 }
 
-function fmtDate(d) { return d?new Date(d).toLocaleDateString('it-IT'):''; }
-
-function getRuoloBadge(r) {
-    if (r==='amministratore'||r==='admin') return {label:'👑 Admin', cls:'text-red-600'};
-    if (r==='responsabile_dipartimento') return {label:'🏢 Resp. Dipartimento', cls:'text-purple-600'};
-    return {label:'⚖️ Avvocato', cls:'text-indigo-600'};
-}
-
+// ── RENDER PRINCIPALE ────────────────────────────────────────────────
 function render() {
-    if (!state.user) { renderLogin(); return; }
-    const visibili = getPraticheVisibili();
+    if(!state.user){renderLogin();return;}
+    const visibili=getPraticheVisibili();
     const stats={
-        totali:visibili.length,
-        svolgimento:visibili.filter(p=>p.stato==='svolgimento').length,
-        fatto:visibili.filter(p=>p.stato==='fatto').length,
-        bloccato:visibili.filter(p=>p.stato==='bloccato').length,
-        scadute:visibili.filter(p=>isPraticaScaduta(p)).length,
-        inScadenza:visibili.filter(p=>isPraticaInScadenza(p)).length
+        totali:visibili.length,svolgimento:visibili.filter(p=>p.stato==='svolgimento').length,
+        fatto:visibili.filter(p=>p.stato==='fatto').length,bloccato:visibili.filter(p=>p.stato==='bloccato').length,
+        scadute:visibili.filter(p=>isPraticaScaduta(p)).length,inScadenza:visibili.filter(p=>isPraticaInScadenza(p)).length
     };
     const filtered=getFiltered();
     const tabs=[
@@ -500,44 +381,58 @@ function render() {
     ].filter(t=>t.show);
 
     document.getElementById('app').innerHTML=`
-    <div class="max-w-7xl mx-auto p-4 w-full print-full">
-        <div class="bg-white rounded-2xl shadow-2xl mb-6 overflow-hidden no-print">
-            <div class="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-8 relative">
-                <button onclick="logout()" class="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition-all absolute top-8 right-8">🚪 Esci</button>
-                <div class="text-center">
-                    <h1 class="text-4xl font-bold mb-4">SLS Studio Legale</h1>
-                    <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="Logo SLS" class="w-[30rem] h-[30rem] mx-auto mb-4 object-contain">
-                    <p class="text-blue-200 mb-2">Sistema di Gestione Pratiche</p>
-                    <div class="bg-white/10 rounded-full px-4 py-2 inline-flex items-center gap-2">
-                        <span class="text-sm">👤 ${state.user.nome_completo}</span>
-                        <span class="text-white/50">|</span>
-                        <span class="text-sm">${getRuoloBadge(state.user.ruolo).label}</span>
-                    </div>
+    <div style="max-width:1100px;margin:0 auto;width:100%;">
+
+        <!-- HEADER -->
+        <header style="background:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:20;box-shadow:0 1px 4px rgba(0,0,0,0.05);" class="no-print">
+            <div style="display:flex;align-items:center;gap:14px;">
+                <div style="width:44px;height:44px;background:#111;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;letter-spacing:-0.5px;">SLS</div>
+                <div>
+                    <div style="font-size:17px;font-weight:700;color:#111;line-height:1.2;">SLS Studio Legale</div>
+                    <div style="font-size:12px;color:#9ca3af;font-weight:500;">Sistema di Gestione Pratiche</div>
                 </div>
             </div>
-            <div class="flex bg-gray-50 border-b overflow-x-auto">
-                ${tabs.map(t=>`
-                    <button onclick="switchTab('${t.id}')" class="flex items-center gap-2 px-6 py-4 font-semibold transition-all whitespace-nowrap
-                        ${state.activeTab===t.id?'bg-white text-indigo-600 border-b-4 border-indigo-600':'text-gray-600 hover:bg-gray-100'}">
-                        ${t.icon} ${t.label}
-                    </button>`).join('')}
-                ${stats.inScadenza>0||stats.scadute>0?`
-                <button onclick="state.showAlertModal=true;render()" class="ml-auto flex items-center gap-2 px-6 py-4 font-semibold text-orange-600 hover:bg-orange-50 whitespace-nowrap animate-pulse no-print">
-                    🔔 ${stats.inScadenza+stats.scadute} alert
-                </button>`:''}
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div style="display:flex;align-items:center;gap:8px;background:#f3e8ff;border-radius:20px;padding:6px 14px;">
+                    ${avvAvatar(state.user.nome_completo)}
+                    <span style="font-size:13px;font-weight:600;color:#7c3aed;">${state.user.nome_completo}</span>
+                </div>
+                <button onclick="logout()" class="btn-purple" style="padding:10px 18px;font-size:13px;display:flex;align-items:center;gap:6px;">
+                    <span>🚪</span> Esci
+                </button>
             </div>
-        </div>
+        </header>
 
-        ${state.successMessage?`<div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg mb-6 shadow-lg no-print"><p class="font-semibold">✅ ${state.successMessage}</p></div>`:''}
+        <!-- NAV TABS -->
+        <nav style="background:#f9fafb;border-bottom:1px solid #e5e7eb;display:flex;overflow-x:auto;" class="no-print">
+            ${tabs.map(t=>`
+                <button onclick="switchTab('${t.id}')" class="nav-tab ${state.activeTab===t.id?'active':'inactive'}">
+                    ${t.icon} ${t.label}
+                </button>`).join('')}
+            ${stats.inScadenza>0||stats.scadute>0?`
+            <button onclick="state.showAlertModal=true;render()" style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:12px 20px;font-weight:700;font-size:13px;color:#dc2626;background:none;border:none;cursor:pointer;white-space:nowrap;" class="no-print">
+                🔔 ${stats.inScadenza+stats.scadute} alert
+            </button>`:''}`+`
+        </nav>
 
-        ${state.activeTab==='dashboard'?renderDashboard(stats):''}
-        ${state.activeTab==='pratiche'?renderPratiche(filtered):''}
-        ${state.activeTab==='avvocati'?'<div id="avvocatiContainer"><p class="text-center text-gray-400 py-8">Caricamento...</p></div>':''}
-        ${state.activeTab==='utenti'?renderUtenti():''}
-        ${state.activeTab==='dipartimenti'?renderDipartimenti():''}
-        ${state.activeTab==='gestione'?renderGestione():''}
-        ${state.activeTab==='notifiche'?renderNotifiche():''}
+        <!-- SUCCESS -->
+        ${state.successMessage?`
+        <div style="background:#dcfce7;border-left:4px solid #16a34a;color:#166534;padding:14px 20px;margin:16px 16px 0;border-radius:12px;font-weight:600;" class="no-print">
+            ✅ ${state.successMessage}
+        </div>`:''}
 
+        <!-- CONTENT -->
+        <main style="padding:24px 16px;">
+            ${state.activeTab==='dashboard'?renderDashboard(stats):''}
+            ${state.activeTab==='pratiche'?renderPratiche(filtered):''}
+            ${state.activeTab==='avvocati'?'<div id="avvocatiContainer"><div style="text-align:center;padding:40px;color:#9ca3af;">Caricamento...</div></div>':''}
+            ${state.activeTab==='utenti'?renderUtenti():''}
+            ${state.activeTab==='dipartimenti'?renderDipartimenti():''}
+            ${state.activeTab==='gestione'?renderGestione():''}
+            ${state.activeTab==='notifiche'?renderNotifiche():''}
+        </main>
+
+        <!-- MODALS -->
         ${state.showModal?renderModalPratica():''}
         ${state.showAvvocatoModal?renderModalAvvocato():''}
         ${state.showUtenteModal?renderModalUtente():''}
@@ -546,64 +441,87 @@ function render() {
         ${state.showDettaglioPratica?renderModalDettaglioPratica():''}
     </div>`;
 
-    if (state.activeTab === 'avvocati') loadAndRenderAvvocati();
-    if (state.activeTab === 'notifiche' && !state.notificheLoading && state.notifiche.length === 0) {
-        loadNotifiche().then(()=>render());
-    }
+    if(state.activeTab==='avvocati') loadAndRenderAvvocati();
+    if(state.activeTab==='notifiche'&&!state.notificheLoading&&state.notifiche.length===0) loadNotifiche().then(()=>render());
 }
 
 function renderLogin() {
     document.getElementById('app').innerHTML=`
-    <div class="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-            <div class="text-center mb-8">
-                <img src="https://i.postimg.cc/63h6w5x4/2026_02_18_12_20_55_slslegal_it.png" alt="SLS" class="w-[28rem] h-[28rem] mx-auto mb-4 object-contain">
-                <h1 class="text-3xl font-bold text-gray-800 mb-2">SLS Studio Legale</h1>
-                <p class="text-gray-600">Sistema di Gestione Pratiche</p>
+    <div style="min-height:100vh;background:linear-gradient(135deg,#f3e8ff 0%,#ede9fe 50%,#faf5ff 100%);display:flex;align-items:center;justify-content:center;padding:16px;">
+        <div style="background:#fff;border-radius:24px;box-shadow:0 20px 60px rgba(147,51,234,0.15);padding:48px 40px;max-width:420px;width:100%;">
+            <div style="text-align:center;margin-bottom:32px;">
+                <div style="width:72px;height:72px;background:#111;border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#fff;font-weight:700;font-size:22px;">SLS</div>
+                <h1 style="font-size:24px;font-weight:700;color:#111;margin:0 0 6px;">SLS Studio Legale</h1>
+                <p style="color:#9ca3af;font-size:14px;margin:0;">Sistema di Gestione Pratiche</p>
             </div>
-            <div class="space-y-4">
+            <div style="display:flex;flex-direction:column;gap:16px;">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Username</label>
-                    <input type="text" id="loginUsername" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="Il tuo username"/>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Username</label>
+                    <input type="text" id="loginUsername" class="sls-input" placeholder="Il tuo username"/>
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-                    <input type="password" id="loginPassword" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none" placeholder="La tua password" onkeypress="if(event.key==='Enter')doLogin()"/>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Password</label>
+                    <input type="password" id="loginPassword" class="sls-input" placeholder="La tua password" onkeypress="if(event.key==='Enter')doLogin()"/>
                 </div>
-                <button onclick="doLogin()" class="w-full px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">🔐 Accedi</button>
+                <button onclick="doLogin()" class="btn-purple" style="padding:14px;font-size:15px;border-radius:14px;margin-top:4px;">🔐 Accedi</button>
             </div>
         </div>
     </div>`;
 }
 
+function statIcon(icon) {
+    const icons = {
+        folder:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>`,
+        refresh:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>`,
+        check:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>`,
+        block:`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`,
+    };
+    return icons[icon]||'';
+}
+
 function renderDashboard(stats) {
+    const statItems=[
+        {label:'Totale Pratiche',val:stats.totali,icon:'folder'},
+        {label:'In Svolgimento',val:stats.svolgimento,icon:'refresh'},
+        {label:'Completate',val:stats.fatto,icon:'check'},
+        {label:'Bloccate',val:stats.bloccato,icon:'block'},
+    ];
     return `
-    <div class="space-y-6">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            ${[
-                {label:'Totale Pratiche',val:stats.totali,icon:'📁',color:'indigo'},
-                {label:'In Svolgimento',val:stats.svolgimento,icon:'🔄',color:'yellow'},
-                {label:'Completate',val:stats.fatto,icon:'✅',color:'green'},
-                {label:'Bloccate',val:stats.bloccato,icon:'🚫',color:'red'}
-            ].map(s=>`
-                <div class="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
-                    <div class="flex items-center justify-between">
-                        <div><p class="text-gray-500 text-sm">${s.label}</p><p class="text-3xl font-bold text-${s.color}-600">${s.val}</p></div>
-                        <span class="text-4xl">${s.icon}</span>
-                    </div>
-                </div>`).join('')}
-        </div>
-        ${stats.scadute>0||stats.inScadenza>0?`
-        <div class="bg-white rounded-xl p-6 shadow-lg">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">🔔 Situazione Scadenze</h3>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-red-50 rounded-xl p-4 border-2 border-red-200 text-center cursor-pointer" onclick="state.showAlertModal=true;render()">
-                    <p class="text-3xl font-bold text-red-600">${stats.scadute}</p>
-                    <p class="text-sm text-gray-600">Pratiche scadute</p>
+    <div style="display:flex;flex-direction:column;gap:24px;">
+        <!-- Stat cards -->
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">
+            ${statItems.map(s=>`
+            <div class="sls-card" style="padding:22px 20px;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <div style="font-size:13px;color:#6b7280;font-weight:500;margin-bottom:6px;">${s.label}</div>
+                    <div style="font-size:38px;font-weight:700;color:#111;line-height:1.1;">${s.val}</div>
                 </div>
-                <div class="bg-orange-50 rounded-xl p-4 border-2 border-orange-200 text-center cursor-pointer" onclick="state.showAlertModal=true;render()">
-                    <p class="text-3xl font-bold text-orange-600">${stats.inScadenza}</p>
-                    <p class="text-sm text-gray-600">In scadenza</p>
+                <div class="purple-icon" style="width:52px;height:52px;">${statIcon(s.icon)}</div>
+            </div>`).join('')}
+        </div>
+
+        <!-- Quick actions -->
+        <div style="display:flex;gap:12px;">
+            <button onclick="switchTab('pratiche');openPraticaModal(null)" class="btn-purple" style="flex:1;padding:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+                ➕ Nuova Pratica
+            </button>
+            <button onclick="switchTab('pratiche')" class="btn-white" style="flex:1;padding:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+                🔍 Cerca Pratica
+            </button>
+        </div>
+
+        ${stats.scadute>0||stats.inScadenza>0?`
+        <!-- Scadenze alert -->
+        <div class="sls-card" style="padding:20px;">
+            <h2 class="section-title">🔔 Situazione Scadenze</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div onclick="state.showAlertModal=true;render()" style="background:#fff0f0;border:2px solid #fecaca;border-radius:14px;padding:16px;text-align:center;cursor:pointer;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#ef4444'" onmouseout="this.style.borderColor='#fecaca'">
+                    <div style="font-size:30px;font-weight:700;color:#dc2626;">${stats.scadute}</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">Pratiche scadute</div>
+                </div>
+                <div onclick="state.showAlertModal=true;render()" style="background:#fff7ed;border:2px solid #fed7aa;border-radius:14px;padding:16px;text-align:center;cursor:pointer;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#f97316'" onmouseout="this.style.borderColor='#fed7aa'">
+                    <div style="font-size:30px;font-weight:700;color:#ea580c;">${stats.inScadenza}</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">In scadenza</div>
                 </div>
             </div>
         </div>`:''}
@@ -611,47 +529,46 @@ function renderDashboard(stats) {
 }
 
 function renderPratiche(filtered) {
-    const visibili = getPraticheVisibili();
+    const visibili=getPraticheVisibili();
     const avvocatiList=['tutti',...new Set(visibili.map(p=>p.avvocato).filter(Boolean))];
     return `
-    <div class="space-y-6">
-        <div class="bg-white rounded-xl shadow-lg p-6 no-print">
-            <div class="space-y-4">
-                <div class="flex flex-col md:flex-row gap-4 items-center">
-                    <div class="flex-1 relative">
-                        <span class="absolute left-3 top-3 text-gray-400">🔍</span>
-                        <input type="text" id="searchInput" placeholder="Cerca cliente, descrizione, RGNR..."
-                            value="${state.searchTerm}"
-                            onkeydown="if(event.key==='Enter'){event.preventDefault();return;}"
-                            oninput="state.searchTerm=this.value;renderPraticheResult();"
-                            class="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="state.viewMode='cards';render()" class="px-4 py-3 ${state.viewMode==='cards'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg">📋 Card</button>
-                        <button onclick="state.viewMode='table';render()" class="px-4 py-3 ${state.viewMode==='table'?'bg-indigo-600 text-white':'bg-gray-200'} rounded-lg">📊 Tabella</button>
-                    </div>
-                    <button onclick="openPraticaModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg whitespace-nowrap">➕ Nuova Pratica</button>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+        <!-- Filtri -->
+        <div class="sls-card" style="padding:20px;" id="filtriCard">
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:14px;">
+                <div style="flex:1;min-width:200px;position:relative;">
+                    <span style="position:absolute;left:14px;top:13px;color:#9ca3af;">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Cerca cliente, descrizione, RGNR..."
+                        value="${state.searchTerm}"
+                        oninput="state.searchTerm=this.value;renderPraticheResult();"
+                        onkeydown="if(event.key==='Enter'){event.preventDefault();return;}"
+                        class="sls-input" style="padding-left:40px;"/>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    <select onchange="state.filterStato=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm">
-                        <option value="tutti">Tutti stati</option>
-                        <option value="svolgimento" ${state.filterStato==='svolgimento'?'selected':''}>Svolgimento</option>
-                        <option value="fatto" ${state.filterStato==='fatto'?'selected':''}>Fatto</option>
-                        <option value="bloccato" ${state.filterStato==='bloccato'?'selected':''}>Bloccato</option>
-                    </select>
-                    <select onchange="state.filterTipo=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm">
-                        <option value="tutti">Tutti i tipi</option>
-                        ${TIPI_PRATICA.map(t=>`<option value="${t}" ${state.filterTipo===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
-                    </select>
-                    <select onchange="state.filterPriorita=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm">
-                        <option value="tutti">Tutte priorità</option>
-                        <option value="bassa">Bassa</option><option value="media">Media</option><option value="alta">Alta</option>
-                    </select>
-                    <select onchange="state.filterAvvocato=this.value;render()" class="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm">
-                        ${avvocatiList.map(a=>`<option value="${a}" ${state.filterAvvocato===a?'selected':''}>${a==='tutti'?'Tutti avvocati':a}</option>`).join('')}
-                    </select>
-                    <button onclick="stampa()" class="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm">🖨️ Stampa</button>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="state.viewMode='cards';render()" class="${state.viewMode==='cards'?'btn-purple':'btn-white'}" style="padding:10px 16px;font-size:13px;">📋 Card</button>
+                    <button onclick="state.viewMode='table';render()" class="${state.viewMode==='table'?'btn-purple':'btn-white'}" style="padding:10px 16px;font-size:13px;">📊 Tabella</button>
                 </div>
+                <button onclick="openPraticaModal(null)" class="btn-purple" style="padding:12px 20px;font-size:14px;white-space:nowrap;">➕ Nuova Pratica</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">
+                <select onchange="state.filterStato=this.value;render()" class="sls-input" style="padding:10px 14px;">
+                    <option value="tutti">Tutti stati</option>
+                    <option value="svolgimento" ${state.filterStato==='svolgimento'?'selected':''}>Svolgimento</option>
+                    <option value="fatto" ${state.filterStato==='fatto'?'selected':''}>Fatto</option>
+                    <option value="bloccato" ${state.filterStato==='bloccato'?'selected':''}>Bloccato</option>
+                </select>
+                <select onchange="state.filterTipo=this.value;render()" class="sls-input" style="padding:10px 14px;">
+                    <option value="tutti">Tutti i tipi</option>
+                    ${TIPI_PRATICA.map(t=>`<option value="${t}" ${state.filterTipo===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
+                </select>
+                <select onchange="state.filterPriorita=this.value;render()" class="sls-input" style="padding:10px 14px;">
+                    <option value="tutti">Tutte priorità</option>
+                    <option value="bassa">Bassa</option><option value="media">Media</option><option value="alta">Alta</option>
+                </select>
+                <select onchange="state.filterAvvocato=this.value;render()" class="sls-input" style="padding:10px 14px;">
+                    ${avvocatiList.map(a=>`<option value="${a}" ${state.filterAvvocato===a?'selected':''}>${a==='tutti'?'Tutti avvocati':a}</option>`).join('')}
+                </select>
+                <button onclick="stampa()" class="btn-white" style="padding:10px 16px;font-size:13px;">🖨️ Stampa</button>
             </div>
         </div>
         <div id="praticheResult">
@@ -661,92 +578,83 @@ function renderPratiche(filtered) {
 }
 
 function renderPraticheCards(filtered) {
-    return `
-    <div class="space-y-4">
-        ${filtered.length>0?filtered.map(p=>{
-            const scaduta=isPraticaScaduta(p);
-            const inScad=isPraticaInScadenza(p);
-            const fatto=p.stato==='fatto';
-            return `
-            <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all relative
-                ${scaduta&&!fatto?'scaduta':inScad&&!fatto?'border-l-4 border-orange-400':''}
-                ${fatto?'pratica-fatto-card':''}">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 ${fatto?'fatto-strike':''}">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-3 flex-wrap">
-                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)} ${fatto?'badge-fatto':''}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
-                            <span class="px-3 py-1 rounded-full text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
-                            <span class="px-3 py-1 bg-gray-100 rounded-full text-xs font-semibold">${p.tipo_pratica}</span>
-                            ${p.autorita?`<span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">🏛️ ${p.autorita}</span>`:''}
-                            ${p.rgnr?`<span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">RGNR: ${p.rgnr}</span>`:''}
-                            ${p.responsabile_dipartimento?`<span class="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-semibold">🏢 ${p.responsabile_dipartimento}</span>`:''}
-                            ${inScad&&!fatto?`<span class="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold animate-pulse">🔔 Scade tra ${Math.ceil((new Date(p.scadenza)-new Date())/(1000*60*60*24))}gg</span>`:''}
-                            ${scaduta&&!fatto?`<span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">⚠️ SCADUTA</span>`:''}
-                        </div>
-                        <h3 class="text-xl font-bold text-gray-800 mb-1">${p.cliente}</h3>
-                        <p class="text-gray-600 mb-2">${p.descrizione}</p>
-                        <div class="flex flex-wrap gap-4 text-sm text-gray-500 items-center">
-                            <span class="flex items-center gap-1">${avvAvatar(p.avvocato)}<span class="font-semibold">${p.avvocato||'-'}</span></span>
-                            <span>📅 ${fmtDate(p.data_apertura)}</span>
-                            ${p.scadenza?`<span class="${scaduta&&!fatto?'text-red-600 font-bold':inScad&&!fatto?'text-orange-600 font-bold':''}">⏰ ${fmtDate(p.scadenza)}</span>`:''}
-                            ${p.data_aggiornamento_attivita?`<span>🔄 ${fmtDate(p.data_aggiornamento_attivita)}</span>`:''}
-                        </div>
+    return `<div style="display:flex;flex-direction:column;gap:12px;">
+    ${filtered.length>0?filtered.map(p=>{
+        const scaduta=isPraticaScaduta(p),inScad=isPraticaInScadenza(p),fatto=p.stato==='fatto';
+        return `
+        <div class="sls-card ${fatto?'pratica-fatto-card':scaduta?'scaduta':''}" style="${inScad&&!fatto?'border-left:4px solid #f97316;':''}padding:20px;">
+            <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:start;gap:12px;">
+                <div style="flex:1;min-width:0;">
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+                        <span class="${getStatoBadge(p.stato)}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
+                        <span class="${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
+                        <span class="badge" style="background:#f3f4f6;color:#374151;">${p.tipo_pratica}</span>
+                        ${p.autorita?`<span class="badge" style="background:#eff6ff;color:#1d4ed8;">🏛️ ${p.autorita}</span>`:''}
+                        ${p.rgnr?`<span class="badge" style="background:#f5f3ff;color:#6d28d9;">RGNR: ${p.rgnr}</span>`:''}
+                        ${p.responsabile_dipartimento?`<span class="badge" style="background:#f5f3ff;color:#7c3aed;">🏢 ${p.responsabile_dipartimento}</span>`:''}
+                        ${inScad&&!fatto?`<span class="badge" style="background:#fff7ed;color:#c2410c;">🔔 Scade tra ${Math.ceil((new Date(p.scadenza)-new Date())/(1000*60*60*24))}gg</span>`:''}
+                        ${scaduta&&!fatto?`<span class="badge" style="background:#fef2f2;color:#dc2626;">⚠️ SCADUTA</span>`:''}
                     </div>
-                    <div class="flex gap-2 no-print" style="position:relative;z-index:20;">
-                        <button onclick="viewPratica('${p.id}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600">👁️ Vedi</button>
-                        ${isAdmin()||isResp()?`
-                        <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️</button>
-                        ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">🗑️</button>`:''}
-                        `:`<button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️</button>`}
+                    <h3 style="font-size:17px;font-weight:700;color:#111;margin:0 0 4px;" class="${fatto?'fatto-strike':''}">${p.cliente}</h3>
+                    <p style="color:#6b7280;font-size:14px;margin:0 0 10px;" class="${fatto?'fatto-strike':''}">${p.descrizione}</p>
+                    <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:#9ca3af;align-items:center;">
+                        <span style="display:flex;align-items:center;gap:6px;">${avvAvatar(p.avvocato)}<strong style="color:#374151;">${p.avvocato||'-'}</strong></span>
+                        <span>📅 ${fmtDate(p.data_apertura)}</span>
+                        ${p.scadenza?`<span style="${scaduta&&!fatto?'color:#dc2626;font-weight:600;':inScad&&!fatto?'color:#ea580c;font-weight:600;':''}">⏰ ${fmtDate(p.scadenza)}</span>`:''}
+                        ${p.data_aggiornamento_attivita?`<span>🔄 ${fmtDate(p.data_aggiornamento_attivita)}</span>`:''}
                     </div>
                 </div>
-            </div>`;
-        }).join(''):`
-        <div class="bg-white rounded-xl shadow-lg p-12 text-center">
-            <div class="text-6xl mb-4">📁</div>
-            <p class="text-gray-400 text-lg">Nessuna pratica trovata</p>
-        </div>`}
+                <div style="display:flex;gap:8px;position:relative;z-index:20;" class="no-print">
+                    <button onclick="viewPratica('${p.id}')" class="btn-green" style="padding:9px 16px;font-size:13px;">👁️ Vedi</button>
+                    <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="btn-purple" style="padding:9px 16px;font-size:13px;">✏️</button>
+                    ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="btn-danger" style="padding:9px 16px;font-size:13px;">🗑️</button>`:''}
+                </div>
+            </div>
+        </div>`;
+    }).join(''):`
+    <div class="sls-card" style="padding:60px;text-align:center;">
+        <div style="font-size:56px;margin-bottom:12px;">📁</div>
+        <p style="color:#9ca3af;font-size:16px;">Nessuna pratica trovata</p>
+    </div>`}
     </div>`;
 }
 
 function renderPraticheTable(filtered) {
     return `
-    <div class="bg-white rounded-xl shadow-lg overflow-x-auto">
-        <table class="w-full">
-            <thead class="bg-gray-100">
-                <tr>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Cliente</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Tipo</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Autorità</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Stato</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Priorità</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Scadenza</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold">Avv.</th>
-                    <th class="px-4 py-3 text-left text-sm font-semibold no-print">Azioni</th>
+    <div class="sls-card" style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
+                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Cliente</th>
+                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Tipo</th>
+                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Autorità</th>
+                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Stato</th>
+                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Priorità</th>
+                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Scadenza</th>
+                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Avv.</th>
+                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;" class="no-print">Azioni</th>
                 </tr>
             </thead>
             <tbody>
                 ${filtered.map(p=>{
-                    const scaduta=isPraticaScaduta(p);
-                    const inScad=isPraticaInScadenza(p);
-                    const fatto=p.stato==='fatto';
+                    const scaduta=isPraticaScaduta(p),inScad=isPraticaInScadenza(p),fatto=p.stato==='fatto';
                     return `
-                    <tr class="border-b hover:bg-gray-50 ${fatto?'tr-fatto':scaduta?'bg-red-50':inScad?'bg-orange-50':''}">
-                        <td class="px-4 py-3">
-                            <div class="font-semibold ${fatto?'fatto-strike':''}">${p.cliente}</div>
-                            <div class="text-xs text-gray-500 ${fatto?'fatto-strike':''}">${p.descrizione.substring(0,40)}...</div>
+                    <tr class="${fatto?'tr-fatto':''}" style="border-bottom:1px solid #f3f4f6;${scaduta&&!fatto?'background:#fef2f2;':inScad&&!fatto?'background:#fff7ed;':''}">
+                        <td style="padding:14px 16px;">
+                            <div style="font-weight:600;color:#111;" class="${fatto?'fatto-strike':''}">${p.cliente}</div>
+                            <div style="font-size:12px;color:#9ca3af;" class="${fatto?'fatto-strike':''}">${p.descrizione.substring(0,40)}...</div>
                         </td>
-                        <td class="px-4 py-3 text-sm ${fatto?'fatto-strike':''}">${p.tipo_pratica}</td>
-                        <td class="px-4 py-3 text-sm ${fatto?'fatto-strike':''}">${p.autorita||'-'}</td>
-                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getStatoBadge(p.stato)} ${fatto?'badge-fatto':''}">${p.stato}</span></td>
-                        <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-semibold ${getPrioritaBadge(p.priorita)} ${fatto?'fatto-strike':''}">${p.priorita}</span></td>
-                        <td class="px-4 py-3 text-sm ${fatto?'fatto-strike':scaduta?'text-red-600 font-bold':inScad?'text-orange-600 font-bold':''}">${fmtDate(p.scadenza)||'-'}</td>
-                        <td class="px-4 py-3 ${fatto?'fatto-strike':''}">${avvAvatar(p.avvocato)}</td>
-                        <td class="px-4 py-3 no-print" style="position:relative;z-index:20;">
-                            <div class="flex gap-1">
-                                <button onclick="viewPratica('${p.id}')" class="px-2 py-1 bg-green-500 text-white rounded text-xs">👁️</button>
-                                <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="px-2 py-1 bg-blue-500 text-white rounded text-xs">✏️</button>
-                                ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="px-2 py-1 bg-red-500 text-white rounded text-xs">🗑️</button>`:''}
+                        <td style="padding:14px 16px;font-size:13px;color:#374151;" class="${fatto?'fatto-strike':''}">${p.tipo_pratica}</td>
+                        <td style="padding:14px 16px;font-size:13px;color:#374151;" class="${fatto?'fatto-strike':''}">${p.autorita||'-'}</td>
+                        <td style="padding:14px 16px;"><span class="${getStatoBadge(p.stato)}">${p.stato}</span></td>
+                        <td style="padding:14px 16px;"><span class="${getPrioritaBadge(p.priorita)}">${p.priorita}</span></td>
+                        <td style="padding:14px 16px;font-size:13px;${scaduta&&!fatto?'color:#dc2626;font-weight:600;':inScad&&!fatto?'color:#ea580c;font-weight:600;':''}" class="${fatto?'fatto-strike':''}">${fmtDate(p.scadenza)||'-'}</td>
+                        <td style="padding:14px 16px;">${avvAvatar(p.avvocato)}</td>
+                        <td style="padding:14px 16px;position:relative;z-index:20;" class="no-print">
+                            <div style="display:flex;gap:6px;">
+                                <button onclick="viewPratica('${p.id}')" class="btn-green" style="padding:6px 12px;font-size:12px;">👁️</button>
+                                <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="btn-purple" style="padding:6px 12px;font-size:12px;">✏️</button>
+                                ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="btn-danger" style="padding:6px 12px;font-size:12px;">🗑️</button>`:''}
                             </div>
                         </td>
                     </tr>`;
@@ -757,810 +665,705 @@ function renderPraticheTable(filtered) {
 }
 
 async function renderAvvocati() {
-    const storicoMap = {};
-    for (const a of state.avvocati) {
-        const { data } = await sb.from('alert_storico').select('*').eq('avvocato', a.nome_completo).order('data_alert',{ascending:false}).limit(10);
-        storicoMap[a.nome_completo] = data||[];
-    }
-    const html = `
-    <div class="space-y-6">
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">👥 Archivio Avvocati</h2>
-                <div class="flex gap-2">
-                    <button onclick="stampa()" class="px-6 py-3 bg-gray-600 text-white rounded-lg no-print">🖨️ Stampa</button>
-                    ${isAdmin()?`<button onclick="openAvvocatoModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold no-print">➕ Nuovo</button>`:''}
-                </div>
+    const storicoMap={};
+    for(const a of state.avvocati){const{data}=await sb.from('alert_storico').select('*').eq('avvocato',a.nome_completo).eq('cancellata',false).order('data_alert',{ascending:false}).limit(5);storicoMap[a.nome_completo]=data||[];}
+    const html=`
+    <div style="display:flex;flex-direction:column;gap:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <h2 class="section-title" style="margin:0;">👥 Archivio Avvocati</h2>
+            <div style="display:flex;gap:8px;">
+                <button onclick="stampa()" class="btn-white" style="padding:10px 16px;font-size:13px;" class="no-print">🖨️ Stampa</button>
+                ${isAdmin()?`<button onclick="openAvvocatoModal(null)" class="btn-purple" style="padding:10px 20px;font-size:14px;" class="no-print">➕ Nuovo</button>`:''}
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                ${state.avvocati.map(a => {
-                    const st = getAvvStats(a.nome_completo);
-                    const storico = storicoMap[a.nome_completo]||[];
-                    const colore = a.colore||getAvvColor(a.nome_completo);
-                    const resp = state.dipartimenti.find(d=>d.avvocato===a.nome_completo)?.responsabile;
-                    return `
-                    <div class="rounded-xl p-6 border-2" style="background:${colore}18;border-color:${colore}40;">
-                        <div class="flex items-center gap-3 mb-4">
-                            ${avvAvatar(a.nome_completo, true)}
-                            <div>
-                                <h3 class="text-xl font-bold text-gray-800">${a.nome_completo}</h3>
-                                <p class="text-sm font-semibold" style="color:${colore}">${a.specializzazione}</p>
-                                ${resp?`<p class="text-xs text-purple-600">🏢 Resp: ${resp}</p>`:''}
-                            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
+            ${state.avvocati.map(a=>{
+                const st=getAvvStats(a.nome_completo);
+                const storico=storicoMap[a.nome_completo]||[];
+                const colore=a.colore||getAvvColor(a.nome_completo);
+                const resp=state.dipartimenti.find(d=>d.avvocato===a.nome_completo)?.responsabile;
+                return `
+                <div class="sls-card" style="padding:22px;border-top:4px solid ${colore};">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                        ${avvAvatar(a.nome_completo,true)}
+                        <div>
+                            <h3 style="font-size:16px;font-weight:700;color:#111;margin:0;">${a.nome_completo}</h3>
+                            <p style="font-size:12px;font-weight:600;color:${colore};margin:2px 0;">${a.specializzazione}</p>
+                            ${resp?`<p style="font-size:11px;color:#9333ea;margin:0;">🏢 ${resp}</p>`:''}
                         </div>
-                        <div class="space-y-1 mb-4">
-                            <p class="text-sm text-gray-600">📧 ${a.email}</p>
-                            <p class="text-sm text-gray-600">📱 ${a.telefono}</p>
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <p style="font-size:13px;color:#6b7280;margin:2px 0;">📧 ${a.email}</p>
+                        <p style="font-size:13px;color:#6b7280;margin:2px 0;">📱 ${a.telefono}</p>
+                    </div>
+                    <div style="background:#f9fafb;border-radius:12px;padding:12px;margin-bottom:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;">
+                        <div><div style="font-size:18px;font-weight:700;color:#111;">${st.totali}</div><div style="font-size:11px;color:#9ca3af;">Totali</div></div>
+                        <div><div style="font-size:18px;font-weight:700;color:#d97706;">${st.svolgimento}</div><div style="font-size:11px;color:#9ca3af;">Svolgimento</div></div>
+                        <div><div style="font-size:18px;font-weight:700;color:#16a34a;">${st.fatto}</div><div style="font-size:11px;color:#9ca3af;">Fatto</div></div>
+                        <div><div style="font-size:18px;font-weight:700;color:#dc2626;">${st.bloccato}</div><div style="font-size:11px;color:#9ca3af;">Bloccato</div></div>
+                    </div>
+                    ${storico.length>0?`
+                    <div style="margin-bottom:14px;">
+                        <p style="font-size:11px;font-weight:600;color:#9ca3af;margin:0 0 6px;">📋 Ultimi alert</p>
+                        <div style="display:flex;flex-direction:column;gap:4px;max-height:100px;overflow-y:auto;">
+                            ${storico.map(s=>`
+                            <div style="font-size:11px;padding:6px 10px;border-radius:8px;display:flex;justify-content:space-between;${s.tipo==='scaduta'?'background:#fef2f2;color:#dc2626;':'background:#fff7ed;color:#c2410c;'}">
+                                <span>${s.tipo==='scaduta'?'⚠️':'🔔'} <strong>${s.cliente}</strong></span>
+                                <span style="color:#9ca3af;">${fmtDate(s.data_alert)}</span>
+                            </div>`).join('')}
                         </div>
-                        <div class="bg-white rounded-lg p-3 mb-4">
-                            <div class="grid grid-cols-4 gap-2 text-center">
-                                <div><p class="text-lg font-bold text-gray-800">${st.totali}</p><p class="text-xs text-gray-500">Totali</p></div>
-                                <div><p class="text-lg font-bold text-yellow-600">${st.svolgimento}</p><p class="text-xs text-gray-500">Svolgimento</p></div>
-                                <div><p class="text-lg font-bold text-green-600">${st.fatto}</p><p class="text-xs text-gray-500">Fatto</p></div>
-                                <div><p class="text-lg font-bold text-red-600">${st.bloccato}</p><p class="text-xs text-gray-500">Bloccato</p></div>
-                            </div>
-                        </div>
-                        ${storico.length>0?`
-                        <div class="mb-4">
-                            <p class="text-xs font-semibold text-gray-500 mb-2">📋 Storico Alert (ultimi ${storico.length})</p>
-                            <div class="space-y-1 max-h-36 overflow-y-auto">
-                                ${storico.map(s=>`
-                                <div class="text-xs p-2 rounded flex justify-between items-center ${s.tipo==='scaduta'?'bg-red-50 text-red-700':'bg-orange-50 text-orange-700'}">
-                                    <span>${s.tipo==='scaduta'?'⚠️':'🔔'} <strong>${s.cliente}</strong> — scad. ${fmtDate(s.scadenza)}</span>
-                                    <span class="text-gray-400 ml-2">${fmtDate(s.data_alert)}</span>
-                                </div>`).join('')}
-                            </div>
-                        </div>`:`
-                        <div class="mb-4 p-3 bg-gray-50 rounded-lg text-center">
-                            <p class="text-xs text-gray-400">Nessun alert registrato</p>
-                        </div>`}
+                    </div>`:`<div style="text-align:center;padding:10px;background:#f9fafb;border-radius:10px;margin-bottom:14px;"><p style="font-size:12px;color:#9ca3af;margin:0;">Nessun alert</p></div>`}
+                    <div style="display:flex;gap:8px;" class="no-print">
                         ${isAdmin()?`
-                        <div class="flex gap-2 no-print">
-                            <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">✏️ Modifica</button>
-                            <button onclick="confirmDeleteAvvocato('${a.id}')" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">🗑️ Elimina</button>
-                        </div>`:`
-                        <div class="flex gap-2 no-print">
-                            <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">🎨 Cambia Colore</button>
-                        </div>`}
-                    </div>`;
-                }).join('')}
-            </div>
+                        <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">✏️ Modifica</button>
+                        <button onclick="confirmDeleteAvvocato('${a.id}')" class="btn-danger" style="flex:1;padding:10px;font-size:13px;">🗑️ Elimina</button>
+                        `:`<button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">🎨 Cambia Colore</button>`}
+                    </div>
+                </div>`;
+            }).join('')}
         </div>
     </div>`;
     return html;
 }
 
-// ── TAB DIPARTIMENTI (solo Admin) ──────────────────────────────────────
 function renderDipartimenti() {
-    const responsabili = state.utenti.filter(u=>u.ruolo==='responsabile_dipartimento');
+    const responsabili=state.utenti.filter(u=>u.ruolo==='responsabile_dipartimento');
     return `
-    <div class="space-y-6">
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">🏢 Gestione Dipartimenti</h2>
-            ${responsabili.length===0?`
-            <div class="text-center py-12">
-                <div class="text-6xl mb-4">🏢</div>
-                <p class="text-gray-400">Nessun Responsabile di Dipartimento ancora creato.</p>
-                <p class="text-gray-400 text-sm mt-1">Crea un utente con ruolo "Responsabile Dipartimento" nella sezione Utenti.</p>
-            </div>`:`
-            <div class="space-y-6">
-                ${responsabili.map(r => {
-                    const miei = state.dipartimenti.filter(d=>d.responsabile===r.nome_completo);
-                    const nomeDip = miei[0]?.nome_dipartimento || '';
-                    const avvLiberi = state.avvocati.filter(a=>!state.dipartimenti.find(d=>d.responsabile===r.nome_completo&&d.avvocato===a.nome_completo));
-                    return `
-                    <div class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 border-2 border-purple-200">
-                        <div class="flex items-center gap-3 mb-4">
-                            ${avvAvatar(r.nome_completo, true)}
-                            <div>
-                                <h3 class="text-xl font-bold text-gray-800">${r.nome_completo}</h3>
-                                <p class="text-sm text-purple-600 font-semibold">🏢 Responsabile Dipartimento</p>
-                            </div>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+        <h2 class="section-title">🏢 Gestione Dipartimenti</h2>
+        ${responsabili.length===0?`
+        <div class="sls-card" style="padding:60px;text-align:center;">
+            <div style="font-size:52px;margin-bottom:12px;">🏢</div>
+            <p style="color:#9ca3af;">Nessun Responsabile creato. Aggiungine uno nella sezione Utenti.</p>
+        </div>`:`
+        <div style="display:flex;flex-direction:column;gap:16px;">
+            ${responsabili.map(r=>{
+                const miei=state.dipartimenti.filter(d=>d.responsabile===r.nome_completo);
+                const nomeDip=miei[0]?.nome_dipartimento||'';
+                const avvLiberi=state.avvocati.filter(a=>!miei.find(d=>d.avvocato===a.nome_completo));
+                return `
+                <div class="sls-card" style="padding:22px;border-left:4px solid #9333ea;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                        ${avvAvatar(r.nome_completo,true)}
+                        <div>
+                            <h3 style="font-size:17px;font-weight:700;color:#111;margin:0;">${r.nome_completo}</h3>
+                            <p style="font-size:12px;color:#9333ea;font-weight:600;margin:2px 0;">🏢 Responsabile Dipartimento</p>
                         </div>
-                        <!-- Nome dipartimento -->
-                        <div class="mb-4">
-                            <label class="block text-xs font-semibold text-gray-500 mb-1">Nome Dipartimento</label>
-                            <div class="flex gap-2">
-                                <input type="text" id="nomeDip_${r.id}" value="${nomeDip}"
-                                    placeholder="Es. Diritto Civile, Penale..."
-                                    class="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-purple-400 focus:outline-none"/>
-                                <button onclick="aggiornaNomeDip('${r.nome_completo}', document.getElementById('nomeDip_${r.id}').value)"
-                                    class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700">💾</button>
-                            </div>
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <label style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;display:block;">Nome Dipartimento</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" id="nomeDip_${r.id}" value="${nomeDip}" placeholder="Es. Diritto Civile, Penale..." class="sls-input" style="flex:1;"/>
+                            <button onclick="aggiornaNomeDip('${r.nome_completo}',document.getElementById('nomeDip_${r.id}').value)" class="btn-purple" style="padding:10px 16px;font-size:13px;white-space:nowrap;">💾 Salva</button>
                         </div>
-                        <div class="mb-4">
-                            <p class="text-sm font-semibold text-gray-600 mb-2">Avvocati nel dipartimento <span class="text-purple-600">${nomeDip?`— ${nomeDip}`:''}</span> (${miei.length}):</p>
-                            ${miei.length===0?`<p class="text-xs text-gray-400 italic">Nessun avvocato assegnato</p>`:`
-                            <div class="flex flex-wrap gap-2">
-                                ${miei.map(d=>`
-                                <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-purple-200 text-sm">
-                                    ${avvAvatar(d.avvocato)}
-                                    <span class="font-semibold">${d.avvocato}</span>
-                                    <button onclick="confirmDeleteDip('${d.id}')" class="text-red-400 hover:text-red-600 ml-1">✕</button>
-                                </div>`).join('')}
-                            </div>`}
-                        </div>
-                        ${avvLiberi.length>0?`
-                        <div class="flex gap-2 items-center mt-3">
-                            <select id="addAvv_${r.id}" class="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-sm">
-                                <option value="">— Aggiungi avvocato —</option>
-                                ${avvLiberi.map(a=>`<option value="${a.nome_completo}">${a.nome_completo}</option>`).join('')}
-                            </select>
-                            <button onclick="aggiungiAlDip('${r.id}','${r.nome_completo}')" class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700">➕ Aggiungi</button>
-                        </div>`:'<p class="text-xs text-gray-400 mt-2">Tutti gli avvocati sono già assegnati.</p>'}
-                    </div>`;
-                }).join('')}
-            </div>`}
-        </div>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <p style="font-size:13px;font-weight:600;color:#374151;margin:0 0 8px;">Avvocati nel dipartimento <span style="color:#9333ea;">${nomeDip?`— ${nomeDip}`:''}</span> (${miei.length}):</p>
+                        ${miei.length===0?`<p style="font-size:12px;color:#9ca3af;font-style:italic;">Nessun avvocato assegnato</p>`:`
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                            ${miei.map(d=>`
+                            <div style="display:flex;align-items:center;gap:8px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:8px 12px;">
+                                ${avvAvatar(d.avvocato)}
+                                <span style="font-size:13px;font-weight:600;">${d.avvocato}</span>
+                                <button onclick="confirmDeleteDip('${d.id}')" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:14px;padding:0 2px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">✕</button>
+                            </div>`).join('')}
+                        </div>`}
+                    </div>
+                    ${avvLiberi.length>0?`
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <select id="addAvv_${r.id}" class="sls-input" style="flex:1;padding:10px 14px;">
+                            <option value="">— Aggiungi avvocato —</option>
+                            ${avvLiberi.map(a=>`<option value="${a.nome_completo}">${a.nome_completo}</option>`).join('')}
+                        </select>
+                        <button onclick="aggiungiAlDip('${r.id}','${r.nome_completo}')" class="btn-purple" style="padding:10px 16px;font-size:13px;white-space:nowrap;">➕ Aggiungi</button>
+                    </div>`:''}
+                </div>`;
+            }).join('')}
+        </div>`}
     </div>`;
 }
 
-// ── TAB NOTIFICHE ──────────────────────────────────────────────────────
 function renderNotifiche() {
-    const lista = state.notifiche;
-    const loading = state.notificheLoading;
-    const grouped = {};
-    lista.forEach(a => {
-        const k = a.data_alert||'N/D';
-        if (!grouped[k]) grouped[k]=[];
-        grouped[k].push(a);
-    });
-
+    const lista=state.notifiche,loading=state.notificheLoading;
+    const grouped={};
+    lista.forEach(a=>{const k=a.data_alert||'N/D';if(!grouped[k])grouped[k]=[];grouped[k].push(a);});
     return `
-    <div class="space-y-6">
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
-                <div>
-                    <h2 class="text-2xl font-bold text-gray-800">🔔 Notifiche</h2>
-                    <p class="text-sm text-gray-500 mt-1">${isAdmin()?'Tutte le notifiche dello studio':'Le tue notifiche personali'}</p>
-                </div>
-                <button onclick="loadNotifiche().then(()=>render())" class="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700">🔄 Aggiorna</button>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div>
+                <h2 class="section-title" style="margin:0;">🔔 Notifiche</h2>
+                <p style="font-size:13px;color:#9ca3af;margin:4px 0 0;">${isAdmin()?'Tutte le notifiche dello studio':'Le tue notifiche personali'}</p>
             </div>
-
-            ${loading?`<div class="text-center py-12"><p class="text-gray-400 text-lg">Caricamento...</p></div>`:
-            lista.length===0?`
-                <div class="text-center py-16">
-                    <div class="text-6xl mb-4">🔕</div>
-                    <p class="text-gray-400 text-lg">Nessuna notifica registrata</p>
-                    <p class="text-gray-300 text-sm mt-1">Le notifiche compariranno qui al primo accesso giornaliero</p>
-                </div>`:`
-
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                <div class="bg-gray-50 rounded-xl p-4 text-center border border-gray-200">
-                    <p class="text-2xl font-bold text-gray-700">${lista.length}</p>
-                    <p class="text-xs text-gray-500">Totali</p>
-                </div>
-                <div class="bg-red-50 rounded-xl p-4 text-center border border-red-200">
-                    <p class="text-2xl font-bold text-red-600">${lista.filter(a=>a.tipo==='scaduta').length}</p>
-                    <p class="text-xs text-gray-500">Scadute</p>
-                </div>
-                <div class="bg-orange-50 rounded-xl p-4 text-center border border-orange-200">
-                    <p class="text-2xl font-bold text-orange-600">${lista.filter(a=>a.tipo==='imminente').length}</p>
-                    <p class="text-xs text-gray-500">Imminenti</p>
-                </div>
-            </div>
-
-            <div class="space-y-6">
-                ${Object.keys(grouped).sort((a,b)=>b.localeCompare(a)).map(data=>`
-                    <div>
-                        <div class="flex items-center gap-3 mb-3">
-                            <div class="h-px flex-1 bg-gray-200"></div>
-                            <span class="text-sm font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">📅 ${fmtDate(data)}</span>
-                            <div class="h-px flex-1 bg-gray-200"></div>
-                        </div>
-                        <div class="space-y-2">
-                            ${grouped[data].map(a => {
-                                const pratica = state.pratiche.find(p=>p.id===a.pratica_id);
-                                return `
-                                <div class="flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer hover:shadow-md transition-shadow
-                                    ${a.tipo==='scaduta'?'bg-red-50 border-red-200 hover:border-red-400':'bg-orange-50 border-orange-200 hover:border-orange-400'}"
-                                    onclick="apriDettaglioNotifica('${a.pratica_id}')">
-                                    <div class="flex items-center gap-3">
-                                        ${avvAvatar(a.avvocato)}
-                                        <div>
-                                            <p class="font-bold text-gray-800">${a.cliente}</p>
-                                            <div class="flex gap-3 text-xs text-gray-500 mt-0.5 flex-wrap">
-                                                <span>👤 ${a.avvocato||'-'}</span>
-                                                <span>⏰ Scadenza: <strong>${fmtDate(a.scadenza)}</strong></span>
-                                                ${a.diff_giorni!==null&&a.diff_giorni!==undefined?`<span>${a.diff_giorni<=0?`Scaduta da ${Math.abs(a.diff_giorni)}gg`:`${a.diff_giorni}gg al termine`}</span>`:''}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <span class="px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${a.tipo==='scaduta'?'bg-red-200 text-red-800':'bg-orange-200 text-orange-800'}">
-                                            ${a.tipo==='scaduta'?'⚠️ Scaduta':'🔔 Imminente'}
-                                        </span>
-                                        ${pratica?`<span class="text-xs text-indigo-600 font-semibold no-print">📂 Apri →</span>`:''}
-                                    </div>
-                                </div>`;
-                            }).join('')}
-                        </div>
-                    </div>`).join('')}
-            </div>`}
+            <button onclick="loadNotifiche().then(()=>render())" class="btn-purple" style="padding:10px 20px;font-size:13px;">🔄 Aggiorna</button>
         </div>
+        ${loading?`<div class="sls-card" style="padding:60px;text-align:center;"><p style="color:#9ca3af;">Caricamento...</p></div>`:
+        lista.length===0?`
+        <div class="sls-card" style="padding:60px;text-align:center;">
+            <div style="font-size:52px;margin-bottom:12px;">🔕</div>
+            <p style="color:#9ca3af;font-size:16px;">Nessuna notifica</p>
+        </div>`:`
+        <!-- Riepilogo -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+            <div class="sls-card" style="padding:16px;text-align:center;">
+                <div style="font-size:26px;font-weight:700;color:#111;">${lista.length}</div>
+                <div style="font-size:12px;color:#9ca3af;">Totali</div>
+            </div>
+            <div class="sls-card" style="padding:16px;text-align:center;border-top:3px solid #dc2626;">
+                <div style="font-size:26px;font-weight:700;color:#dc2626;">${lista.filter(a=>a.tipo==='scaduta').length}</div>
+                <div style="font-size:12px;color:#9ca3af;">Scadute</div>
+            </div>
+            <div class="sls-card" style="padding:16px;text-align:center;border-top:3px solid #f97316;">
+                <div style="font-size:26px;font-weight:700;color:#f97316;">${lista.filter(a=>a.tipo==='imminente').length}</div>
+                <div style="font-size:12px;color:#9ca3af;">Imminenti</div>
+            </div>
+        </div>
+        <!-- Lista -->
+        <div style="display:flex;flex-direction:column;gap:20px;">
+            ${Object.keys(grouped).sort((a,b)=>b.localeCompare(a)).map(data=>`
+            <div>
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+                    <div style="height:1px;flex:1;background:#e5e7eb;"></div>
+                    <span style="font-size:12px;font-weight:600;color:#9ca3af;background:#f3f4f6;padding:4px 12px;border-radius:20px;">📅 ${fmtDate(data)}</span>
+                    <div style="height:1px;flex:1;background:#e5e7eb;"></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                    ${grouped[data].map(a=>{
+                        const pratica=state.pratiche.find(p=>p.id===a.pratica_id);
+                        return `
+                        <div onclick="apriDettaglioNotifica('${a.pratica_id}')" style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-radius:14px;border:2px solid ${a.tipo==='scaduta'?'#fecaca':'#fed7aa'};background:${a.tipo==='scaduta'?'#fef2f2':'#fff7ed'};cursor:pointer;transition:border-color 0.2s;" onmouseover="this.style.borderColor='${a.tipo==='scaduta'?'#f87171':'#fb923c'}'" onmouseout="this.style.borderColor='${a.tipo==='scaduta'?'#fecaca':'#fed7aa'}'">
+                            <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+                                ${avvAvatar(a.avvocato)}
+                                <div style="min-width:0;">
+                                    <p style="font-weight:700;color:#111;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.cliente}</p>
+                                    <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#9ca3af;margin-top:2px;">
+                                        <span>👤 ${a.avvocato||'-'}</span>
+                                        <span>⏰ ${fmtDate(a.scadenza)}</span>
+                                        ${a.diff_giorni!==null?`<span>${a.diff_giorni<=0?`Scaduta da ${Math.abs(a.diff_giorni)}gg`:`${a.diff_giorni}gg al termine`}</span>`:''}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;" onclick="event.stopPropagation()">
+                                <span class="badge" style="${a.tipo==='scaduta'?'background:#fecaca;color:#dc2626;':'background:#fed7aa;color:#c2410c;'}">${a.tipo==='scaduta'?'⚠️ Scaduta':'🔔 Imminente'}</span>
+                                ${pratica?`<span style="font-size:12px;color:#9333ea;font-weight:600;">📂</span>`:''}
+                                <button onclick="event.stopPropagation();cancellaNotifica('${a.id}')" style="width:28px;height:28px;border-radius:50%;background:#f3f4f6;border:none;color:#9ca3af;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626'" onmouseout="this.style.background='#f3f4f6';this.style.color='#9ca3af'">✕</button>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`).join('')}
+        </div>`}
     </div>`;
 }
 
 function renderUtenti() {
     return `
-    <div class="space-y-6">
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">🔐 Gestione Utenti</h2>
-                <button onclick="openUtenteModal(null)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">➕ Nuovo</button>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                ${state.utenti.map(u=>{
-                    const rb = getRuoloBadge(u.ruolo);
-                    return `
-                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-100">
-                        <div class="flex justify-between items-start mb-3">
-                            <div>
-                                <h3 class="text-xl font-bold text-gray-800">${u.nome_completo}</h3>
-                                <p class="text-sm ${rb.cls} font-semibold">${rb.label}</p>
-                            </div>
-                            <span class="text-3xl">${u.ruolo==='amministratore'?'👑':u.ruolo==='responsabile_dipartimento'?'🏢':'👤'}</span>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <h2 class="section-title" style="margin:0;">🔐 Gestione Utenti</h2>
+            <button onclick="openUtenteModal(null)" class="btn-purple" style="padding:10px 20px;font-size:14px;">➕ Nuovo</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+            ${state.utenti.map(u=>{
+                const rb=getRuoloBadge(u.ruolo);
+                return `
+                <div class="sls-card" style="padding:22px;">
+                    <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+                        <div>
+                            <h3 style="font-size:16px;font-weight:700;color:#111;margin:0 0 4px;">${u.nome_completo}</h3>
+                            <p style="font-size:13px;font-weight:600;margin:0;${rb.cls}">${rb.label}</p>
                         </div>
-                        <div class="space-y-1 mb-4">
-                            <p class="text-sm text-gray-600">🔑 <strong>${u.username}</strong></p>
-                            <p class="text-sm text-gray-600">📧 ${u.email}</p>
-                            <p class="text-sm ${u.attivo?'text-green-600':'text-red-600'}">${u.attivo?'✅ Attivo':'❌ Disattivato'}</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="openUtenteModal(${JSON.stringify(u).replace(/"/g,'&quot;')})" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg">✏️ Modifica</button>
-                            <button onclick="confirmDeleteUtente('${u.id}')" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg">🗑️ Elimina</button>
-                        </div>
-                    </div>`;
-                }).join('')}
-            </div>
+                        <span style="font-size:28px;">${u.ruolo==='amministratore'?'👑':u.ruolo==='responsabile_dipartimento'?'🏢':'👤'}</span>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <p style="font-size:13px;color:#6b7280;margin:3px 0;">🔑 <strong>${u.username}</strong></p>
+                        <p style="font-size:13px;color:#6b7280;margin:3px 0;">📧 ${u.email}</p>
+                        <p style="font-size:13px;margin:3px 0;${u.attivo?'color:#16a34a;':'color:#dc2626;'}">${u.attivo?'✅ Attivo':'❌ Disattivato'}</p>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="openUtenteModal(${JSON.stringify(u).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">✏️ Modifica</button>
+                        <button onclick="confirmDeleteUtente('${u.id}')" class="btn-danger" style="flex:1;padding:10px;font-size:13px;">🗑️ Elimina</button>
+                    </div>
+                </div>`;
+            }).join('')}
         </div>
     </div>`;
 }
 
 function renderGestione() {
     return `
-    <div class="space-y-6">
-        <div class="bg-white rounded-xl shadow-lg p-8">
-            <h2 class="text-2xl font-bold mb-6 text-gray-800">🗄️ Gestione Database</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border-2 border-green-200">
-                    <div class="flex items-center gap-3 mb-4"><span class="text-4xl">📊</span><div><h3 class="text-xl font-bold">Esporta CSV</h3><p class="text-sm text-gray-600">File Excel-compatibili</p></div></div>
-                    <div class="bg-white rounded-lg p-4 mb-4 space-y-1">
-                        <p class="text-sm">📁 <strong>pratiche.csv</strong> — ${state.pratiche.length} record</p>
-                        <p class="text-sm">👥 <strong>avvocati.csv</strong> — ${state.avvocati.length} record</p>
-                        <p class="text-sm">🔐 <strong>utenti.csv</strong></p>
-                        <p class="text-sm">📝 <strong>note.csv</strong></p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+        <h2 class="section-title">🗄️ Gestione Database</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+            <div class="sls-card" style="padding:24px;border-top:4px solid #10b981;">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                    <div class="purple-icon" style="width:48px;height:48px;background:linear-gradient(135deg,#34d399,#10b981);">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     </div>
-                    <button onclick="esportaTuttiCSV()" class="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold mb-3">📊 Esporta tutti i CSV</button>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="esportaCSV('pratiche-${today()}.csv',state.pratiche)" class="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-semibold">📁 Pratiche</button>
-                        <button onclick="esportaCSV('avvocati-${today()}.csv',state.avvocati)" class="px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-semibold">👥 Avvocati</button>
-                    </div>
+                    <div><h3 style="font-size:16px;font-weight:700;margin:0;">Esporta CSV</h3><p style="font-size:12px;color:#9ca3af;margin:0;">File Excel-compatibili</p></div>
                 </div>
-                <div class="space-y-4">
-                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-200">
-                        <div class="flex items-center gap-3 mb-4"><span class="text-4xl">📥</span><div><h3 class="text-xl font-bold">Backup JSON</h3><p class="text-sm text-gray-600">File di backup completo</p></div></div>
-                        <button onclick="esportaDati()" class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold">📥 Esporta JSON</button>
+                <div style="background:#f9fafb;border-radius:10px;padding:12px;margin-bottom:14px;">
+                    <p style="font-size:13px;margin:3px 0;">📁 pratiche.csv — ${state.pratiche.length} record</p>
+                    <p style="font-size:13px;margin:3px 0;">👥 avvocati.csv — ${state.avvocati.length} record</p>
+                    <p style="font-size:13px;margin:3px 0;">🔐 utenti.csv · 📝 note.csv</p>
+                </div>
+                <button onclick="esportaTuttiCSV()" style="width:100%;padding:12px;background:linear-gradient(135deg,#34d399,#10b981);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;margin-bottom:8px;">📊 Esporta tutti i CSV</button>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <button onclick="esportaCSV('pratiche-${today()}.csv',state.pratiche)" class="btn-white" style="padding:8px;font-size:12px;">📁 Pratiche</button>
+                    <button onclick="esportaCSV('avvocati-${today()}.csv',state.avvocati)" class="btn-white" style="padding:8px;font-size:12px;">👥 Avvocati</button>
+                </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:16px;">
+                <div class="sls-card" style="padding:24px;border-top:4px solid #6366f1;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                        <div class="purple-icon" style="width:48px;height:48px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
+                        <div><h3 style="font-size:16px;font-weight:700;margin:0;">Backup JSON</h3><p style="font-size:12px;color:#9ca3af;margin:0;">File di backup completo</p></div>
                     </div>
-                    <div class="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-6 border-2 border-orange-200">
-                        <div class="flex items-center gap-3 mb-4"><span class="text-4xl">📤</span><div><h3 class="text-xl font-bold">Importa Dati</h3><p class="text-sm text-gray-600">Ripristina da backup</p></div></div>
-                        <label class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg font-semibold flex items-center justify-center gap-2 cursor-pointer">
-                            📤 Seleziona File <input type="file" accept=".json" onchange="importaDati(event)" class="hidden"/>
-                        </label>
+                    <button onclick="esportaDati()" class="btn-purple" style="width:100%;padding:12px;font-size:14px;">📥 Esporta JSON</button>
+                </div>
+                <div class="sls-card" style="padding:24px;border-top:4px solid #f97316;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                        <div class="purple-icon" style="width:48px;height:48px;background:linear-gradient(135deg,#fb923c,#f97316);"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                        <div><h3 style="font-size:16px;font-weight:700;margin:0;">Importa Dati</h3><p style="font-size:12px;color:#9ca3af;margin:0;">Ripristina da backup</p></div>
                     </div>
+                    <label style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;background:linear-gradient(135deg,#fb923c,#f97316);color:#fff;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;">
+                        📤 Seleziona File <input type="file" accept=".json" onchange="importaDati(event)" style="display:none;"/>
+                    </label>
                 </div>
             </div>
         </div>
     </div>`;
 }
 
-// ── MODAL DETTAGLIO PRATICA (da Notifiche) ─────────────────────────────
+// ── MODALS ──────────────────────────────────────────────────────────────
+function modalOverlay(content) {
+    return `<div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;overflow-y:auto;">${content}</div>`;
+}
+
 function renderModalDettaglioPratica() {
-    const p = state.viewingPratica;
-    if (!p) return '';
-    const scaduta = isPraticaScaduta(p);
-    const inScad = isPraticaInScadenza(p);
-    const canEdit = isAdmin() || isResp() || p.avvocato === state.user.nome_completo;
-    return `
-    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full my-8 animate-slidedown">
-            <div class="bg-gradient-to-r from-indigo-700 to-purple-700 text-white p-6 flex justify-between items-center">
-                <h2 class="text-xl font-bold">📂 Dettaglio Pratica</h2>
-                <button onclick="state.showDettaglioPratica=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
+    const p=state.viewingPratica;if(!p)return'';
+    const scaduta=isPraticaScaduta(p),inScad=isPraticaInScadenza(p);
+    const canEdit=isAdmin()||isResp()||p.avvocato===state.user.nome_completo;
+    return modalOverlay(`
+    <div class="sls-modal animate-slidedown" style="margin:auto;">
+        <div class="sls-modal-header">
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">📂 Dettaglio Pratica</h2>
+            <button class="sls-modal-close" onclick="state.showDettaglioPratica=false;render()">✕</button>
+        </div>
+        <div style="padding:28px;display:flex;flex-direction:column;gap:18px;">
+            <div style="display:flex;align-items:center;gap:14px;">
+                ${avvAvatar(p.avvocato,true)}
+                <div>
+                    <h3 style="font-size:22px;font-weight:700;color:#111;margin:0;">${p.cliente}</h3>
+                    <p style="font-size:13px;color:#9ca3af;margin:2px 0;">${p.avvocato||'-'}</p>
+                </div>
             </div>
-            <div class="p-6 space-y-4">
-                <div class="flex items-center gap-3 mb-2">
-                    ${avvAvatar(p.avvocato, true)}
-                    <div>
-                        <h3 class="text-2xl font-bold text-gray-800">${p.cliente}</h3>
-                        <p class="text-sm text-gray-500">${p.avvocato||'-'}</p>
-                    </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                <span class="${getStatoBadge(p.stato)}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
+                <span class="${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
+                <span class="badge" style="background:#f3f4f6;color:#374151;">${p.tipo_pratica}</span>
+                ${p.autorita?`<span class="badge" style="background:#eff6ff;color:#1d4ed8;">🏛️ ${p.autorita}</span>`:''}
+                ${scaduta?`<span class="badge" style="background:#fef2f2;color:#dc2626;">⚠️ SCADUTA</span>`:''}
+                ${inScad?`<span class="badge" style="background:#fff7ed;color:#c2410c;">🔔 In scadenza</span>`:''}
+            </div>
+            <div style="background:#f9fafb;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;">
+                <p style="color:#374151;font-size:14px;margin:0;"><strong>Descrizione:</strong> ${p.descrizione}</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;color:#6b7280;">
+                    <p style="margin:0;">📅 Apertura: <strong>${fmtDate(p.data_apertura)}</strong></p>
+                    ${p.scadenza?`<p style="margin:0;${scaduta?'color:#dc2626;':inScad?'color:#ea580c;':''}">⏰ Scadenza: <strong>${fmtDate(p.scadenza)}</strong></p>`:''}
+                    ${p.responsabile_dipartimento?`<p style="margin:0;">🏢 Resp: <strong>${p.responsabile_dipartimento}</strong></p>`:''}
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatoBadge(p.stato)}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
-                    <span class="px-3 py-1 rounded-full text-xs font-semibold ${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
-                    <span class="px-3 py-1 bg-gray-100 rounded-full text-xs font-semibold">${p.tipo_pratica}</span>
-                    ${p.autorita?`<span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">🏛️ ${p.autorita}</span>`:''}
-                    ${p.rgnr?`<span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">RGNR: ${p.rgnr}</span>`:''}
-                    ${scaduta?`<span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">⚠️ SCADUTA</span>`:''}
-                    ${inScad?`<span class="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">🔔 In scadenza</span>`:''}
-                </div>
-                <div class="bg-gray-50 rounded-xl p-4 space-y-2">
-                    <p class="text-gray-700"><strong>Descrizione:</strong> ${p.descrizione}</p>
-                    <div class="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                        <p>📅 Apertura: <strong>${fmtDate(p.data_apertura)}</strong></p>
-                        ${p.scadenza?`<p class="${scaduta?'text-red-600':inScad?'text-orange-600':''}">⏰ Scadenza: <strong>${fmtDate(p.scadenza)}</strong></p>`:''}
-                        ${p.responsabile_dipartimento?`<p>🏢 Responsabile: <strong>${p.responsabile_dipartimento}</strong></p>`:''}
-                        ${p.data_aggiornamento_attivita?`<p>🔄 Aggiornamento: <strong>${fmtDate(p.data_aggiornamento_attivita)}</strong></p>`:''}
-                    </div>
-                </div>
-                <div class="flex gap-3 pt-2">
-                    ${canEdit?`
-                    <button onclick="state.showDettaglioPratica=false;openPraticaModal(state.viewingPratica)" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">
-                        ✏️ Modifica Pratica
-                    </button>`:''}
-                    <button onclick="state.showDettaglioPratica=false;state.showNoteModal=true;render()" class="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg font-semibold">
-                        📝 Vedi Note
-                    </button>
-                    <button onclick="state.showDettaglioPratica=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold">Chiudi</button>
-                </div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                ${canEdit?`<button onclick="state.showDettaglioPratica=false;openPraticaModal(state.viewingPratica)" class="btn-purple" style="flex:1;padding:12px;font-size:14px;">✏️ Modifica Pratica</button>`:''}
+                <button onclick="state.showDettaglioPratica=false;state.showNoteModal=true;render()" class="btn-green" style="flex:1;padding:12px;font-size:14px;">📝 Vedi Note</button>
+                <button onclick="state.showDettaglioPratica=false;render()" class="btn-white" style="padding:12px 20px;font-size:14px;">Chiudi</button>
             </div>
         </div>
-    </div>`;
+    </div>`);
 }
 
 function renderModalPratica() {
-    const isNuova = !state.editingPratica;
-    const origScadenza = state.editingPratica?.scadenza||'';
-    const origAggAttivita = state.editingPratica?.data_aggiornamento_attivita||'';
-    const minScadenza = !isAdmin()&&origScadenza?origScadenza:'';
-    const minAggAttivita = !isAdmin()&&origAggAttivita?origAggAttivita:'';
-
-    // Avvocati selezionabili: resp vede solo i suoi, admin vede tutti
-    const avvSelezionabili = isAdmin() ? state.avvocati :
-        isResp() ? state.avvocati.filter(a=>myAvvocati().includes(a.nome_completo)) :
-        state.avvocati.filter(a=>a.nome_completo===state.user.nome_completo);
-
-    const responsabili = state.utenti.filter(u=>u.ruolo==='responsabile_dipartimento');
-
-    return `
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8">
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${isNuova?'➕ Nuova Pratica':'✏️ Modifica Pratica'}</h2>
-                <button onclick="state.showModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
+    const isNuova=!state.editingPratica;
+    const origScadenza=state.editingPratica?.scadenza||'';
+    const origAggAttivita=state.editingPratica?.data_aggiornamento_attivita||'';
+    const minScadenza=!isAdmin()&&origScadenza?origScadenza:'';
+    const minAggAttivita=!isAdmin()&&origAggAttivita?origAggAttivita:'';
+    const avvSelezionabili=isAdmin()?state.avvocati:isResp()?state.avvocati.filter(a=>myAvvocati().includes(a.nome_completo)):state.avvocati.filter(a=>a.nome_completo===state.user.nome_completo);
+    const responsabili=state.utenti.filter(u=>u.ruolo==='responsabile_dipartimento');
+    return modalOverlay(`
+    <div class="sls-modal animate-slidedown" style="margin:auto;max-height:90vh;display:flex;flex-direction:column;">
+        <div class="sls-modal-header" style="flex-shrink:0;">
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${isNuova?'➕ Nuova Pratica':'✏️ Modifica Pratica'}</h2>
+            <button class="sls-modal-close" onclick="state.showModal=false;render()">✕</button>
+        </div>
+        <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
+            <div>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Cliente *</label>
+                <input type="text" value="${state.formData.cliente}" oninput="state.formData.cliente=this.value" class="sls-input"/>
             </div>
-            <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Cliente *</label>
-                    <input type="text" value="${state.formData.cliente}" oninput="state.formData.cliente=this.value"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo Pratica *</label>
-                        <select onchange="state.formData.tipo_pratica=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                            ${TIPI_PRATICA.map(t=>`<option value="${t}" ${state.formData.tipo_pratica===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Autorità</label>
-                        <select onchange="state.formData.autorita=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                            <option value="">-- Nessuna --</option>
-                            ${AUTORITA.map(a=>`<option value="${a}" ${state.formData.autorita===a?'selected':''}>${a}</option>`).join('')}
-                        </select>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">RGNR</label>
-                        <input type="text" value="${state.formData.rgnr||''}" oninput="state.formData.rgnr=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Avvocato Responsabile *
-                            ${isResp()?'<span class="text-purple-500 text-xs">(modifica consentita)</span>':''}
-                        </label>
-                        <select onchange="state.formData.avvocato=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                            <option value="">-- Seleziona --</option>
-                            ${avvSelezionabili.map(a=>`<option value="${a.nome_completo}" ${state.formData.avvocato===a.nome_completo?'selected':''}>${a.nome_completo}</option>`).join('')}
-                        </select>
-                    </div>
-                </div>
-                ${isAdmin()&&responsabili.length>0?`
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">🏢 Responsabile Dipartimento</label>
-                    <select onchange="state.formData.responsabile_dipartimento=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                        <option value="">-- Nessuno --</option>
-                        ${responsabili.map(r=>`<option value="${r.nome_completo}" ${state.formData.responsabile_dipartimento===r.nome_completo?'selected':''}>${r.nome_completo}</option>`).join('')}
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Tipo Pratica *</label>
+                    <select onchange="state.formData.tipo_pratica=this.value" class="sls-input">
+                        ${TIPI_PRATICA.map(t=>`<option value="${t}" ${state.formData.tipo_pratica===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
                     </select>
-                </div>`:''}
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Descrizione *</label>
-                    <textarea oninput="state.formData.descrizione=this.value" rows="3"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">${state.formData.descrizione}</textarea>
-                </div>
-                <div class="grid grid-cols-3 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Stato *</label>
-                        <select onchange="state.formData.stato=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                            ${[['svolgimento','Svolgimento'],['fatto','Fatto'],['bloccato','Bloccato']].map(([v,l])=>`<option value="${v}" ${state.formData.stato===v?'selected':''}>${l}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Priorità *</label>
-                        <select onchange="state.formData.priorita=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                            ${[['bassa','Bassa'],['media','Media'],['alta','Alta']].map(([v,l])=>`<option value="${v}" ${state.formData.priorita===v?'selected':''}>${l}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Data Apertura *</label>
-                        <input type="date" value="${state.formData.data_apertura}"
-                            ${!isAdmin()&&!isNuova?'disabled':''}
-                            oninput="state.formData.data_apertura=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg ${!isAdmin()&&!isNuova?'bg-gray-100 cursor-not-allowed':''}"/>
-                        ${!isAdmin()&&!isNuova?'<p class="text-xs text-gray-400 mt-1">Non modificabile</p>':''}
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Scadenza</label>
-                        <input type="date" value="${state.formData.scadenza||''}"
-                            ${minScadenza?`min="${minScadenza}"`:''}
-                            oninput="state.formData.scadenza=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"/>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Agg.to Attività</label>
-                        <input type="date" value="${state.formData.data_aggiornamento_attivita||today()}"
-                            ${minAggAttivita?`min="${minAggAttivita}"`:''}
-                            oninput="state.formData.data_aggiornamento_attivita=this.value"
-                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-blue-50"/>
-                    </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">🔔 Alert Scadenza</label>
-                    <div class="grid grid-cols-3 gap-3">
-                        ${[['','Nessuno'],['1','⚡ 3 giorni prima'],['2','🕐 10 giorni prima']].map(([v,l])=>`
-                        <label class="flex items-center gap-2 p-3 border-2 rounded-lg cursor-pointer ${state.formData.alert_giorni===v?'border-indigo-400 bg-indigo-50':'border-gray-200'}">
-                            <input type="radio" name="alertGiorni" value="${v}" ${state.formData.alert_giorni===v?'checked':''} onchange="state.formData.alert_giorni=this.value;render()"/>
-                            <span class="text-sm font-semibold text-gray-700">${l}</span>
-                        </label>`).join('')}
-                    </div>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Autorità</label>
+                    <select onchange="state.formData.autorita=this.value" class="sls-input">
+                        <option value="">-- Nessuna --</option>
+                        ${AUTORITA.map(a=>`<option value="${a}" ${state.formData.autorita===a?'selected':''}>${a}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">RGNR</label>
+                    <input type="text" value="${state.formData.rgnr||''}" oninput="state.formData.rgnr=this.value" class="sls-input"/>
                 </div>
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">📝 Nota Aggiornamento</label>
-                    <textarea oninput="state.formData.nota_aggiornamento=this.value" rows="3"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"
-                        placeholder="Questa nota verrà aggiunta allo storico...">${state.formData.nota_aggiornamento||''}</textarea>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Avvocato *</label>
+                    <select onchange="state.formData.avvocato=this.value" class="sls-input">
+                        <option value="">-- Seleziona --</option>
+                        ${avvSelezionabili.map(a=>`<option value="${a.nome_completo}" ${state.formData.avvocato===a.nome_completo?'selected':''}>${a.nome_completo}</option>`).join('')}
+                    </select>
                 </div>
-                <div class="flex gap-3 pt-2">
-                    <button onclick="submitPratica()" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg">
-                        💾 ${isNuova?'Salva':'Aggiorna'}
-                    </button>
-                    <button onclick="state.showModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold">Annulla</button>
+            </div>
+            ${isAdmin()&&responsabili.length>0?`
+            <div>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">🏢 Responsabile Dipartimento</label>
+                <select onchange="state.formData.responsabile_dipartimento=this.value" class="sls-input">
+                    <option value="">-- Nessuno --</option>
+                    ${responsabili.map(r=>`<option value="${r.nome_completo}" ${state.formData.responsabile_dipartimento===r.nome_completo?'selected':''}>${r.nome_completo}</option>`).join('')}
+                </select>
+            </div>`:''}
+            <div>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Descrizione *</label>
+                <textarea oninput="state.formData.descrizione=this.value" rows="3" class="sls-input" style="resize:vertical;">${state.formData.descrizione}</textarea>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Stato *</label>
+                    <select onchange="state.formData.stato=this.value" class="sls-input">
+                        ${[['svolgimento','Svolgimento'],['fatto','Fatto'],['bloccato','Bloccato']].map(([v,l])=>`<option value="${v}" ${state.formData.stato===v?'selected':''}>${l}</option>`).join('')}
+                    </select>
                 </div>
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Priorità *</label>
+                    <select onchange="state.formData.priorita=this.value" class="sls-input">
+                        ${[['bassa','Bassa'],['media','Media'],['alta','Alta']].map(([v,l])=>`<option value="${v}" ${state.formData.priorita===v?'selected':''}>${l}</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Data Apertura *</label>
+                    <input type="date" value="${state.formData.data_apertura}" ${!isAdmin()&&!isNuova?'disabled':''} oninput="state.formData.data_apertura=this.value" class="sls-input" style="${!isAdmin()&&!isNuova?'background:#f3f4f6;':''}"/>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Scadenza</label>
+                    <input type="date" value="${state.formData.scadenza||''}" ${minScadenza?`min="${minScadenza}"`:''}  oninput="state.formData.scadenza=this.value" class="sls-input"/>
+                </div>
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Agg.to Attività</label>
+                    <input type="date" value="${state.formData.data_aggiornamento_attivita||today()}" ${minAggAttivita?`min="${minAggAttivita}"`:''}  oninput="state.formData.data_aggiornamento_attivita=this.value" class="sls-input" style="background:#f0fdf4;"/>
+                </div>
+            </div>
+            <div>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">🔔 Alert Scadenza</label>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+                    ${[['','Nessuno'],['1','⚡ 3 giorni prima'],['2','🕐 10 giorni prima']].map(([v,l])=>`
+                    <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid ${state.formData.alert_giorni===v?'#9333ea':'#e5e7eb'};border-radius:12px;cursor:pointer;background:${state.formData.alert_giorni===v?'#f5f3ff':'#fff'};">
+                        <input type="radio" name="alertGiorni" value="${v}" ${state.formData.alert_giorni===v?'checked':''} onchange="state.formData.alert_giorni=this.value;render()"/>
+                        <span style="font-size:13px;font-weight:600;">${l}</span>
+                    </label>`).join('')}
+                </div>
+            </div>
+            <div>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📝 Nota Aggiornamento</label>
+                <textarea oninput="state.formData.nota_aggiornamento=this.value" rows="3" class="sls-input" style="resize:vertical;" placeholder="Questa nota verrà aggiunta allo storico...">${state.formData.nota_aggiornamento||''}</textarea>
+            </div>
+            <div style="display:flex;gap:10px;padding-top:8px;">
+                <button onclick="submitPratica()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">💾 ${isNuova?'Salva':'Aggiorna'}</button>
+                <button onclick="state.showModal=false;render()" class="btn-white" style="padding:14px 20px;font-size:14px;">Annulla</button>
             </div>
         </div>
-    </div>`;
+    </div>`);
 }
 
 function renderModalAvvocato() {
-    const coloreSelezionato = state.avvForm.colore||'#4f46e5';
-    const soloColore = !isAdmin()&&state.editingAvvocato;
-    return `
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${soloColore?'🎨 Colore':state.editingAvvocato?'✏️ Modifica':'➕ Nuovo'} Avvocato</h2>
-                <button onclick="state.showAvvocatoModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
+    const col=state.avvForm.colore||'#9333ea';
+    const soloColore=!isAdmin()&&state.editingAvvocato;
+    return modalOverlay(`
+    <div class="sls-modal animate-slidedown" style="margin:auto;max-height:90vh;display:flex;flex-direction:column;">
+        <div class="sls-modal-header" style="flex-shrink:0;">
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${soloColore?'🎨 Colore':state.editingAvvocato?'✏️ Modifica':'➕ Nuovo'} Avvocato</h2>
+            <button class="sls-modal-close" onclick="state.showAvvocatoModal=false;render()">✕</button>
+        </div>
+        <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
+            ${soloColore?'':`
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Nome *</label><input type="text" value="${state.avvForm.nome}" oninput="state.avvForm.nome=this.value" class="sls-input"/></div>
+                <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Cognome *</label><input type="text" value="${state.avvForm.cognome}" oninput="state.avvForm.cognome=this.value" class="sls-input"/></div>
             </div>
-            <div class="p-6 space-y-4">
-                ${soloColore?'':`
-                <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-sm font-semibold text-gray-700 mb-2">Nome *</label>
-                    <input type="text" value="${state.avvForm.nome}" oninput="state.avvForm.nome=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
-                    <div><label class="block text-sm font-semibold text-gray-700 mb-2">Cognome *</label>
-                    <input type="text" value="${state.avvForm.cognome}" oninput="state.avvForm.cognome=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
+            <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Email *</label><input type="email" value="${state.avvForm.email}" oninput="state.avvForm.email=this.value" class="sls-input"/></div>
+            <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Telefono *</label><input type="tel" value="${state.avvForm.telefono}" oninput="state.avvForm.telefono=this.value" class="sls-input"/></div>
+            <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Specializzazione *</label>
+            <select onchange="state.avvForm.specializzazione=this.value" class="sls-input">
+                ${TIPI_PRATICA.map(s=>`<option value="${s}" ${state.avvForm.specializzazione===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+            </select></div>`}
+            <div>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">🎨 Colore Avatar</label>
+                <div style="display:flex;align-items:center;gap:12px;background:#f9fafb;border-radius:14px;padding:14px;margin-bottom:12px;">
+                    <span class="avv-avatar-lg" style="background:${col};">${getIniziali((state.avvForm.nome||'')+' '+(state.avvForm.cognome||state.editingAvvocato?.nome_completo||''))}</span>
+                    <div><p style="font-weight:600;color:#111;margin:0;">${state.avvForm.nome||''} ${state.avvForm.cognome||state.editingAvvocato?.nome_completo||''}</p><p style="font-size:12px;color:#9ca3af;margin:2px 0;">Anteprima colore</p></div>
                 </div>
-                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-                <input type="email" value="${state.avvForm.email}" oninput="state.avvForm.email=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
-                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Telefono *</label>
-                <input type="tel" value="${state.avvForm.telefono}" oninput="state.avvForm.telefono=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
-                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Specializzazione *</label>
-                <select onchange="state.avvForm.specializzazione=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg">
-                    ${TIPI_PRATICA.map(s=>`<option value="${s}" ${state.avvForm.specializzazione===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
-                </select></div>`}
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-3">🎨 Colore Avatar</label>
-                    <div class="flex items-center gap-3 mb-3 p-3 bg-gray-50 rounded-xl">
-                        <span class="avv-avatar-lg" style="background:${coloreSelezionato}">${getIniziali((state.avvForm.nome||'')+' '+(state.avvForm.cognome||state.editingAvvocato?.nome_completo||''))}</span>
-                        <div><p class="font-semibold text-gray-700">${state.avvForm.nome||''} ${state.avvForm.cognome||state.editingAvvocato?.nome_completo||''}</p>
-                        <p class="text-xs text-gray-400">Anteprima</p></div>
-                    </div>
-                    <div class="flex flex-wrap gap-3 p-3 bg-gray-50 rounded-xl">
-                        ${PALETTE_COLORI.map(c=>`<div class="color-swatch ${coloreSelezionato===c?'selected':''}" style="background:${c}" onclick="state.avvForm.colore='${c}';render()"></div>`).join('')}
-                    </div>
-                    <div class="flex items-center gap-3 mt-3">
-                        <label class="text-sm text-gray-600 font-semibold">Personalizzato:</label>
-                        <input type="color" value="${coloreSelezionato}" oninput="state.avvForm.colore=this.value;render()" class="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-200"/>
-                        <span class="text-sm text-gray-500 font-mono">${coloreSelezionato}</span>
-                    </div>
+                <div style="display:flex;flex-wrap:wrap;gap:10px;background:#f9fafb;border-radius:14px;padding:14px;margin-bottom:10px;">
+                    ${PALETTE_COLORI.map(c=>`<div class="color-swatch ${col===c?'selected':''}" style="background:${c};" onclick="state.avvForm.colore='${c}';render()"></div>`).join('')}
                 </div>
-                <div class="flex gap-3 pt-4">
-                    <button onclick="submitAvvocato()" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">💾 ${state.editingAvvocato?'Aggiorna':'Salva'}</button>
-                    <button onclick="state.showAvvocatoModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold">Annulla</button>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <label style="font-size:13px;color:#374151;font-weight:600;">Personalizzato:</label>
+                    <input type="color" value="${col}" oninput="state.avvForm.colore=this.value;render()" style="width:40px;height:40px;border-radius:10px;cursor:pointer;border:2px solid #e5e7eb;"/>
+                    <span style="font-size:13px;color:#9ca3af;font-family:monospace;">${col}</span>
                 </div>
+            </div>
+            <div style="display:flex;gap:10px;padding-top:8px;">
+                <button onclick="submitAvvocato()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">💾 ${state.editingAvvocato?'Aggiorna':'Salva'}</button>
+                <button onclick="state.showAvvocatoModal=false;render()" class="btn-white" style="padding:14px 20px;font-size:14px;">Annulla</button>
             </div>
         </div>
-    </div>`;
+    </div>`);
 }
 
 function renderModalUtente() {
-    return `
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full">
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">${state.editingUtente?'✏️ Modifica':'➕ Nuovo'} Utente</h2>
-                <button onclick="state.showUtenteModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
-            </div>
-            <div class="p-6 space-y-4">
-                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Username *</label>
-                <input type="text" value="${state.utenteForm.username}" ${state.editingUtente?'disabled':''} oninput="state.utenteForm.username=this.value"
-                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg ${state.editingUtente?'bg-gray-100':''}"/></div>
-                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Password ${state.editingUtente?'(vuoto = invariata)':'*'}</label>
-                <input type="password" value="${state.utenteForm.password||''}" oninput="state.utenteForm.password=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
-                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Nome Completo *</label>
-                <input type="text" value="${state.utenteForm.nome_completo}" oninput="state.utenteForm.nome_completo=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
-                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-                <input type="email" value="${state.utenteForm.email}" oninput="state.utenteForm.email=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg"/></div>
-                <div><label class="block text-sm font-semibold text-gray-700 mb-2">Ruolo *</label>
-                <select onchange="state.utenteForm.ruolo=this.value" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg">
-                    <option value="avvocato" ${state.utenteForm.ruolo==='avvocato'?'selected':''}>⚖️ Avvocato</option>
-                    <option value="responsabile_dipartimento" ${state.utenteForm.ruolo==='responsabile_dipartimento'?'selected':''}>🏢 Responsabile Dipartimento</option>
-                    <option value="amministratore" ${state.utenteForm.ruolo==='amministratore'?'selected':''}>👑 Amministratore</option>
-                </select></div>
-                <div class="flex gap-3 pt-4">
-                    <button onclick="submitUtente()" class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">💾 ${state.editingUtente?'Aggiorna':'Crea'}</button>
-                    <button onclick="state.showUtenteModal=false;render()" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold">Annulla</button>
-                </div>
+    return modalOverlay(`
+    <div class="sls-modal animate-slidedown" style="margin:auto;">
+        <div class="sls-modal-header">
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${state.editingUtente?'✏️ Modifica':'➕ Nuovo'} Utente</h2>
+            <button class="sls-modal-close" onclick="state.showUtenteModal=false;render()">✕</button>
+        </div>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+            <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Username *</label><input type="text" value="${state.utenteForm.username}" ${state.editingUtente?'disabled':''} oninput="state.utenteForm.username=this.value" class="sls-input" style="${state.editingUtente?'background:#f3f4f6;':''}"/></div>
+            <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Password ${state.editingUtente?'(vuoto = invariata)':'*'}</label><input type="password" value="${state.utenteForm.password||''}" oninput="state.utenteForm.password=this.value" class="sls-input"/></div>
+            <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Nome Completo *</label><input type="text" value="${state.utenteForm.nome_completo}" oninput="state.utenteForm.nome_completo=this.value" class="sls-input"/></div>
+            <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Email *</label><input type="email" value="${state.utenteForm.email}" oninput="state.utenteForm.email=this.value" class="sls-input"/></div>
+            <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Ruolo *</label>
+            <select onchange="state.utenteForm.ruolo=this.value" class="sls-input">
+                <option value="avvocato" ${state.utenteForm.ruolo==='avvocato'?'selected':''}>⚖️ Avvocato</option>
+                <option value="responsabile_dipartimento" ${state.utenteForm.ruolo==='responsabile_dipartimento'?'selected':''}>🏢 Responsabile Dipartimento</option>
+                <option value="amministratore" ${state.utenteForm.ruolo==='amministratore'?'selected':''}>👑 Amministratore</option>
+            </select></div>
+            <div style="display:flex;gap:10px;padding-top:8px;">
+                <button onclick="submitUtente()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">💾 ${state.editingUtente?'Aggiorna':'Crea'}</button>
+                <button onclick="state.showUtenteModal=false;render()" class="btn-white" style="padding:14px 20px;font-size:14px;">Annulla</button>
             </div>
         </div>
-    </div>`;
+    </div>`);
 }
 
 function renderModalNote() {
     const p=state.viewingPratica;
-    return `
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 relative">
-                <div class="text-center mb-2">
-                    <div class="flex items-center justify-center gap-3 mb-1">
-                        ${avvAvatar(p?.avvocato,true)}
-                        <h2 class="text-xl font-bold">${p?.cliente}</h2>
-                    </div>
-                    <p class="text-sm text-blue-200 mt-1">${p?.descrizione}</p>
+    return modalOverlay(`
+    <div class="sls-modal animate-slidedown" style="margin:auto;max-height:90vh;display:flex;flex-direction:column;">
+        <div class="sls-modal-header" style="flex-shrink:0;">
+            <div style="flex:1;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                    ${avvAvatar(p?.avvocato,true)}
+                    <h2 style="color:#fff;font-size:18px;font-weight:700;margin:0;">${p?.cliente}</h2>
                 </div>
-                <button onclick="state.showNoteModal=false;render()" class="absolute top-6 right-6 hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
+                <p style="color:rgba(255,255,255,0.7);font-size:13px;margin:0;">${p?.descrizione}</p>
             </div>
-            <div class="p-6">
-                ${isAdmin()||isResp()?`<div class="mb-4 flex justify-end"><button onclick="state.showNoteModal=false;openPraticaModal(state.viewingPratica)" class="px-5 py-2 bg-blue-500 text-white rounded-lg font-semibold">✏️ Modifica Pratica</button></div>`:''}
-                <div class="mb-6 bg-indigo-50 rounded-xl p-4 border border-indigo-100">
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">📝 Aggiungi Nota</label>
-                    <textarea oninput="state.noteForm.nota=this.value" rows="3"
-                        class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none mb-3 bg-white"
-                        placeholder="Scrivi qui la nota...">${state.noteForm.nota||''}</textarea>
-                    <button onclick="submitNota()" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold">➕ Aggiungi Nota</button>
-                </div>
-                <h3 class="text-xl font-bold text-gray-800 mb-4">📜 Storico Note</h3>
-                ${state.noteAggiornamento.length>0?`
-                <div class="space-y-3">
-                    ${state.noteAggiornamento.map(n=>`
-                        <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-l-4 border-blue-500">
-                            <div class="flex justify-between items-start mb-2">
-                                <div class="flex items-center gap-2">${avvAvatar(n.autore)}<p class="text-sm font-semibold">${n.autore}</p></div>
-                                <p class="text-sm text-gray-500">📅 ${fmtDate(n.data_nota)}</p>
-                            </div>
-                            <p class="text-gray-800 mt-1">${n.nota}</p>
-                        </div>`).join('')}
-                </div>`:`<p class="text-gray-400 text-center py-8">Nessuna nota ancora inserita</p>`}
-            </div>
+            <button class="sls-modal-close" onclick="state.showNoteModal=false;render()">✕</button>
         </div>
-    </div>`;
+        <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
+            ${isAdmin()||isResp()?`<div style="display:flex;justify-content:flex-end;"><button onclick="state.showNoteModal=false;openPraticaModal(state.viewingPratica)" class="btn-purple" style="padding:10px 18px;font-size:13px;">✏️ Modifica Pratica</button></div>`:''}
+            <div style="background:#f5f3ff;border-radius:16px;padding:18px;border:1px solid #ede9fe;">
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📝 Aggiungi Nota</label>
+                <textarea oninput="state.noteForm.nota=this.value" rows="3" class="sls-input" style="background:#fff;margin-bottom:10px;" placeholder="Scrivi qui la nota...">${state.noteForm.nota||''}</textarea>
+                <button onclick="submitNota()" class="btn-purple" style="padding:10px 20px;font-size:14px;">➕ Aggiungi Nota</button>
+            </div>
+            <h3 style="font-size:16px;font-weight:700;color:#111;margin:0;">📜 Storico Note</h3>
+            ${state.noteAggiornamento.length>0?`
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                ${state.noteAggiornamento.map(n=>`
+                <div style="padding:16px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:14px;border-left:4px solid #9333ea;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <div style="display:flex;align-items:center;gap:8px;">${avvAvatar(n.autore)}<strong style="font-size:13px;">${n.autore}</strong></div>
+                        <span style="font-size:12px;color:#9ca3af;">📅 ${fmtDate(n.data_nota)}</span>
+                    </div>
+                    <p style="color:#374151;font-size:14px;margin:0;">${n.nota}</p>
+                </div>`).join('')}
+            </div>`:`<p style="text-align:center;color:#9ca3af;padding:30px;">Nessuna nota ancora inserita</p>`}
+        </div>
+    </div>`);
 }
 
 function renderModalAlert() {
-    return `
-    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[90]">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto animate-slidedown">
-            <div class="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 flex justify-between items-center">
-                <h2 class="text-2xl font-bold">🔔 Alert Scadenze</h2>
-                <button onclick="state.showAlertModal=false;render()" class="hover:bg-white/20 rounded-full p-2 text-2xl">✕</button>
-            </div>
-            <div class="p-6 space-y-4">
-                ${state.alertList.filter(a=>a.tipo==='scaduta').length>0?`
-                <div><h3 class="font-bold text-red-600 mb-3">⚠️ Pratiche già scadute</h3>
-                ${state.alertList.filter(a=>a.tipo==='scaduta').map(({pratica:p,diff})=>`
-                    <div class="p-4 bg-red-50 rounded-xl border-2 border-red-200 mb-2">
-                        <div class="flex items-center justify-between mb-1">
-                            <div class="flex items-center gap-2">${avvAvatar(p.avvocato)}<span class="font-bold">${p.cliente}</span></div>
-                            <span class="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-bold">Scaduta da ${Math.abs(diff)}gg</span>
-                        </div>
-                        <div class="flex gap-3 text-xs text-gray-500 flex-wrap mt-1">
-                            ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
-                            <span>📅 <strong class="text-red-700">${fmtDate(p.scadenza)}</strong></span>
-                            <span>👤 ${p.avvocato}</span>
-                        </div>
-                    </div>`).join('')}
-                </div>`:''}
-                ${state.alertList.filter(a=>a.tipo==='imminente').length>0?`
-                <div><h3 class="font-bold text-orange-600 mb-3">🔔 In scadenza</h3>
-                ${state.alertList.filter(a=>a.tipo==='imminente').map(({pratica:p,diff})=>`
-                    <div class="p-4 bg-orange-50 rounded-xl border-2 border-orange-200 mb-2">
-                        <div class="flex items-center justify-between mb-1">
-                            <div class="flex items-center gap-2">${avvAvatar(p.avvocato)}<span class="font-bold">${p.cliente}</span></div>
-                            <span class="px-3 py-1 bg-orange-200 text-orange-800 rounded-full text-sm font-bold">Scade tra ${diff}gg</span>
-                        </div>
-                        <div class="flex gap-3 text-xs text-gray-500 flex-wrap mt-1">
-                            ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
-                            <span>📅 <strong class="text-orange-700">${fmtDate(p.scadenza)}</strong></span>
-                            <span>👤 ${p.avvocato}</span>
-                        </div>
-                    </div>`).join('')}
-                </div>`:''}
-                <button onclick="state.showAlertModal=false;render()" class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-semibold">✅ Ho capito</button>
-            </div>
+    return modalOverlay(`
+    <div class="sls-modal animate-slidedown" style="margin:auto;max-height:85vh;display:flex;flex-direction:column;">
+        <div style="background:linear-gradient(135deg,#f97316,#dc2626);border-radius:20px 20px 0 0;padding:24px 28px;display:flex;justify-content:space-between;align-items:center;">
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">🔔 Alert Scadenze</h2>
+            <button class="sls-modal-close" onclick="state.showAlertModal=false;render()">✕</button>
         </div>
-    </div>`;
+        <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
+            ${state.alertList.filter(a=>a.tipo==='scaduta').length>0?`
+            <div>
+                <h3 style="font-size:15px;font-weight:700;color:#dc2626;margin:0 0 10px;">⚠️ Pratiche già scadute</h3>
+                ${state.alertList.filter(a=>a.tipo==='scaduta').map(({pratica:p,diff})=>`
+                <div style="padding:16px;background:#fef2f2;border:2px solid #fecaca;border-radius:14px;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <div style="display:flex;align-items:center;gap:8px;">${avvAvatar(p.avvocato)}<strong>${p.cliente}</strong></div>
+                        <span class="badge" style="background:#fecaca;color:#dc2626;">Scaduta da ${Math.abs(diff)}gg</span>
+                    </div>
+                    <div style="display:flex;gap:12px;font-size:12px;color:#9ca3af;flex-wrap:wrap;">
+                        ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
+                        <span>📅 <strong style="color:#dc2626;">${fmtDate(p.scadenza)}</strong></span>
+                        <span>👤 ${p.avvocato}</span>
+                    </div>
+                </div>`).join('')}
+            </div>`:''}
+            ${state.alertList.filter(a=>a.tipo==='imminente').length>0?`
+            <div>
+                <h3 style="font-size:15px;font-weight:700;color:#ea580c;margin:0 0 10px;">🔔 In scadenza</h3>
+                ${state.alertList.filter(a=>a.tipo==='imminente').map(({pratica:p,diff})=>`
+                <div style="padding:16px;background:#fff7ed;border:2px solid #fed7aa;border-radius:14px;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <div style="display:flex;align-items:center;gap:8px;">${avvAvatar(p.avvocato)}<strong>${p.cliente}</strong></div>
+                        <span class="badge" style="background:#fed7aa;color:#c2410c;">Scade tra ${diff}gg</span>
+                    </div>
+                    <div style="display:flex;gap:12px;font-size:12px;color:#9ca3af;flex-wrap:wrap;">
+                        ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
+                        <span>📅 <strong style="color:#ea580c;">${fmtDate(p.scadenza)}</strong></span>
+                        <span>👤 ${p.avvocato}</span>
+                    </div>
+                </div>`).join('')}
+            </div>`:''}
+            <button onclick="state.showAlertModal=false;render()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f97316,#dc2626);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;">✅ Ho capito</button>
+        </div>
+    </div>`);
 }
 
 function renderPraticheResult() {
-    const el=document.getElementById('praticheResult');
-    if (!el) return;
+    const el=document.getElementById('praticheResult');if(!el)return;
     const filtered=getFiltered();
     el.innerHTML=state.viewMode==='table'?renderPraticheTable(filtered):renderPraticheCards(filtered);
     const inp=document.getElementById('searchInput');
-    if (inp) { const pos=inp.value.length; inp.focus(); inp.setSelectionRange(pos,pos); }
+    if(inp){const pos=inp.value.length;inp.focus();inp.setSelectionRange(pos,pos);}
 }
 
 function switchTab(tab) {
-    state.activeTab = tab;
-    if (tab==='notifiche') { state.notifiche=[]; state.notificheLoading=false; }
+    state.activeTab=tab;
+    if(tab==='notifiche'){state.notifiche=[];state.notificheLoading=false;}
     render();
-    if (tab==='avvocati') loadAndRenderAvvocati();
+    if(tab==='avvocati') loadAndRenderAvvocati();
 }
 
 async function loadAndRenderAvvocati() {
-    const html = await renderAvvocati();
-    const el = document.getElementById('avvocatiContainer');
-    if (el) el.outerHTML = html;
+    const html=await renderAvvocati();
+    const el=document.getElementById('avvocatiContainer');
+    if(el) el.outerHTML=html;
 }
 
 async function doLogin() {
     const u=document.getElementById('loginUsername').value;
     const p=document.getElementById('loginPassword').value;
-    if (!u||!p) { alert('Inserisci username e password'); return; }
+    if(!u||!p){alert('Inserisci username e password');return;}
     await login(u,p);
 }
 
 function openPraticaModal(p) {
     state.editingPratica=p;
-    state.formData=p?{...p,nota_aggiornamento:'',alert_giorni:p.alert_giorni||''}:{
-        cliente:'',tipo_pratica:'civile',autorita:'',descrizione:'',stato:'svolgimento',
-        data_apertura:today(),data_aggiornamento_attivita:today(),scadenza:'',timeline:'',
-        priorita:'media',rgnr:'',avvocato:'',nota_aggiornamento:'',alert_giorni:'1',responsabile_dipartimento:''
-    };
-    state.showModal=true; state.showNoteModal=false; state.showDettaglioPratica=false; render();
+    state.formData=p?{...p,nota_aggiornamento:'',alert_giorni:p.alert_giorni||''}:{cliente:'',tipo_pratica:'civile',autorita:'',descrizione:'',stato:'svolgimento',data_apertura:today(),data_aggiornamento_attivita:today(),scadenza:'',timeline:'',priorita:'media',rgnr:'',avvocato:'',nota_aggiornamento:'',alert_giorni:'1',responsabile_dipartimento:''};
+    state.showModal=true;state.showNoteModal=false;state.showDettaglioPratica=false;render();
 }
 
 function openAvvocatoModal(a) {
     state.editingAvvocato=a;
-    state.avvForm=a
-        ?{nome:a.nome,cognome:a.cognome,email:a.email,telefono:a.telefono,specializzazione:a.specializzazione,colore:a.colore||getAvvColor(a.nome_completo)}
-        :{nome:'',cognome:'',email:'',telefono:'',specializzazione:'civile',colore:'#4f46e5'};
-    state.showAvvocatoModal=true; render();
+    state.avvForm=a?{nome:a.nome,cognome:a.cognome,email:a.email,telefono:a.telefono,specializzazione:a.specializzazione,colore:a.colore||getAvvColor(a.nome_completo)}:{nome:'',cognome:'',email:'',telefono:'',specializzazione:'civile',colore:'#9333ea'};
+    state.showAvvocatoModal=true;render();
 }
 
 function openUtenteModal(u) {
     state.editingUtente=u;
-    state.utenteForm=u?{username:u.username,password:'',nome_completo:u.nome_completo,email:u.email,ruolo:u.ruolo}
-        :{username:'',password:'',nome_completo:'',email:'',ruolo:'avvocato'};
-    state.showUtenteModal=true; render();
+    state.utenteForm=u?{username:u.username,password:'',nome_completo:u.nome_completo,email:u.email,ruolo:u.ruolo}:{username:'',password:'',nome_completo:'',email:'',ruolo:'avvocato'};
+    state.showUtenteModal=true;render();
 }
 
 async function openNoteModal(praticaId) {
     const p=state.pratiche.find(pr=>pr.id===praticaId);
-    state.viewingPratica=p; state.noteForm={nota:''};
+    state.viewingPratica=p;state.noteForm={nota:''};
     await loadNote(praticaId);
-    state.showNoteModal=true; render();
+    state.showNoteModal=true;render();
 }
 
-async function viewPratica(praticaId) { await openNoteModal(praticaId); }
+async function viewPratica(praticaId){await openNoteModal(praticaId);}
 
 async function apriDettaglioNotifica(praticaId) {
-    const p = state.pratiche.find(pr=>pr.id===praticaId);
-    if (!p) { alert('Pratica non trovata o non più disponibile.'); return; }
-    state.viewingPratica = p;
-    await loadNote(praticaId);
-    state.showDettaglioPratica = true;
-    render();
+    const p=state.pratiche.find(pr=>pr.id===praticaId);
+    if(!p){alert('Pratica non trovata.');return;}
+    state.viewingPratica=p;await loadNote(praticaId);
+    state.showDettaglioPratica=true;render();
 }
 
-async function aggiungiAlDip(respId, respNome) {
-    const sel = document.getElementById(`addAvv_${respId}`);
-    if (!sel||!sel.value) return;
-    const avvNome = sel.value;
-    const avvUtente = state.utenti.find(u=>u.nome_completo===avvNome);
-    const respUtente = state.utenti.find(u=>u.nome_completo===respNome);
-    const nomeDipInput = document.getElementById(`nomeDip_${respId}`);
-    const nomeDip = nomeDipInput?.value || state.dipartimenti.find(d=>d.responsabile===respNome)?.nome_dipartimento || '';
-    await saveDipartimento(respNome, respUtente?.id||null, avvNome, avvUtente?.id||null, nomeDip);
-    showSuccess(`${avvNome} aggiunto al dipartimento di ${respNome}`);
-    render();
+async function aggiungiAlDip(respId,respNome) {
+    const sel=document.getElementById(`addAvv_${respId}`);if(!sel||!sel.value)return;
+    const avvNome=sel.value;
+    const avvUtente=state.utenti.find(u=>u.nome_completo===avvNome);
+    const respUtente=state.utenti.find(u=>u.nome_completo===respNome);
+    const nomeDip=document.getElementById(`nomeDip_${respId}`)?.value||state.dipartimenti.find(d=>d.responsabile===respNome)?.nome_dipartimento||'';
+    await saveDipartimento(respNome,respUtente?.id||null,avvNome,avvUtente?.id||null,nomeDip);
+    showSuccess(`${avvNome} aggiunto al dipartimento`);render();
 }
 
 async function confirmDeleteDip(id) {
-    if (confirm('Rimuovere questo avvocato dal dipartimento?')) {
-        await deleteDipartimento(id);
-        showSuccess('Avvocato rimosso dal dipartimento.');
-        render();
-    }
+    if(confirm('Rimuovere questo avvocato dal dipartimento?')){await deleteDipartimento(id);showSuccess('Rimosso.');render();}
 }
 
 async function submitPratica() {
-    const f=state.formData;
-    const orig=state.editingPratica;
-    const isNuova=!orig;
-    if (!f.cliente||!f.descrizione||!f.avvocato) { alert('Compila tutti i campi obbligatori (*)'); return; }
-    if (!isAdmin()&&!isResp()&&!isNuova) {
-        if (f.scadenza&&orig.scadenza&&f.scadenza<orig.scadenza) { alert('⚠️ Non puoi retrodatare la scadenza!'); return; }
-        if (f.data_aggiornamento_attivita&&orig.data_aggiornamento_attivita&&f.data_aggiornamento_attivita<orig.data_aggiornamento_attivita) { alert('⚠️ Non puoi retrodatare l\'aggiornamento!'); return; }
-        f.data_apertura = orig.data_apertura;
+    const f=state.formData,orig=state.editingPratica,isNuova=!orig;
+    if(!f.cliente||!f.descrizione||!f.avvocato){alert('Compila tutti i campi obbligatori (*)');return;}
+    if(!isAdmin()&&!isResp()&&!isNuova){
+        if(f.scadenza&&orig.scadenza&&f.scadenza<orig.scadenza){alert('⚠️ Non puoi retrodatare la scadenza!');return;}
+        if(f.data_aggiornamento_attivita&&orig.data_aggiornamento_attivita&&f.data_aggiornamento_attivita<orig.data_aggiornamento_attivita){alert('⚠️ Non puoi retrodatare!');return;}
+        f.data_apertura=orig.data_apertura;
     }
-    const p={...f};
-    if (orig) p.id=orig.id;
-    p.data_modifica=today(); p.data_aggiornamento_attivita=today();
+    const p={...f};if(orig)p.id=orig.id;
+    p.data_modifica=today();p.data_aggiornamento_attivita=today();
     const ok=await savePratica(p);
-    if (ok) {
-        // Se la scadenza è stata spostata in avanti, cancella le notifiche relative
-        if (orig && f.scadenza && f.scadenza > today()) {
-            await cancellaNotificheScadenzaSpostata(orig.id, f.scadenza);
-        }
-        state.showModal=false; state.editingPratica=null; showSuccess('Pratica salvata!'); render();
+    if(ok){
+        if(orig&&f.scadenza&&f.scadenza>today()) await cancellaNotificheScadenzaSpostata(orig.id,f.scadenza);
+        state.showModal=false;state.editingPratica=null;showSuccess('Pratica salvata!');render();
     }
 }
 
 async function submitAvvocato() {
-    const soloColore = !isAdmin()&&state.editingAvvocato;
-    if (!soloColore&&(!state.avvForm.nome||!state.avvForm.cognome||!state.avvForm.email||!state.avvForm.telefono)) { alert('Compila tutti i campi'); return; }
-    const a={...state.avvForm};
-    if (state.editingAvvocato) a.id=state.editingAvvocato.id;
+    const soloColore=!isAdmin()&&state.editingAvvocato;
+    if(!soloColore&&(!state.avvForm.nome||!state.avvForm.cognome||!state.avvForm.email||!state.avvForm.telefono)){alert('Compila tutti i campi');return;}
+    const a={...state.avvForm};if(state.editingAvvocato)a.id=state.editingAvvocato.id;
     const ok=await saveAvvocato(a);
-    if (ok) { state.showAvvocatoModal=false; state.editingAvvocato=null; showSuccess('Avvocato aggiornato!'); render(); }
+    if(ok){state.showAvvocatoModal=false;state.editingAvvocato=null;showSuccess('Avvocato aggiornato!');render();}
 }
 
 async function submitUtente() {
-    if (!state.utenteForm.username||!state.utenteForm.nome_completo||!state.utenteForm.email) { alert('Compila tutti i campi'); return; }
-    if (!state.editingUtente&&!state.utenteForm.password) { alert('Inserisci una password'); return; }
-    const u={...state.utenteForm};
-    if (state.editingUtente) u.id=state.editingUtente.id;
-    u.attivo=true;
+    if(!state.utenteForm.username||!state.utenteForm.nome_completo||!state.utenteForm.email){alert('Compila tutti i campi');return;}
+    if(!state.editingUtente&&!state.utenteForm.password){alert('Inserisci una password');return;}
+    const u={...state.utenteForm};if(state.editingUtente)u.id=state.editingUtente.id;u.attivo=true;
     const ok=await saveUtente(u);
-    if (ok) { state.showUtenteModal=false; state.editingUtente=null; showSuccess('Utente salvato!'); render(); }
+    if(ok){state.showUtenteModal=false;state.editingUtente=null;showSuccess('Utente salvato!');render();}
 }
 
 async function submitNota() {
-    if (!state.noteForm.nota) { alert('Scrivi una nota!'); return; }
+    if(!state.noteForm.nota){alert('Scrivi una nota!');return;}
     const ok=await aggiungiNota(state.viewingPratica.id,state.noteForm.nota);
-    if (ok) { state.noteForm={nota:''}; showSuccess('Nota aggiunta!'); render(); }
+    if(ok){state.noteForm={nota:''};showSuccess('Nota aggiunta!');render();}
 }
 
-function confirmDeletePratica(id) { if(isAdmin()&&confirm('Eliminare questa pratica?')) deletePratica(id); }
-function confirmDeleteAvvocato(id) { if(isAdmin()&&confirm('Eliminare questo avvocato?')) deleteAvvocato(id); }
-function confirmDeleteUtente(id) { if(confirm('Eliminare questo utente?')) deleteUtente(id); }
+function confirmDeletePratica(id){if(isAdmin()&&confirm('Eliminare questa pratica?'))deletePratica(id);}
+function confirmDeleteAvvocato(id){if(isAdmin()&&confirm('Eliminare questo avvocato?'))deleteAvvocato(id);}
+function confirmDeleteUtente(id){if(confirm('Eliminare questo utente?'))deleteUtente(id);}
 
 render();
 </script>
 </body>
 </html>
+
