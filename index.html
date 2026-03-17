@@ -466,7 +466,7 @@ function renderPraticheTable(filtered) {
                         <td style="padding:14px 16px;position:relative;z-index:20;" class="no-print">
                             <div style="display:flex;gap:6px;">
                                 <button onclick="viewPratica('${p.id}')" class="btn-green" style="padding:6px 12px;font-size:12px;">👁️</button>
-                                <button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="btn-purple" style="padding:6px 12px;font-size:12px;">✏️</button>
+                                ${isAdmin()||p.stato!=='fatto'?`<button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="btn-purple" style="padding:6px 12px;font-size:12px;">✏️</button>`:''}
                                 ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="btn-danger" style="padding:6px 12px;font-size:12px;">🗑️</button>`:''}
                             </div>
                         </td>
