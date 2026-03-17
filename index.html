@@ -172,6 +172,7 @@ async function loadUtenti() { const {data,error}=await sb.from('utenti').select(
 async function loadDipartimenti() { const {data,error}=await sb.from('dipartimenti').select('*'); if(!error) state.dipartimenti=data||[]; }
 async function loadNote(praticaId) { const {data,error}=await sb.from('note_aggiornamento').select('*').eq('pratica_id',praticaId).order('data_nota',{ascending:false}); if(!error) state.noteAggiornamento=data||[]; }
 async function loadNotifiche() {
+    if(state.notificheLoading) return;
     state.notificheLoading = true;
     let query = sb.from('alert_storico').select('*').eq('cancellata',false).order('data_alert',{ascending:false});
     if (!isAdmin()) { const myAvv = myAvvocati(); if (myAvv.length===1) query=query.eq('avvocato',myAvv[0]); else if (myAvv.length>1) query=query.in('avvocato',myAvv); }
