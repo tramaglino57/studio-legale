@@ -991,7 +991,11 @@ function renderModalNote() {
             <div style="background:#f5f3ff;border-radius:16px;padding:18px;border:1px solid #ede9fe;">
                 <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📝 Aggiungi Nota</label>
                 <textarea oninput="state.noteForm.nota=this.value" rows="3" class="sls-input" style="background:#fff;margin-bottom:10px;" placeholder="Scrivi qui la nota...">${state.noteForm.nota||''}</textarea>
-                <button onclick="submitNota()" class="btn-purple" style="padding:10px 20px;font-size:14px;">➕ Aggiungi Nota</button>
+                <div style="background:#f5f3ff;border-radius:16px;padding:18px;border:1px solid #ede9fe;">
+    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📝 Aggiungi Nota</label>
+    <textarea oninput="state.noteForm.nota=this.value" rows="3" class="sls-input" style="background:#fff;margin-bottom:10px;" placeholder="Scrivi qui la nota...">${state.noteForm.nota||''}</textarea>
+    <button onclick="submitNota()" class="btn-purple" style="padding:10px 20px;font-size:14px;">➕ Aggiungi Nota</button>
+</div>`:''}
             </div>
             <h3 style="font-size:16px;font-weight:700;color:#111;margin:0;">📜 Storico Note</h3>
             ${state.noteAggiornamento.length>0?`
