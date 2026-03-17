@@ -971,7 +971,6 @@ function renderModalUtente() {
         </div>
     </div>`);
 }
-
 function renderModalNote() {
     const p=state.viewingPratica;
     return modalOverlay(`
@@ -988,13 +987,27 @@ function renderModalNote() {
         </div>
         <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
             ${isAdmin()||isResp()?`<div style="display:flex;justify-content:flex-end;"><button onclick="state.showNoteModal=false;openPraticaModal(state.viewingPratica)" class="btn-purple" style="padding:10px 18px;font-size:13px;">✏️ Modifica Pratica</button></div>`:''}
+            ${p?.stato!=='fatto'?`
             <div style="background:#f5f3ff;border-radius:16px;padding:18px;border:1px solid #ede9fe;">
                 <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📝 Aggiungi Nota</label>
                 <textarea oninput="state.noteForm.nota=this.value" rows="3" class="sls-input" style="background:#fff;margin-bottom:10px;" placeholder="Scrivi qui la nota...">${state.noteForm.nota||''}</textarea>
-                <div style="background:#f5f3ff;border-radius:16px;padding:18px;border:1px solid #ede9fe;">
-    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📝 Aggiungi Nota</label>
-    <textarea oninput="state.noteForm.nota=this.value" rows="3" class="sls-input" style="background:#fff;margin-bottom:10px;" placeholder="Scrivi qui la nota...">${state.noteForm.nota||''}</textarea>
-    <button onclick="submitNota()" class="btn-purple" style="padding:10px 20px;font-size:14px;">➕ Aggiungi Nota</button>
+                <button onclick="submitNota()" class="btn-purple" style="padding:10px 20px;font-size:14px;">➕ Aggiungi Nota</button>
+            </div>`:''}
+            <h3 style="font-size:16px;font-weight:700;color:#111;margin:0;">📜 Storico Note</h3>
+            ${state.noteAggiornamento.length>0?`
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                ${state.noteAggiornamento.map(n=>`
+                <div style="padding:16px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:14px;border-left:4px solid #9333ea;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <div style="display:flex;align-items:center;gap:8px;">${avvAvatar(n.autore)}<strong style="font-size:13px;">${n.autore}</strong></div>
+                        <span style="font-size:12px;color:#9ca3af;">📅 ${fmtDate(n.data_nota)}</span>
+                    </div>
+                    <p style="color:#374151;font-size:14px;margin:0;">${n.nota}</p>
+                </div>`).join('')}
+            </div>`:`<p style="text-align:center;color:#9ca3af;padding:30px;">Nessuna nota ancora inserita</p>`}
+        </div>
+    </div>`);
+}
 </div>`:''}
             </div>
             <h3 style="font-size:16px;font-weight:700;color:#111;margin:0;">📜 Storico Note</h3>
