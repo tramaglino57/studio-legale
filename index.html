@@ -1055,12 +1055,12 @@ function renderPraticheResult() {
 
 function switchTab(tab) {
     state.activeTab=tab;
+    state.notificheLoading=false;
     if(tab==='notifiche'){
         state.notifiche=[];
-        state.notificheLoading=false;
         state.notificheCaricate=false;
         render();
-        loadNotifiche().then(()=>render());
+    if(tab==='avvocati') loadAndRenderAvvocati();
         return;
     }
 
