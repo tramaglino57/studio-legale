@@ -265,7 +265,7 @@ function render() {
         <footer style="text-align:center;padding:20px;font-size:11px;color:#9ca3af;letter-spacing:1px;text-transform:uppercase;">VERSION 2.5.0 • SLS TECH</footer>
     </div>`;
     if(state.activeTab==='avvocati') loadAndRenderAvvocati();
-    if(state.activeTab==='notifiche'&&!state.notificheLoading&&state.notifiche.length===0) loadNotifiche().then(()=>{state.notificheLoading=false;render();});
+    if(state.activeTab==='notifiche'&&!state.notificheLoading&&state.notifiche.length===0) {state.notificheLoading=true;loadNotifiche().then(()=>render());}
 }
 
 function renderLogin() {
