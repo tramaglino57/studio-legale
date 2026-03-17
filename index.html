@@ -174,8 +174,7 @@ async function loadNote(praticaId) { const {data,error}=await sb.from('note_aggi
 async function loadNotifiche() {
     state.notificheLoading = true;
     let query = sb.from('alert_storico').select('*').eq('cancellata',false).order('data_alert',{ascending:false});
-    if (!isAdmin()) { const myAvv = myAvvocati(); if (myAvv.length===1) query=query.eq('avvocato',myAvv[0]); else if (myAvv.length>1) query=query.in('avvocato',myAvv); }const {data,error} = await query; state.notifiche = error?[]:(data||[]); state.notificheLoading = false;
-}
+   if (!isAdmin()) { const myAvv = myAvvocati(); if (myAvv.length===1) query=query.ilike('avvocato',myAvv[0]); else if (myAvv.length>1) query=query.in('avvocato',myAvv); }
 async function cancellaNotifica(id) { await sb.from('alert_storico').update({cancellata:true}).eq('id',id); state.notifiche = state.notifiche.filter(n=>n.id!==id); render(); }
 async function cancellaNotificheScadenzaSpostata(praticaId, nuovaScadenza) { if (!nuovaScadenza || nuovaScadenza <= today()) return; await sb.from('alert_storico').update({cancellata:true}).eq('pratica_id',praticaId).in('tipo',['scaduta','imminente']); }
 function getPraticheVisibili() { if (isAdmin()) return state.pratiche; const myAvv = myAvvocati(); return state.pratiche.filter(p=>myAvv.includes(p.avvocato)); }
