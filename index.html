@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
@@ -106,7 +106,7 @@ function isAdmin() { return state.user?.username === 'admin'; }
 function isResp() { return state.user?.ruolo === 'responsabile_dipartimento'; }
 function myAvvocati() {
     if (isAdmin()) return state.avvocati.map(a=>a.nome_completo);
-    if (isResp()) return [state.user.nome_completo, ...state.dipartimenti.filter(d=>d.responsabile===state.user.nome_completo).map(d=>d.avvocato)];
+    if (isResp()) return state.dipartimenti.filter(d=>d.responsabile===state.user.nome_completo).map(d=>d.avvocato);
     return [state.user.nome_completo];
 }
 
@@ -172,7 +172,6 @@ async function loadUtenti() { const {data,error}=await sb.from('utenti').select(
 async function loadDipartimenti() { const {data,error}=await sb.from('dipartimenti').select('*'); if(!error) state.dipartimenti=data||[]; }
 async function loadNote(praticaId) { const {data,error}=await sb.from('note_aggiornamento').select('*').eq('pratica_id',praticaId).order('data_nota',{ascending:false}); if(!error) state.noteAggiornamento=data||[]; }
 async function loadNotifiche() {
-    if(state.notificheLoading) return;
     state.notificheLoading = true;
     let query = sb.from('alert_storico').select('*').eq('cancellata',false).order('data_alert',{ascending:false});
     if (!isAdmin()) { const myAvv = myAvvocati(); if (myAvv.length===1) query=query.eq('avvocato',myAvv[0]); else if (myAvv.length>1) query=query.in('avvocato',myAvv); }
@@ -217,8 +216,7 @@ function getStatoBadge(s){return{svolgimento:'badge badge-svolgimento',fatto:'ba
 function getStatoIcon(s){return s==='fatto'?'✅':s==='bloccato'?'🚫':'🔄';}
 function getPrioritaBadge(p){return{bassa:'badge badge-bassa',media:'badge badge-media',alta:'badge badge-alta'}[p]||'badge badge-media';}
 function getAvvStats(nome){ const ps=state.pratiche.filter(p=>p.avvocato===nome); return{totali:ps.length,svolgimento:ps.filter(p=>p.stato==='svolgimento').length,fatto:ps.filter(p=>p.stato==='fatto').length,bloccato:ps.filter(p=>p.stato==='bloccato').length}; }
-function getFiltered(){ const visibili=getPraticheVisibili(); return visibili.filter(p=>{ const s=state.searchTerm.toLowerCase(); match=p.cliente.toLowerCase().includes(s)||p.descrizione.toLowerCase().includes(s)||(p.rgnr||'').toLowerCase().includes(s)||(p.avvocato||'').toLowerCase().includes(s);
-; return match&&(state.filterStato==='tutti'||p.stato===state.filterStato)&&(state.filterTipo==='tutti'||p.tipo_pratica===state.filterTipo)&&(state.filterPriorita==='tutti'||p.priorita===state.filterPriorita)&&(state.filterAvvocato==='tutti'||p.avvocato===state.filterAvvocato); }); }
+function getFiltered(){ const visibili=getPraticheVisibili(); return visibili.filter(p=>{ const s=state.searchTerm.toLowerCase(); const match=p.cliente.toLowerCase().includes(s)||p.descrizione.toLowerCase().includes(s)||(p.rgnr||'').toLowerCase().includes(s); return match&&(state.filterStato==='tutti'||p.stato===state.filterStato)&&(state.filterTipo==='tutti'||p.tipo_pratica===state.filterTipo)&&(state.filterPriorita==='tutti'||p.priorita===state.filterPriorita)&&(state.filterAvvocato==='tutti'||p.avvocato===state.filterAvvocato); }); }
 
 // ── RENDER ────────────────────────────────────────────────
 function render() {
@@ -268,7 +266,7 @@ function render() {
         <footer style="text-align:center;padding:20px;font-size:11px;color:#9ca3af;letter-spacing:1px;text-transform:uppercase;">VERSION 2.5.0 • SLS TECH</footer>
     </div>`;
     if(state.activeTab==='avvocati') loadAndRenderAvvocati();
-    if(state.activeTab==='notifiche'&&!state.notificheLoading&&!state.notificheCaricate){state.notificheLoading=true;render();loadNotifiche().then(()=>{state.notificheCaricate=true;render()});}
+    if(state.activeTab==='notifiche'&&!state.notificheLoading&&state.notifiche.length===0) loadNotifiche().then(()=>render());
 }
 
 function renderLogin() {
@@ -1052,18 +1050,11 @@ function renderPraticheResult() {
     if(inp){const pos=inp.value.length;inp.focus();inp.setSelectionRange(pos,pos);}
 }
 
-
 function switchTab(tab) {
     state.activeTab=tab;
-    state.notificheLoading=false;
-    if(tab==='notifiche'){
-        state.notifiche=[];
-        state.notificheCaricate=false;
-        render();
+    if(tab==='notifiche'){state.notifiche=[];state.notificheLoading=false;}
+    render();
     if(tab==='avvocati') loadAndRenderAvvocati();
-        return;
-    }
-
 }
 
 async function loadAndRenderAvvocati() {
@@ -1175,7 +1166,6 @@ render();
 </script>
 </body>
 </html>
-
 
 
                                                                                             
