@@ -106,7 +106,7 @@ function isAdmin() { return state.user?.username === 'admin'; }
 function isResp() { return state.user?.ruolo === 'responsabile_dipartimento'; }
 function myAvvocati() {
     if (isAdmin()) return state.avvocati.map(a=>a.nome_completo);
-    if (isResp()) return state.dipartimenti.filter(d=>d.responsabile===state.user.nome_completo).map(d=>d.avvocato);
+    if (isResp()) return [state.user.nome_completo, ...state.dipartimenti.filter(d=>d.responsabile===state.user.nome_completo).map(d=>d.avvocato)];
     return [state.user.nome_completo];
 }
 
