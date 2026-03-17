@@ -216,7 +216,8 @@ function getStatoBadge(s){return{svolgimento:'badge badge-svolgimento',fatto:'ba
 function getStatoIcon(s){return s==='fatto'?'✅':s==='bloccato'?'🚫':'🔄';}
 function getPrioritaBadge(p){return{bassa:'badge badge-bassa',media:'badge badge-media',alta:'badge badge-alta'}[p]||'badge badge-media';}
 function getAvvStats(nome){ const ps=state.pratiche.filter(p=>p.avvocato===nome); return{totali:ps.length,svolgimento:ps.filter(p=>p.stato==='svolgimento').length,fatto:ps.filter(p=>p.stato==='fatto').length,bloccato:ps.filter(p=>p.stato==='bloccato').length}; }
-function getFiltered(){ const visibili=getPraticheVisibili(); return visibili.filter(p=>{ const s=state.searchTerm.toLowerCase(); const match=p.cliente.toLowerCase().includes(s)||p.descrizione.toLowerCase().includes(s)||(p.rgnr||'').toLowerCase().includes(s); return match&&(state.filterStato==='tutti'||p.stato===state.filterStato)&&(state.filterTipo==='tutti'||p.tipo_pratica===state.filterTipo)&&(state.filterPriorita==='tutti'||p.priorita===state.filterPriorita)&&(state.filterAvvocato==='tutti'||p.avvocato===state.filterAvvocato); }); }
+function getFiltered(){ const visibili=getPraticheVisibili(); return visibili.filter(p=>{ const s=state.searchTerm.toLowerCase(); match=p.cliente.toLowerCase().includes(s)||p.descrizione.toLowerCase().includes(s)||(p.rgnr||'').toLowerCase().includes(s)||(p.avvocato||'').toLowerCase().includes(s);
+; return match&&(state.filterStato==='tutti'||p.stato===state.filterStato)&&(state.filterTipo==='tutti'||p.tipo_pratica===state.filterTipo)&&(state.filterPriorita==='tutti'||p.priorita===state.filterPriorita)&&(state.filterAvvocato==='tutti'||p.avvocato===state.filterAvvocato); }); }
 
 // ── RENDER ────────────────────────────────────────────────
 function render() {
