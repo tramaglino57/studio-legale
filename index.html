@@ -205,8 +205,20 @@ async function aggiornaNomeDip(responsabile,nomeDip) { await sb.from('dipartimen
 async function login(username,password) { const{data,error}=await sb.from('utenti').select('*').eq('username',username).eq('password',password).eq('attivo',true).single(); if(error||!data){alert('Username o password errati!');return false;} state.user=data; await loadAll(); checkAlertGiornaliero(); eseguiCheckAlert(); render(); return true; }
 function logout(){state.user=null;state.activeTab='dashboard';render();}
 function esportaCSV(nomeFile,righe) { if(!righe||righe.length===0){alert('Nessun dato!');return;} const headers=Object.keys(righe[0]); const csv=[headers.join(';'),...righe.map(r=>headers.map(h=>{const v=r[h]===null||r[h]===undefined?'':String(r[h]);return '"'+v.replace(/"/g,'""')+'"';}).join(';'))].join('\n'); const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=nomeFile;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url); }
-async function esportaTuttiCSV() { const[note,utenti]=await Promise.all([sb.from('note_aggiornamento').select('*').order('data_nota',{ascending:false}),sb.from('utenti').select('id,username,nome_completo,email,ruolo,attivo')]); esportaCSV(`pratiche-${today()}.csv`,state.pratiche);await new Promise(r=>setTimeout(r,300)); esportaCSV(`avvocati-${today()}.csv`,state.avvocati);await new Promise(r=>setTimeout(r,300)); if(!utenti.error&&utenti.data?.length){esportaCSV(`utenti-${today()}.csv`,utenti.data);await new Promise(r=>setTimeout(r,300));} if(!note.error&&note.data?.length)esportaCSV(`note-${today()}.csv`,note.data); showSuccess('CSV esportati!'); }
-async function esportaDati() { const data={pratiche:state.pratiche,avvocati:state.avvocati,dataEsportazione:new Date().toISOString(),versione:'4.0'}; const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`sls-backup-${today()}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url); showSuccess('Backup JSON esportato!'); }
+
+async function esportaTuttiCSV() { 
+    const[note,utenti,alertStorico]=await Promise.all([
+        sb.from('note_aggiornamento').select('*').order('data_nota',{ascending:false}),
+        sb.from('utenti').select('id,username,nome_completo,email,ruolo,attivo'),
+        sb.from('alert_storico').select('*').order('data_alert',{ascending:false})
+    ]); 
+    esportaCSV(`pratiche-${today()}.csv`,state.pratiche);await new Promise(r=>setTimeout(r,300)); 
+    esportaCSV(`avvocati-${today()}.csv`,state.avvocati);await new Promise(r=>setTimeout(r,300)); 
+    if(!utenti.error&&utenti.data?.length){esportaCSV(`utenti-${today()}.csv`,utenti.data);await new Promise(r=>setTimeout(r,300));} 
+    if(!note.error&&note.data?.length){esportaCSV(`note-${today()}.csv`,note.data);await new Promise(r=>setTimeout(r,300));}
+    if(!alertStorico.error&&alertStorico.data?.length){esportaCSV(`alert-storico-${today()}.csv`,alertStorico.data);await new Promise(r=>setTimeout(r,300));}
+    showSuccess('CSV esportati!'); 
+}
 function importaDati(e) { const file=e.target.files[0];if(!file)return; const reader=new FileReader(); reader.onload=async(ev)=>{try{const data=JSON.parse(ev.target.result);if(!confirm(`Importare ${data.pratiche?.length||0} pratiche?`))return;for(const a of(data.avvocati||[])){delete a.id;delete a.created_at;await sb.from('avvocati').insert([a]);}for(const p of(data.pratiche||[])){delete p.id;delete p.created_at;await sb.from('pratiche').insert([p]);}await loadAll();showSuccess('Importati!');}catch(er){alert('Errore: '+er.message);}}; reader.readAsText(file);e.target.value=''; }
 function stampa(){window.print();}
 function showSuccess(msg){state.successMessage=msg;render();setTimeout(()=>{state.successMessage='';render();},3000);}
