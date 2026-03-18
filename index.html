@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SLS Studio Legale - Gestione Pratiche</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
     <style>
         * { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -72,9 +72,29 @@
     </div>
 </div>
 <script>
+window.onerror = function(msg, src, line) {
+    var el = document.getElementById('app');
+    if (el) el.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif;max-width:500px;margin:80px auto;">'
+        + '<h2 style="color:#dc2626;">Errore JavaScript</h2>'
+        + '<p style="background:#fef2f2;border:1px solid #fecaca;padding:16px;border-radius:8px;font-family:monospace;color:#7f1d1d;">Riga ' + line + ': ' + msg + '</p>'
+        + '<p style="color:#9ca3af;font-size:12px;">Premi F12 &rarr; Console per i dettagli.</p>'
+        + '</div>';
+    return true;
+};
+
 const SUPABASE_URL = 'https://vwfubfydakocuxhepwkq.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_ziNieyV1K_9bPBNJu6GHUQ_j2kVEyn2';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let sb;
+try {
+    if (typeof supabase === 'undefined' || typeof supabase.createClient !== 'function')
+        throw new Error('Libreria Supabase non disponibile');
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch(e) {
+    document.getElementById('app').innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif;max-width:500px;margin:80px auto;">'
+        + '<h2 style="color:#dc2626;">Errore connessione database</h2>'
+        + '<p style="background:#fef2f2;border:1px solid #fecaca;padding:16px;border-radius:8px;color:#7f1d1d;">' + e.message + '</p>'
+        + '</div>';
+}
 
 const SLS_LOGO_LARGE = 'data:image/png;base64,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';
 const SLS_LOGO_SMALL = 'data:image/png;base64,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';
@@ -194,7 +214,7 @@ async function savePratica(p) {
     }catch(e){alert('Errore: '+e.message);return false;}
 }
 async function aggiungiNota(praticaId,nota) { try{const{error}=await sb.from('note_aggiornamento').insert([{pratica_id:praticaId,data_nota:today(),nota,autore:state.user.nome_completo,autore_id:state.user.id}]);if(error)throw error;await loadNote(praticaId);return true;}catch(e){alert('Errore: '+e.message);return false;} }
-async function deletePratica(id) { if(!isAdmin()){alert('Solo admin può eliminare pratiche');return;} const{error}=await sb.from('pratiche').delete().eq('id',id); if(!error){await loadPratiche();showSuccess('Pratica eliminata!');}else alert('Errore: '+error.message); }
+async function deletePratica(id) { if(!isAdmin()){alert('Solo admin puÃ² eliminare pratiche');return;} const{error}=await sb.from('pratiche').delete().eq('id',id); if(!error){await loadPratiche();showSuccess('Pratica eliminata!');}else alert('Errore: '+error.message); }
 async function saveAvvocato(avv) { try{avv.nome_completo=avv.nome+' '+avv.cognome;if(avv.id){const{error}=await sb.from('avvocati').update(avv).eq('id',avv.id);if(error)throw error;}else{avv.data_creazione=today();const{error}=await sb.from('avvocati').insert([avv]);if(error)throw error;}await loadAvvocati();return true;}catch(e){alert('Errore: '+e.message);return false;} }
 async function deleteAvvocato(id) { if(!isAdmin()){alert('Solo admin');return;} const nome=state.avvocati.find(a=>a.id===id)?.nome_completo; if(state.pratiche.filter(p=>p.avvocato===nome).length>0){alert('Impossibile: ci sono pratiche assegnate!');return;} const{error}=await sb.from('avvocati').delete().eq('id',id); if(!error){await loadAvvocati();showSuccess('Avvocato eliminato!');}else alert('Errore: '+error.message); }
 async function saveUtente(u) { try{if(u.id){const upd={...u};if(!upd.password||upd.password==='')delete upd.password;const{error}=await sb.from('utenti').update(upd).eq('id',u.id);if(error)throw error;}else{const{error}=await sb.from('utenti').insert([u]);if(error)throw error;}await loadUtenti();return true;}catch(e){alert('Errore: '+e.message);return false;} }
@@ -223,20 +243,20 @@ function importaDati(e) { const file=e.target.files[0];if(!file)return; const re
 function stampa(){window.print();}
 function showSuccess(msg){state.successMessage=msg;render();setTimeout(()=>{state.successMessage='';render();},3000);}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('it-IT'):'';}
-function getRuoloBadge(r){ if(r==='amministratore'||r==='admin')return{label:'👑 Admin',cls:'color:#9333ea'}; if(r==='responsabile_dipartimento')return{label:'🏢 Resp. Dipartimento',cls:'color:#7c3aed'}; return{label:'⚖️ Avvocato',cls:'color:#6b7280'}; }
+function getRuoloBadge(r){ if(r==='amministratore'||r==='admin')return{label:'ðŸ” Admin',cls:'color:#9333ea'}; if(r==='responsabile_dipartimento')return{label:'ðŸ¢ Resp. Dipartimento',cls:'color:#7c3aed'}; return{label:'âš–ï¸ Avvocato',cls:'color:#6b7280'}; }
 function getStatoBadge(s){return{svolgimento:'badge badge-svolgimento',fatto:'badge badge-fatto',bloccato:'badge badge-bloccato'}[s]||'badge badge-svolgimento';}
-function getStatoIcon(s){return s==='fatto'?'✅':s==='bloccato'?'🚫':'🔄';}
+function getStatoIcon(s){return s==='fatto'?'âœ…':s==='bloccato'?'ðŸš«':'ðŸ”„';}
 function getPrioritaBadge(p){return{bassa:'badge badge-bassa',media:'badge badge-media',alta:'badge badge-alta'}[p]||'badge badge-media';}
 function getAvvStats(nome){ const ps=state.pratiche.filter(p=>p.avvocato===nome); return{totali:ps.length,svolgimento:ps.filter(p=>p.stato==='svolgimento').length,fatto:ps.filter(p=>p.stato==='fatto').length,bloccato:ps.filter(p=>p.stato==='bloccato').length}; }
 function getFiltered(){ const visibili=getPraticheVisibili(); return visibili.filter(p=>{ const s=state.searchTerm.toLowerCase(); const match=p.cliente.toLowerCase().includes(s)||p.descrizione.toLowerCase().includes(s)||(p.rgnr||'').toLowerCase().includes(s); return match&&(state.filterStato==='tutti'||p.stato===state.filterStato)&&(state.filterTipo==='tutti'||p.tipo_pratica===state.filterTipo)&&(state.filterPriorita==='tutti'||p.priorita===state.filterPriorita)&&(state.filterAvvocato==='tutti'||p.avvocato===state.filterAvvocato); }); }
 
-// ── RENDER ────────────────────────────────────────────────
+// ðŸ–¥ï¸ RENDER ????????????????????????????????????????????????
 function render() {
     if(!state.user){renderLogin();return;}
     const visibili=getPraticheVisibili();
     const stats={totali:visibili.length,svolgimento:visibili.filter(p=>p.stato==='svolgimento').length,fatto:visibili.filter(p=>p.stato==='fatto').length,bloccato:visibili.filter(p=>p.stato==='bloccato').length,scadute:visibili.filter(p=>isPraticaScaduta(p)).length,inScadenza:visibili.filter(p=>isPraticaInScadenza(p)).length};
     const filtered=getFiltered();
-    const tabs=[{id:'dashboard',label:'Dashboard',icon:'📊',show:true},{id:'pratiche',label:'Pratiche',icon:'📁',show:true},{id:'avvocati',label:'Avvocati',icon:'👥',show:true},{id:'utenti',label:'Utenti',icon:'🔐',show:isAdmin()},{id:'dipartimenti',label:'Dipartimenti',icon:'🏢',show:isAdmin()},{id:'gestione',label:'Gestione Dati',icon:'🗄️',show:isAdmin()},{id:'notifiche',label:'Notifiche',icon:'🔔',show:true}].filter(t=>t.show);
+    const tabs=[{id:'dashboard',label:'Dashboard',icon:'ðŸ“Š',show:true},{id:'pratiche',label:'Pratiche',icon:'ðŸ“',show:true},{id:'avvocati',label:'Avvocati',icon:'ðŸ‘¥',show:true},{id:'utenti',label:'Utenti',icon:'ðŸ”',show:isAdmin()},{id:'dipartimenti',label:'Dipartimenti',icon:'ðŸ¢',show:isAdmin()},{id:'gestione',label:'Gestione Dati',icon:'ðŸ—„ï¸',show:isAdmin()},{id:'notifiche',label:'Notifiche',icon:'ðŸ””',show:true}].filter(t=>t.show);
 
     document.getElementById('app').innerHTML=`
     <div style="max-width:1400px;margin:0 auto;width:100%;">
@@ -253,13 +273,13 @@ function render() {
                     ${avvAvatar(state.user.nome_completo)}
                     <span style="font-size:13px;font-weight:600;color:#7c3aed;">${state.user.nome_completo}</span>
                 </div>
-                <button onclick="logout()" class="btn-purple" style="padding:10px 18px;font-size:13px;display:flex;align-items:center;gap:6px;"><span>🚪</span> Esci</button>
+                <button onclick="logout()" class="btn-purple" style="padding:10px 18px;font-size:13px;display:flex;align-items:center;gap:6px;"><span>ðŸšª</span> Esci</button>
             </div>
         </header>
         <nav style="background:#f9fafb;border-bottom:1px solid #e5e7eb;display:flex;overflow-x:auto;" class="no-print">
             ${tabs.map(t=>`<button onclick="switchTab('${t.id}')" class="nav-tab ${state.activeTab===t.id?'active':'inactive'}">${t.icon} ${t.label}</button>`).join('')}
-            ${stats.inScadenza>0||stats.scadute>0?`<button onclick="state.showAlertModal=true;render()" style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:12px 20px;font-weight:700;font-size:13px;color:#dc2626;background:none;border:none;cursor:pointer;white-space:nowrap;" class="no-print">🔔 ${stats.inScadenza+stats.scadute} alert</button>`:''}</nav>
-        ${state.successMessage?`<div style="background:#dcfce7;border-left:4px solid #16a34a;color:#166534;padding:14px 20px;margin:16px 16px 0;border-radius:12px;font-weight:600;" class="no-print">✅ ${state.successMessage}</div>`:''}
+            ${stats.inScadenza>0||stats.scadute>0?`<button onclick="state.showAlertModal=true;render()" style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:12px 20px;font-weight:700;font-size:13px;color:#dc2626;background:none;border:none;cursor:pointer;white-space:nowrap;" class="no-print">âš ï¸ ${stats.inScadenza+stats.scadute} alert</button>`:''}</nav>
+        ${state.successMessage?`<div style="background:#dcfce7;border-left:4px solid #16a34a;color:#166534;padding:14px 20px;margin:16px 16px 0;border-radius:12px;font-weight:600;" class="no-print">âœ” ${state.successMessage}</div>`:''}
         <main style="padding:24px 20px;">
             ${state.activeTab==='dashboard'?renderDashboard(stats):''}
             ${state.activeTab==='pratiche'?renderPratiche(filtered):''}
@@ -275,7 +295,7 @@ function render() {
         ${state.showNoteModal?renderModalNote():''}
         ${state.showAlertModal?renderModalAlert():''}
         ${state.showDettaglioPratica?renderModalDettaglioPratica():''}
-        <footer style="text-align:center;padding:20px;font-size:11px;color:#9ca3af;letter-spacing:1px;text-transform:uppercase;">VERSION 2.5.0 • SLS TECH</footer>
+        <footer style="text-align:center;padding:20px;font-size:11px;color:#9ca3af;letter-spacing:1px;text-transform:uppercase;">VERSION 2.5.0 â€¢ SLS TECH</footer>
     </div>`;
     if(state.activeTab==='avvocati') loadAndRenderAvvocati();
     
@@ -299,11 +319,11 @@ function renderLogin() {
                     <label style="display:block;font-size:14px;font-weight:600;color:#374151;margin-bottom:8px;">Password</label>
                     <input type="password" id="loginPassword" class="sls-input" style="padding:14px 18px;font-size:15px;" placeholder="La tua password" onkeypress="if(event.key==='Enter')doLogin()"/>
                 </div>
-                <button onclick="doLogin()" class="btn-purple" style="padding:16px;font-size:16px;border-radius:14px;margin-top:6px;">➡️ Accedi</button>
+                <button onclick="doLogin()" class="btn-purple" style="padding:16px;font-size:16px;border-radius:14px;margin-top:6px;">ðŸ” Accedi</button>
                 <p style="text-align:center;margin:4px 0 0;"><a href="#" style="color:#9333ea;font-size:13px;text-decoration:none;">Password dimenticata?</a></p>
             </div>
         </div>
-        <div style="text-align:center;margin-top:32px;font-size:11px;color:#9ca3af;letter-spacing:1px;text-transform:uppercase;">VERSION 2.5.0 • SLS TECH</div>
+        <div style="text-align:center;margin-top:32px;font-size:11px;color:#9ca3af;letter-spacing:1px;text-transform:uppercase;">VERSION 2.5.0 â€¢ SLS TECH</div>
     </div>`;
 }
 
@@ -329,12 +349,12 @@ function renderDashboard(stats) {
             </div>`).join('')}
         </div>
         <div style="display:flex;gap:12px;">
-            <button onclick="switchTab('pratiche');openPraticaModal(null)" class="btn-purple" style="flex:1;padding:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;">➕ Nuova Pratica</button>
-            <button onclick="switchTab('pratiche')" class="btn-white" style="flex:1;padding:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;">🔍 Cerca Pratica</button>
+            <button onclick="switchTab('pratiche');openPraticaModal(null)" class="btn-purple" style="flex:1;padding:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;">âž• Nuova Pratica</button>
+            <button onclick="switchTab('pratiche')" class="btn-white" style="flex:1;padding:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;">ðŸ” Cerca Pratica</button>
         </div>
         ${stats.scadute>0||stats.inScadenza>0?`
         <div class="sls-card" style="padding:20px;">
-            <h2 class="section-title">🔔 Situazione Scadenze</h2>
+            <h2 class="section-title">âš ï¸ Situazione Scadenze</h2>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div onclick="state.showAlertModal=true;render()" style="background:#fff0f0;border:2px solid #fecaca;border-radius:14px;padding:16px;text-align:center;cursor:pointer;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#ef4444'" onmouseout="this.style.borderColor='#fecaca'"><div style="font-size:30px;font-weight:700;color:#dc2626;">${stats.scadute}</div><div style="font-size:12px;color:#6b7280;margin-top:2px;">Pratiche scadute</div></div>
                 <div onclick="state.showAlertModal=true;render()" style="background:#fff7ed;border:2px solid #fed7aa;border-radius:14px;padding:16px;text-align:center;cursor:pointer;transition:border-color 0.2s;" onmouseover="this.style.borderColor='#f97316'" onmouseout="this.style.borderColor='#fed7aa'"><div style="font-size:30px;font-weight:700;color:#ea580c;">${stats.inScadenza}</div><div style="font-size:12px;color:#6b7280;margin-top:2px;">In scadenza</div></div>
@@ -350,7 +370,7 @@ function renderPratiche(filtered) {
         <div class="sls-card" style="padding:20px;" id="filtriCard">
             <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:14px;">
                 <div style="flex:1;min-width:200px;position:relative;">
-                    <span style="position:absolute;left:14px;top:13px;color:#9ca3af;">🔍</span>
+                    <span style="position:absolute;left:14px;top:13px;color:#9ca3af;">ðŸ”</span>
                     <input type="text" id="searchInput" placeholder="Cerca cliente, descrizione, RGNR..."
                         value="${state.searchTerm}"
                         oninput="state.searchTerm=this.value;renderPraticheResult();"
@@ -358,10 +378,10 @@ function renderPratiche(filtered) {
                         class="sls-input" style="padding-left:40px;"/>
                 </div>
                 <div style="display:flex;gap:8px;">
-                    <button onclick="state.viewMode='cards';render()" class="${state.viewMode==='cards'?'btn-purple':'btn-white'}" style="padding:10px 16px;font-size:13px;">📋 Card</button>
-                    <button onclick="state.viewMode='table';render()" class="${state.viewMode==='table'?'btn-purple':'btn-white'}" style="padding:10px 16px;font-size:13px;">📊 Tabella</button>
+                    <button onclick="state.viewMode='cards';render()" class="${state.viewMode==='cards'?'btn-purple':'btn-white'}" style="padding:10px 16px;font-size:13px;">ðŸ“‹ Card</button>
+                    <button onclick="state.viewMode='table';render()" class="${state.viewMode==='table'?'btn-purple':'btn-white'}" style="padding:10px 16px;font-size:13px;">ðŸ“Š Tabella</button>
                 </div>
-                <button onclick="openPraticaModal(null)" class="btn-purple" style="padding:12px 20px;font-size:14px;white-space:nowrap;">➕ Nuova Pratica</button>
+                <button onclick="openPraticaModal(null)" class="btn-purple" style="padding:12px 20px;font-size:14px;white-space:nowrap;">âž• Nuova Pratica</button>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">
                 <select onchange="state.filterStato=this.value;render()" class="sls-input" style="padding:10px 14px;">
@@ -375,13 +395,13 @@ function renderPratiche(filtered) {
                     ${TIPI_PRATICA.map(t=>`<option value="${t}" ${state.filterTipo===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
                 </select>
                 <select onchange="state.filterPriorita=this.value;render()" class="sls-input" style="padding:10px 14px;">
-                    <option value="tutti">Tutte priorità</option>
+                    <option value="tutti">Tutte prioritÃ </option>
                     <option value="bassa">Bassa</option><option value="media">Media</option><option value="alta">Alta</option>
                 </select>
                 <select onchange="state.filterAvvocato=this.value;render()" class="sls-input" style="padding:10px 14px;">
                     ${avvocatiList.map(a=>`<option value="${a}" ${state.filterAvvocato===a?'selected':''}>${a==='tutti'?'Tutti avvocati':a}</option>`).join('')}
                 </select>
-                <button onclick="stampa()" class="btn-white" style="padding:10px 16px;font-size:13px;">🖨️ Stampa</button>
+                <button onclick="stampa()" class="btn-white" style="padding:10px 16px;font-size:13px;">ðŸ–¨ï¸ Stampa</button>
             </div>
         </div>
         <div id="praticheResult">
@@ -402,31 +422,31 @@ function renderPraticheCards(filtered) {
                         <span class="${getStatoBadge(p.stato)}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
                         <span class="${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
                         <span class="badge" style="background:#f3f4f6;color:#374151;">${p.tipo_pratica}</span>
-                        ${p.autorita?`<span class="badge" style="background:#eff6ff;color:#1d4ed8;">🏛️ ${p.autorita}</span>`:''}
+                        ${p.autorita?`<span class="badge" style="background:#eff6ff;color:#1d4ed8;">ðŸ›ï¸ ${p.autorita}</span>`:''}
                         ${p.rgnr?`<span class="badge" style="background:#f5f3ff;color:#6d28d9;">RGNR: ${p.rgnr}</span>`:''}
-                        ${p.responsabile_dipartimento?`<span class="badge" style="background:#f5f3ff;color:#7c3aed;">🏢 ${p.responsabile_dipartimento}</span>`:''}
-                        ${inScad&&!fatto?`<span class="badge" style="background:#fff7ed;color:#c2410c;">🔔 Scade tra ${Math.ceil((new Date(p.scadenza)-new Date())/(1000*60*60*24))}gg</span>`:''}
-                        ${scaduta&&!fatto?`<span class="badge" style="background:#fef2f2;color:#dc2626;">⚠️ SCADUTA</span>`:''}
+                        ${p.responsabile_dipartimento?`<span class="badge" style="background:#f5f3ff;color:#7c3aed;">ðŸ¢ ${p.responsabile_dipartimento}</span>`:''}
+                        ${inScad&&!fatto?`<span class="badge" style="background:#fff7ed;color:#c2410c;">ðŸ”” Scade tra ${Math.ceil((new Date(p.scadenza)-new Date())/(1000*60*60*24))}gg</span>`:''}
+                        ${scaduta&&!fatto?`<span class="badge" style="background:#fef2f2;color:#dc2626;">âš ï¸ SCADUTA</span>`:''}
                     </div>
                     <h3 style="font-size:17px;font-weight:700;color:#111;margin:0 0 4px;" class="${fatto?'fatto-strike':''}">${p.cliente}</h3>
                     <p style="color:#6b7280;font-size:14px;margin:0 0 10px;" class="${fatto?'fatto-strike':''}">${p.descrizione}</p>
                     <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:#9ca3af;align-items:center;">
                         <span style="display:flex;align-items:center;gap:6px;">${avvAvatar(p.avvocato)}<strong style="color:#374151;">${p.avvocato||'-'}</strong></span>
-                        <span>📅 ${fmtDate(p.data_apertura)}</span>
-                        ${p.scadenza?`<span style="${scaduta&&!fatto?'color:#dc2626;font-weight:600;':inScad&&!fatto?'color:#ea580c;font-weight:600;':''}">⏰ ${fmtDate(p.scadenza)}</span>`:''}
-                        ${p.data_aggiornamento_attivita?`<span>🔄 ${fmtDate(p.data_aggiornamento_attivita)}</span>`:''}
+                        <span>ðŸ“… ${fmtDate(p.data_apertura)}</span>
+                        ${p.scadenza?`<span style="${scaduta&&!fatto?'color:#dc2626;font-weight:600;':inScad&&!fatto?'color:#ea580c;font-weight:600;':''}">â° ${fmtDate(p.scadenza)}</span>`:''}
+                        ${p.data_aggiornamento_attivita?`<span>ðŸ”„ ${fmtDate(p.data_aggiornamento_attivita)}</span>`:''}
                     </div>
                 </div>
                 <div style="display:flex;gap:8px;position:relative;z-index:20;" class="no-print">
-                    <button onclick="viewPratica('${p.id}')" class="btn-green" style="padding:9px 16px;font-size:13px;">👁️ Vedi</button>
-                    ${isAdmin()||p.stato!=='fatto'?`<button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="btn-purple" style="padding:6px 12px;font-size:12px;">✏️</button>`:''}
-                    ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="btn-danger" style="padding:9px 16px;font-size:13px;">🗑️</button>`:''}
+                    <button onclick="viewPratica('${p.id}')" class="btn-green" style="padding:9px 16px;font-size:13px;">ðŸ‘ï¸ Vedi</button>
+                    ${isAdmin()||p.stato!=='fatto'?`<button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="btn-purple" style="padding:6px 12px;font-size:12px;">âœï¸</button>`:''}
+                    ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="btn-danger" style="padding:9px 16px;font-size:13px;">ðŸ—‘ï¸</button>`:''}
                 </div>
             </div>
         </div>`;
     }).join(''):`
     <div class="sls-card" style="padding:60px;text-align:center;">
-        <div style="font-size:56px;margin-bottom:12px;">📁</div>
+        <div style="font-size:56px;margin-bottom:12px;">ðŸ“</div>
         <p style="color:#9ca3af;font-size:16px;">Nessuna pratica trovata</p>
     </div>`}
     </div>`;
@@ -440,9 +460,9 @@ function renderPraticheTable(filtered) {
                 <tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">
                     <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Cliente</th>
                     <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Tipo</th>
-                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Autorità</th>
+                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">AutoritÃ </th>
                     <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Stato</th>
-                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Priorità</th>
+                    <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">PrioritÃ </th>
                     <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Scadenza</th>
                     <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;">Avv.</th>
                     <th style="padding:14px 16px;text-align:left;font-size:13px;font-weight:600;color:#374151;" class="no-print">Azioni</th>
@@ -465,9 +485,9 @@ function renderPraticheTable(filtered) {
                         <td style="padding:14px 16px;">${avvAvatar(p.avvocato)}</td>
                         <td style="padding:14px 16px;position:relative;z-index:20;" class="no-print">
                             <div style="display:flex;gap:6px;">
-                                <button onclick="viewPratica('${p.id}')" class="btn-green" style="padding:6px 12px;font-size:12px;">👁️</button>
-                                ${isAdmin()||p.stato!=='fatto'?`<button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="btn-purple" style="padding:6px 12px;font-size:12px;">✏️</button>`:''}
-                                ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="btn-danger" style="padding:6px 12px;font-size:12px;">🗑️</button>`:''}
+                                <button onclick="viewPratica('${p.id}')" class="btn-green" style="padding:6px 12px;font-size:12px;">ðŸ‘ï¸</button>
+                                ${isAdmin()||p.stato!=='fatto'?`<button onclick="openPraticaModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" class="btn-purple" style="padding:6px 12px;font-size:12px;">âœï¸</button>`:''}
+                                ${isAdmin()?`<button onclick="confirmDeletePratica('${p.id}')" class="btn-danger" style="padding:6px 12px;font-size:12px;">ðŸ—‘ï¸</button>`:''}
                             </div>
                         </td>
                     </tr>`;
@@ -483,10 +503,10 @@ async function renderAvvocati() {
     const html=`
     <div style="display:flex;flex-direction:column;gap:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-            <h2 class="section-title" style="margin:0;">👥 Archivio Avvocati</h2>
+            <h2 class="section-title" style="margin:0;">ðŸ‘¥ Archivio Avvocati</h2>
             <div style="display:flex;gap:8px;">
-                <button onclick="stampa()" class="btn-white" style="padding:10px 16px;font-size:13px;" class="no-print">🖨️ Stampa</button>
-                ${isAdmin()?`<button onclick="openAvvocatoModal(null)" class="btn-purple" style="padding:10px 20px;font-size:14px;" class="no-print">➕ Nuovo</button>`:''}
+                <button onclick="stampa()" class="btn-white" style="padding:10px 16px;font-size:13px;" class="no-print">ðŸ–¨ï¸ Stampa</button>
+                ${isAdmin()?`<button onclick="openAvvocatoModal(null)" class="btn-purple" style="padding:10px 20px;font-size:14px;" class="no-print">âž• Nuovo</button>`:''}
             </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
@@ -502,12 +522,12 @@ async function renderAvvocati() {
                         <div>
                             <h3 style="font-size:16px;font-weight:700;color:#111;margin:0;">${a.nome_completo}</h3>
                             <p style="font-size:12px;font-weight:600;color:${colore};margin:2px 0;">${a.specializzazione}</p>
-                            ${resp?`<p style="font-size:11px;color:#9333ea;margin:0;">🏢 ${resp}</p>`:''}
+                            ${resp?`<p style="font-size:11px;color:#9333ea;margin:0;">ðŸ¢ ${resp}</p>`:''}
                         </div>
                     </div>
                     <div style="margin-bottom:12px;">
-                        <p style="font-size:13px;color:#6b7280;margin:2px 0;">📧 ${a.email}</p>
-                        <p style="font-size:13px;color:#6b7280;margin:2px 0;">📱 ${a.telefono}</p>
+                        <p style="font-size:13px;color:#6b7280;margin:2px 0;">ðŸ“§ ${a.email}</p>
+                        <p style="font-size:13px;color:#6b7280;margin:2px 0;">ðŸ“ž ${a.telefono}</p>
                     </div>
                     <div style="background:#f9fafb;border-radius:12px;padding:12px;margin-bottom:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;">
                         <div><div style="font-size:18px;font-weight:700;color:#111;">${st.totali}</div><div style="font-size:11px;color:#9ca3af;">Totali</div></div>
@@ -517,20 +537,20 @@ async function renderAvvocati() {
                     </div>
                     ${storico.length>0?`
                     <div style="margin-bottom:14px;">
-                        <p style="font-size:11px;font-weight:600;color:#9ca3af;margin:0 0 6px;">📋 Ultimi alert</p>
+                        <p style="font-size:11px;font-weight:600;color:#9ca3af;margin:0 0 6px;">ðŸ”” Ultimi alert</p>
                         <div style="display:flex;flex-direction:column;gap:4px;max-height:100px;overflow-y:auto;">
                             ${storico.map(s=>`
                             <div style="font-size:11px;padding:6px 10px;border-radius:8px;display:flex;justify-content:space-between;${s.tipo==='scaduta'?'background:#fef2f2;color:#dc2626;':'background:#fff7ed;color:#c2410c;'}">
-                                <span>${s.tipo==='scaduta'?'⚠️':'🔔'} <strong>${s.cliente}</strong></span>
+                                <span>${s.tipo==='scaduta'?'âš ï¸':'ðŸ””'} <strong>${s.cliente}</strong></span>
                                 <span style="color:#9ca3af;">${fmtDate(s.data_alert)}</span>
                             </div>`).join('')}
                         </div>
                     </div>`:`<div style="text-align:center;padding:10px;background:#f9fafb;border-radius:10px;margin-bottom:14px;"><p style="font-size:12px;color:#9ca3af;margin:0;">Nessun alert</p></div>`}
                     <div style="display:flex;gap:8px;" class="no-print">
                         ${isAdmin()?`
-                        <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">✏️ Modifica</button>
-                        <button onclick="confirmDeleteAvvocato('${a.id}')" class="btn-danger" style="flex:1;padding:10px;font-size:13px;">🗑️ Elimina</button>
-                        `:`<button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">🎨 Cambia Colore</button>`}
+                        <button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">âœï¸ Modifica</button>
+                        <button onclick="confirmDeleteAvvocato('${a.id}')" class="btn-danger" style="flex:1;padding:10px;font-size:13px;">ðŸ—‘ï¸ Elimina</button>
+                        `:`<button onclick="openAvvocatoModal(${JSON.stringify(a).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">ðŸŽ¨ Cambia Colore</button>`}
                     </div>
                 </div>`;
             }).join('')}
@@ -543,10 +563,10 @@ function renderDipartimenti() {
     const responsabili=state.utenti.filter(u=>u.ruolo==='responsabile_dipartimento');
     return `
     <div style="display:flex;flex-direction:column;gap:20px;">
-        <h2 class="section-title">🏢 Gestione Dipartimenti</h2>
+        <h2 class="section-title">ðŸ¢ Gestione Dipartimenti</h2>
         ${responsabili.length===0?`
         <div class="sls-card" style="padding:60px;text-align:center;">
-            <div style="font-size:52px;margin-bottom:12px;">🏢</div>
+            <div style="font-size:52px;margin-bottom:12px;">ðŸ¢</div>
             <p style="color:#9ca3af;">Nessun Responsabile creato. Aggiungine uno nella sezione Utenti.</p>
         </div>`:`
         <div style="display:flex;flex-direction:column;gap:16px;">
@@ -560,35 +580,35 @@ function renderDipartimenti() {
                         ${avvAvatar(r.nome_completo,true)}
                         <div>
                             <h3 style="font-size:17px;font-weight:700;color:#111;margin:0;">${r.nome_completo}</h3>
-                            <p style="font-size:12px;color:#9333ea;font-weight:600;margin:2px 0;">🏢 Responsabile Dipartimento</p>
+                            <p style="font-size:12px;color:#9333ea;font-weight:600;margin:2px 0;">ðŸ¢ Responsabile Dipartimento</p>
                         </div>
                     </div>
                     <div style="margin-bottom:16px;">
                         <label style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;display:block;">Nome Dipartimento</label>
                         <div style="display:flex;gap:8px;">
                             <input type="text" id="nomeDip_${r.id}" value="${nomeDip}" placeholder="Es. Diritto Civile, Penale..." class="sls-input" style="flex:1;"/>
-                            <button onclick="aggiornaNomeDip('${r.nome_completo}',document.getElementById('nomeDip_${r.id}').value)" class="btn-purple" style="padding:10px 16px;font-size:13px;white-space:nowrap;">💾 Salva</button>
+                            <button onclick="aggiornaNomeDip('${r.nome_completo}',document.getElementById('nomeDip_${r.id}').value)" class="btn-purple" style="padding:10px 16px;font-size:13px;white-space:nowrap;">ðŸ’¾ Salva</button>
                         </div>
                     </div>
                     <div style="margin-bottom:14px;">
-                        <p style="font-size:13px;font-weight:600;color:#374151;margin:0 0 8px;">Avvocati nel dipartimento <span style="color:#9333ea;">${nomeDip?`— ${nomeDip}`:''}</span> (${miei.length}):</p>
+                        <p style="font-size:13px;font-weight:600;color:#374151;margin:0 0 8px;">Avvocati nel dipartimento <span style="color:#9333ea;">${nomeDip?`â€” ${nomeDip}`:''}</span> (${miei.length}):</p>
                         ${miei.length===0?`<p style="font-size:12px;color:#9ca3af;font-style:italic;">Nessun avvocato assegnato</p>`:`
                         <div style="display:flex;flex-wrap:wrap;gap:8px;">
                             ${miei.map(d=>`
                             <div style="display:flex;align-items:center;gap:8px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:8px 12px;">
                                 ${avvAvatar(d.avvocato)}
                                 <span style="font-size:13px;font-weight:600;">${d.avvocato}</span>
-                                <button onclick="confirmDeleteDip('${d.id}')" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:14px;padding:0 2px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">✕</button>
+                                <button onclick="confirmDeleteDip('${d.id}')" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:14px;padding:0 2px;" onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">âœ•</button>
                             </div>`).join('')}
                         </div>`}
                     </div>
                     ${avvLiberi.length>0?`
                     <div style="display:flex;gap:8px;align-items:center;">
                         <select id="addAvv_${r.id}" class="sls-input" style="flex:1;padding:10px 14px;">
-                            <option value="">— Aggiungi avvocato —</option>
+                            <option value="">â€” Aggiungi avvocato â€”</option>
                             ${avvLiberi.map(a=>`<option value="${a.nome_completo}">${a.nome_completo}</option>`).join('')}
                         </select>
-                        <button onclick="aggiungiAlDip('${r.id}','${r.nome_completo}')" class="btn-purple" style="padding:10px 16px;font-size:13px;white-space:nowrap;">➕ Aggiungi</button>
+                        <button onclick="aggiungiAlDip('${r.id}','${r.nome_completo}')" class="btn-purple" style="padding:10px 16px;font-size:13px;white-space:nowrap;">âž• Aggiungi</button>
                     </div>`:''}
                 </div>`;
             }).join('')}
@@ -604,15 +624,15 @@ function renderNotifiche() {
     <div style="display:flex;flex-direction:column;gap:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
             <div>
-                <h2 class="section-title" style="margin:0;">🔔 Notifiche</h2>
+                <h2 class="section-title" style="margin:0;">ðŸ”” Notifiche</h2>
                 <p style="font-size:13px;color:#9ca3af;margin:4px 0 0;">${isAdmin()?'Tutte le notifiche dello studio':'Le tue notifiche personali'}</p>
             </div>
-            <button onclick="loadNotifiche().then(()=>render())" class="btn-purple" style="padding:10px 20px;font-size:13px;">🔄 Aggiorna</button>
+            <button onclick="loadNotifiche().then(()=>render())" class="btn-purple" style="padding:10px 20px;font-size:13px;">ðŸ”„ Aggiorna</button>
         </div>
         ${loading?`<div class="sls-card" style="padding:60px;text-align:center;"><p style="color:#9ca3af;">Caricamento...</p></div>`:
         lista.length===0?`
         <div class="sls-card" style="padding:60px;text-align:center;">
-            <div style="font-size:52px;margin-bottom:12px;">🔕</div>
+            <div style="font-size:52px;margin-bottom:12px;">ðŸ””</div>
             <p style="color:#9ca3af;font-size:16px;">Nessuna notifica</p>
         </div>`:`
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
@@ -634,7 +654,7 @@ function renderNotifiche() {
             <div>
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
                     <div style="height:1px;flex:1;background:#e5e7eb;"></div>
-                    <span style="font-size:12px;font-weight:600;color:#9ca3af;background:#f3f4f6;padding:4px 12px;border-radius:20px;">📅 ${fmtDate(data)}</span>
+                    <span style="font-size:12px;font-weight:600;color:#9ca3af;background:#f3f4f6;padding:4px 12px;border-radius:20px;">ðŸ“… ${fmtDate(data)}</span>
                     <div style="height:1px;flex:1;background:#e5e7eb;"></div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:8px;">
@@ -647,16 +667,16 @@ function renderNotifiche() {
                                 <div style="min-width:0;">
                                     <p style="font-weight:700;color:#111;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.cliente}</p>
                                     <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#9ca3af;margin-top:2px;">
-                                        <span>👤 ${a.avvocato||'-'}</span>
-                                        <span>⏰ ${fmtDate(a.scadenza)}</span>
+                                        <span>âš–ï¸ ${a.avvocato||'-'}</span>
+                                        <span>â° ${fmtDate(a.scadenza)}</span>
                                         ${a.diff_giorni!==null?`<span>${a.diff_giorni<=0?`Scaduta da ${Math.abs(a.diff_giorni)}gg`:`${a.diff_giorni}gg al termine`}</span>`:''}
                                     </div>
                                 </div>
                             </div>
                             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;" onclick="event.stopPropagation()">
-                                <span class="badge" style="${a.tipo==='scaduta'?'background:#fecaca;color:#dc2626;':'background:#fed7aa;color:#c2410c;'}">${a.tipo==='scaduta'?'⚠️ Scaduta':'🔔 Imminente'}</span>
-                                ${pratica?`<span style="font-size:12px;color:#9333ea;font-weight:600;">📂</span>`:''}
-                                <button onclick="event.stopPropagation();cancellaNotifica('${a.id}')" style="width:28px;height:28px;border-radius:50%;background:#f3f4f6;border:none;color:#9ca3af;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626'" onmouseout="this.style.background='#f3f4f6';this.style.color='#9ca3af'">✕</button>
+                                <span class="badge" style="${a.tipo==='scaduta'?'background:#fecaca;color:#dc2626;':'background:#fed7aa;color:#c2410c;'}">${a.tipo==='scaduta'?'âš ï¸ Scaduta':'ðŸ”” Imminente'}</span>
+                                ${pratica?`<span style="font-size:12px;color:#9333ea;font-weight:600;">ðŸ“</span>`:''}
+                                <button onclick="event.stopPropagation();cancellaNotifica('${a.id}')" style="width:28px;height:28px;border-radius:50%;background:#f3f4f6;border:none;color:#9ca3af;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='#fef2f2';this.style.color='#dc2626'" onmouseout="this.style.background='#f3f4f6';this.style.color='#9ca3af'">âœ•</button>
                             </div>
                         </div>`;
                     }).join('')}
@@ -670,8 +690,8 @@ function renderUtenti() {
     return `
     <div style="display:flex;flex-direction:column;gap:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-            <h2 class="section-title" style="margin:0;">🔐 Gestione Utenti</h2>
-            <button onclick="openUtenteModal(null)" class="btn-purple" style="padding:10px 20px;font-size:14px;">➕ Nuovo</button>
+            <h2 class="section-title" style="margin:0;">ðŸ” Gestione Utenti</h2>
+            <button onclick="openUtenteModal(null)" class="btn-purple" style="padding:10px 20px;font-size:14px;">âž• Nuovo</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
             ${state.utenti.map(u=>{
@@ -683,16 +703,16 @@ function renderUtenti() {
                             <h3 style="font-size:16px;font-weight:700;color:#111;margin:0 0 4px;">${u.nome_completo}</h3>
                             <p style="font-size:13px;font-weight:600;margin:0;${rb.cls}">${rb.label}</p>
                         </div>
-                        <span style="font-size:28px;">${u.ruolo==='amministratore'?'👑':u.ruolo==='responsabile_dipartimento'?'🏢':'👤'}</span>
+                        <span style="font-size:28px;">${u.ruolo==='amministratore'?'ðŸ”':u.ruolo==='responsabile_dipartimento'?'ðŸ¢':'âš–ï¸'}</span>
                     </div>
                     <div style="margin-bottom:14px;">
-                        <p style="font-size:13px;color:#6b7280;margin:3px 0;">🔑 <strong>${u.username}</strong></p>
-                        <p style="font-size:13px;color:#6b7280;margin:3px 0;">📧 ${u.email}</p>
-                        <p style="font-size:13px;margin:3px 0;${u.attivo?'color:#16a34a;':'color:#dc2626;'}">${u.attivo?'✅ Attivo':'❌ Disattivato'}</p>
+                        <p style="font-size:13px;color:#6b7280;margin:3px 0;">ðŸ‘¤ <strong>${u.username}</strong></p>
+                        <p style="font-size:13px;color:#6b7280;margin:3px 0;">ðŸ“§ ${u.email}</p>
+                        <p style="font-size:13px;margin:3px 0;${u.attivo?'color:#16a34a;':'color:#dc2626;'}">${u.attivo?'âœ… Attivo':'âŒ Disattivato'}</p>
                     </div>
                     <div style="display:flex;gap:8px;">
-                        <button onclick="openUtenteModal(${JSON.stringify(u).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">✏️ Modifica</button>
-                        <button onclick="confirmDeleteUtente('${u.id}')" class="btn-danger" style="flex:1;padding:10px;font-size:13px;">🗑️ Elimina</button>
+                        <button onclick="openUtenteModal(${JSON.stringify(u).replace(/"/g,'&quot;')})" class="btn-purple" style="flex:1;padding:10px;font-size:13px;">âœï¸ Modifica</button>
+                        <button onclick="confirmDeleteUtente('${u.id}')" class="btn-danger" style="flex:1;padding:10px;font-size:13px;">ðŸ—‘ï¸ Elimina</button>
                     </div>
                 </div>`;
             }).join('')}
@@ -703,7 +723,7 @@ function renderUtenti() {
 function renderGestione() {
     return `
     <div style="display:flex;flex-direction:column;gap:20px;">
-        <h2 class="section-title">🗄️ Gestione Database</h2>
+        <h2 class="section-title">ðŸ—„ï¸ Gestione Database</h2>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
             <div class="sls-card" style="padding:24px;border-top:4px solid #10b981;">
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
@@ -713,14 +733,14 @@ function renderGestione() {
                     <div><h3 style="font-size:16px;font-weight:700;margin:0;">Esporta CSV</h3><p style="font-size:12px;color:#9ca3af;margin:0;">File Excel-compatibili</p></div>
                 </div>
                 <div style="background:#f9fafb;border-radius:10px;padding:12px;margin-bottom:14px;">
-                    <p style="font-size:13px;margin:3px 0;">📁 pratiche.csv — ${state.pratiche.length} record</p>
-                    <p style="font-size:13px;margin:3px 0;">👥 avvocati.csv — ${state.avvocati.length} record</p>
-                    <p style="font-size:13px;margin:3px 0;">🔐 utenti.csv · 📝 note.csv</p>
+                    <p style="font-size:13px;margin:3px 0;">ðŸ“ pratiche.csv â€” ${state.pratiche.length} record</p>
+                    <p style="font-size:13px;margin:3px 0;">ðŸ‘¥ avvocati.csv â€” ${state.avvocati.length} record</p>
+                    <p style="font-size:13px;margin:3px 0;">ðŸ” utenti.csv Â· ðŸ“ note.csv</p>
                 </div>
-                <button onclick="esportaTuttiCSV()" style="width:100%;padding:12px;background:linear-gradient(135deg,#34d399,#10b981);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;margin-bottom:8px;">📊 Esporta tutti i CSV</button>
+                <button onclick="esportaTuttiCSV()" style="width:100%;padding:12px;background:linear-gradient(135deg,#34d399,#10b981);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;margin-bottom:8px;">ðŸ“¤ Esporta tutti i CSV</button>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                    <button onclick="esportaCSV('pratiche-${today()}.csv',state.pratiche)" class="btn-white" style="padding:8px;font-size:12px;">📁 Pratiche</button>
-                    <button onclick="esportaCSV('avvocati-${today()}.csv',state.avvocati)" class="btn-white" style="padding:8px;font-size:12px;">👥 Avvocati</button>
+                    <button onclick="esportaCSV('pratiche-${today()}.csv',state.pratiche)" class="btn-white" style="padding:8px;font-size:12px;">ðŸ“ Pratiche</button>
+                    <button onclick="esportaCSV('avvocati-${today()}.csv',state.avvocati)" class="btn-white" style="padding:8px;font-size:12px;">ðŸ‘¥ Avvocati</button>
                 </div>
             </div>
             <div style="display:flex;flex-direction:column;gap:16px;">
@@ -729,7 +749,7 @@ function renderGestione() {
                         <div class="purple-icon" style="width:48px;height:48px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
                         <div><h3 style="font-size:16px;font-weight:700;margin:0;">Backup JSON</h3><p style="font-size:12px;color:#9ca3af;margin:0;">File di backup completo</p></div>
                     </div>
-                    <button onclick="esportaDati()" class="btn-purple" style="width:100%;padding:12px;font-size:14px;">📥 Esporta JSON</button>
+                    <button onclick="esportaDati()" class="btn-purple" style="width:100%;padding:12px;font-size:14px;">ðŸ’¾ Esporta JSON</button>
                 </div>
                 <div class="sls-card" style="padding:24px;border-top:4px solid #f97316;">
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
@@ -737,7 +757,7 @@ function renderGestione() {
                         <div><h3 style="font-size:16px;font-weight:700;margin:0;">Importa Dati</h3><p style="font-size:12px;color:#9ca3af;margin:0;">Ripristina da backup</p></div>
                     </div>
                     <label style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;background:linear-gradient(135deg,#fb923c,#f97316);color:#fff;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;">
-                        📤 Seleziona File <input type="file" accept=".json" onchange="importaDati(event)" style="display:none;"/>
+                        ðŸ“‚ Seleziona File <input type="file" accept=".json" onchange="importaDati(event)" style="display:none;"/>
                     </label>
                 </div>
             </div>
@@ -745,7 +765,7 @@ function renderGestione() {
     </div>`;
 }
 
-// ── MODALS ──────────────────────────────────────────────────────────────
+// ðŸ“¦ MODALS ??????????????????????????????????????????????????????????????
 function modalOverlay(content) {
     return `<div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;overflow-y:auto;">${content}</div>`;
 }
@@ -757,8 +777,8 @@ function renderModalDettaglioPratica() {
     return modalOverlay(`
     <div class="sls-modal animate-slidedown" style="margin:auto;">
         <div class="sls-modal-header">
-            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">📂 Dettaglio Pratica</h2>
-            <button class="sls-modal-close" onclick="state.showDettaglioPratica=false;render()">✕</button>
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">ðŸ“‹ Dettaglio Pratica</h2>
+            <button class="sls-modal-close" onclick="state.showDettaglioPratica=false;render()">âœ•</button>
         </div>
         <div style="padding:28px;display:flex;flex-direction:column;gap:18px;">
             <div style="display:flex;align-items:center;gap:14px;">
@@ -772,21 +792,21 @@ function renderModalDettaglioPratica() {
                 <span class="${getStatoBadge(p.stato)}">${getStatoIcon(p.stato)} ${p.stato.toUpperCase()}</span>
                 <span class="${getPrioritaBadge(p.priorita)}">${p.priorita.toUpperCase()}</span>
                 <span class="badge" style="background:#f3f4f6;color:#374151;">${p.tipo_pratica}</span>
-                ${p.autorita?`<span class="badge" style="background:#eff6ff;color:#1d4ed8;">🏛️ ${p.autorita}</span>`:''}
-                ${scaduta?`<span class="badge" style="background:#fef2f2;color:#dc2626;">⚠️ SCADUTA</span>`:''}
-                ${inScad?`<span class="badge" style="background:#fff7ed;color:#c2410c;">🔔 In scadenza</span>`:''}
+                ${p.autorita?`<span class="badge" style="background:#eff6ff;color:#1d4ed8;">ðŸ›ï¸ ${p.autorita}</span>`:''}
+                ${scaduta?`<span class="badge" style="background:#fef2f2;color:#dc2626;">âš ï¸ SCADUTA</span>`:''}
+                ${inScad?`<span class="badge" style="background:#fff7ed;color:#c2410c;">ðŸ”” In scadenza</span>`:''}
             </div>
             <div style="background:#f9fafb;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;">
                 <p style="color:#374151;font-size:14px;margin:0;"><strong>Descrizione:</strong> ${p.descrizione}</p>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;color:#6b7280;">
-                    <p style="margin:0;">📅 Apertura: <strong>${fmtDate(p.data_apertura)}</strong></p>
-                    ${p.scadenza?`<p style="margin:0;${scaduta?'color:#dc2626;':inScad?'color:#ea580c;':''}">⏰ Scadenza: <strong>${fmtDate(p.scadenza)}</strong></p>`:''}
-                    ${p.responsabile_dipartimento?`<p style="margin:0;">🏢 Resp: <strong>${p.responsabile_dipartimento}</strong></p>`:''}
+                    <p style="margin:0;">ðŸ“… Apertura: <strong>${fmtDate(p.data_apertura)}</strong></p>
+                    ${p.scadenza?`<p style="margin:0;${scaduta?'color:#dc2626;':inScad?'color:#ea580c;':''}">â° Scadenza: <strong>${fmtDate(p.scadenza)}</strong></p>`:''}
+                    ${p.responsabile_dipartimento?`<p style="margin:0;">ðŸ‘¤ Resp: <strong>${p.responsabile_dipartimento}</strong></p>`:''}
                 </div>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                ${canEdit?`<button onclick="state.showDettaglioPratica=false;openPraticaModal(state.viewingPratica)" class="btn-purple" style="flex:1;padding:12px;font-size:14px;">✏️ Modifica Pratica</button>`:''}
-                <button onclick="state.showDettaglioPratica=false;state.showNoteModal=true;render()" class="btn-green" style="flex:1;padding:12px;font-size:14px;">📝 Vedi Note</button>
+                ${canEdit?`<button onclick="state.showDettaglioPratica=false;openPraticaModal(state.viewingPratica)" class="btn-purple" style="flex:1;padding:12px;font-size:14px;">âœï¸ Modifica Pratica</button>`:''}
+                <button onclick="state.showDettaglioPratica=false;state.showNoteModal=true;render()" class="btn-green" style="flex:1;padding:12px;font-size:14px;">ðŸ“ Vedi Note</button>
                 <button onclick="state.showDettaglioPratica=false;render()" class="btn-white" style="padding:12px 20px;font-size:14px;">Chiudi</button>
             </div>
         </div>
@@ -804,8 +824,8 @@ function renderModalPratica() {
     return modalOverlay(`
     <div class="sls-modal animate-slidedown" style="margin:auto;max-height:90vh;display:flex;flex-direction:column;">
         <div class="sls-modal-header" style="flex-shrink:0;">
-            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${isNuova?'➕ Nuova Pratica':'✏️ Modifica Pratica'}</h2>
-            <button class="sls-modal-close" onclick="state.showModal=false;render()">✕</button>
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${isNuova?'âž• Nuova Pratica':'âœï¸ Modifica Pratica'}</h2>
+            <button class="sls-modal-close" onclick="state.showModal=false;render()">âœ•</button>
         </div>
         <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
             <div>
@@ -820,7 +840,7 @@ function renderModalPratica() {
                     </select>
                 </div>
                 <div>
-                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Autorità</label>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">AutoritÃ </label>
                     <select onchange="state.formData.autorita=this.value" class="sls-input">
                         <option value="">-- Nessuna --</option>
                         ${AUTORITA.map(a=>`<option value="${a}" ${state.formData.autorita===a?'selected':''}>${a}</option>`).join('')}
@@ -842,7 +862,7 @@ function renderModalPratica() {
             </div>
             ${isAdmin()&&responsabili.length>0?`
             <div>
-                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">🏢 Responsabile Dipartimento</label>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">ðŸ‘¤ Responsabile Dipartimento</label>
                 <select onchange="state.formData.responsabile_dipartimento=this.value" class="sls-input">
                     <option value="">-- Nessuno --</option>
                     ${responsabili.map(r=>`<option value="${r.nome_completo}" ${state.formData.responsabile_dipartimento===r.nome_completo?'selected':''}>${r.nome_completo}</option>`).join('')}
@@ -860,7 +880,7 @@ function renderModalPratica() {
                     </select>
                 </div>
                 <div>
-                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Priorità *</label>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">PrioritÃ  *</label>
                     <select onchange="state.formData.priorita=this.value" class="sls-input">
                         ${[['bassa','Bassa'],['media','Media'],['alta','Alta']].map(([v,l])=>`<option value="${v}" ${state.formData.priorita===v?'selected':''}>${l}</option>`).join('')}
                     </select>
@@ -876,14 +896,14 @@ function renderModalPratica() {
                     <input type="date" value="${state.formData.scadenza||''}" ${minScadenza?`min="${minScadenza}"`:''}  oninput="state.formData.scadenza=this.value" class="sls-input"/>
                 </div>
                 <div>
-                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Agg.to Attività</label>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Agg.to AttivitÃ </label>
                     <input type="date" value="${state.formData.data_aggiornamento_attivita||today()}" ${minAggAttivita?`min="${minAggAttivita}"`:''}  oninput="state.formData.data_aggiornamento_attivita=this.value" class="sls-input" style="background:#f0fdf4;"/>
                 </div>
             </div>
             <div>
-                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">🔔 Alert Scadenza</label>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">âš ï¸ Alert Scadenza</label>
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-                    ${[['','Nessuno'],['1','⚡ 3 giorni prima'],['2','🕐 10 giorni prima']].map(([v,l])=>`
+                    ${[['','Nessuno'],['1','â— 3 giorni prima'],['2','âš ï¸ 10 giorni prima']].map(([v,l])=>`
                     <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid ${state.formData.alert_giorni===v?'#9333ea':'#e5e7eb'};border-radius:12px;cursor:pointer;background:${state.formData.alert_giorni===v?'#f5f3ff':'#fff'};">
                         <input type="radio" name="alertGiorni" value="${v}" ${state.formData.alert_giorni===v?'checked':''} onchange="state.formData.alert_giorni=this.value;render()"/>
                         <span style="font-size:13px;font-weight:600;">${l}</span>
@@ -891,11 +911,11 @@ function renderModalPratica() {
                 </div>
             </div>
             <div>
-                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📝 Nota Aggiornamento</label>
-                <textarea oninput="state.formData.nota_aggiornamento=this.value" rows="3" class="sls-input" style="resize:vertical;" placeholder="Questa nota verrà aggiunta allo storico...">${state.formData.nota_aggiornamento||''}</textarea>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">ðŸ“ Nota Aggiornamento</label>
+                <textarea oninput="state.formData.nota_aggiornamento=this.value" rows="3" class="sls-input" style="resize:vertical;" placeholder="Questa nota verrÃ  aggiunta allo storico...">${state.formData.nota_aggiornamento||''}</textarea>
             </div>
             <div style="display:flex;gap:10px;padding-top:8px;">
-                <button onclick="submitPratica()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">💾 ${isNuova?'Salva':'Aggiorna'}</button>
+                <button onclick="submitPratica()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">ðŸ’¾ ${isNuova?'Salva':'Aggiorna'}</button>
                 <button onclick="state.showModal=false;render()" class="btn-white" style="padding:14px 20px;font-size:14px;">Annulla</button>
             </div>
         </div>
@@ -908,8 +928,8 @@ function renderModalAvvocato() {
     return modalOverlay(`
     <div class="sls-modal animate-slidedown" style="margin:auto;max-height:90vh;display:flex;flex-direction:column;">
         <div class="sls-modal-header" style="flex-shrink:0;">
-            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${soloColore?'🎨 Colore':state.editingAvvocato?'✏️ Modifica':'➕ Nuovo'} Avvocato</h2>
-            <button class="sls-modal-close" onclick="state.showAvvocatoModal=false;render()">✕</button>
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${soloColore?'ðŸŽ¨ Colore':state.editingAvvocato?'âœï¸ Modifica':'âž• Nuovo'} Avvocato</h2>
+            <button class="sls-modal-close" onclick="state.showAvvocatoModal=false;render()">âœ•</button>
         </div>
         <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
             ${soloColore?'':`
@@ -924,7 +944,7 @@ function renderModalAvvocato() {
                 ${TIPI_PRATICA.map(s=>`<option value="${s}" ${state.avvForm.specializzazione===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
             </select></div>`}
             <div>
-                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">🎨 Colore Avatar</label>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">ðŸŽ¨ Colore Avatar</label>
                 <div style="display:flex;align-items:center;gap:12px;background:#f9fafb;border-radius:14px;padding:14px;margin-bottom:12px;">
                     <span class="avv-avatar-lg" style="background:${col};">${getIniziali((state.avvForm.nome||'')+' '+(state.avvForm.cognome||state.editingAvvocato?.nome_completo||''))}</span>
                     <div><p style="font-weight:600;color:#111;margin:0;">${state.avvForm.nome||''} ${state.avvForm.cognome||state.editingAvvocato?.nome_completo||''}</p><p style="font-size:12px;color:#9ca3af;margin:2px 0;">Anteprima colore</p></div>
@@ -939,7 +959,7 @@ function renderModalAvvocato() {
                 </div>
             </div>
             <div style="display:flex;gap:10px;padding-top:8px;">
-                <button onclick="submitAvvocato()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">💾 ${state.editingAvvocato?'Aggiorna':'Salva'}</button>
+                <button onclick="submitAvvocato()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">ðŸ’¾ ${state.editingAvvocato?'Aggiorna':'Salva'}</button>
                 <button onclick="state.showAvvocatoModal=false;render()" class="btn-white" style="padding:14px 20px;font-size:14px;">Annulla</button>
             </div>
         </div>
@@ -950,8 +970,8 @@ function renderModalUtente() {
     return modalOverlay(`
     <div class="sls-modal animate-slidedown" style="margin:auto;">
         <div class="sls-modal-header">
-            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${state.editingUtente?'✏️ Modifica':'➕ Nuovo'} Utente</h2>
-            <button class="sls-modal-close" onclick="state.showUtenteModal=false;render()">✕</button>
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">${state.editingUtente?'âœï¸ Modifica':'âž• Nuovo'} Utente</h2>
+            <button class="sls-modal-close" onclick="state.showUtenteModal=false;render()">âœ•</button>
         </div>
         <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
             <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Username *</label><input type="text" value="${state.utenteForm.username}" ${state.editingUtente?'disabled':''} oninput="state.utenteForm.username=this.value" class="sls-input" style="${state.editingUtente?'background:#f3f4f6;':''}"/></div>
@@ -960,12 +980,12 @@ function renderModalUtente() {
             <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Email *</label><input type="email" value="${state.utenteForm.email}" oninput="state.utenteForm.email=this.value" class="sls-input"/></div>
             <div><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Ruolo *</label>
             <select onchange="state.utenteForm.ruolo=this.value" class="sls-input">
-                <option value="avvocato" ${state.utenteForm.ruolo==='avvocato'?'selected':''}>⚖️ Avvocato</option>
-                <option value="responsabile_dipartimento" ${state.utenteForm.ruolo==='responsabile_dipartimento'?'selected':''}>🏢 Responsabile Dipartimento</option>
-                <option value="amministratore" ${state.utenteForm.ruolo==='amministratore'?'selected':''}>👑 Amministratore</option>
+                <option value="avvocato" ${state.utenteForm.ruolo==='avvocato'?'selected':''}>âš–ï¸ Avvocato</option>
+                <option value="responsabile_dipartimento" ${state.utenteForm.ruolo==='responsabile_dipartimento'?'selected':''}>ðŸ¢ Responsabile Dipartimento</option>
+                <option value="amministratore" ${state.utenteForm.ruolo==='amministratore'?'selected':''}>ðŸ” Amministratore</option>
             </select></div>
             <div style="display:flex;gap:10px;padding-top:8px;">
-                <button onclick="submitUtente()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">💾 ${state.editingUtente?'Aggiorna':'Crea'}</button>
+                <button onclick="submitUtente()" class="btn-purple" style="flex:1;padding:14px;font-size:15px;">ðŸ’¾ ${state.editingUtente?'Aggiorna':'Crea'}</button>
                 <button onclick="state.showUtenteModal=false;render()" class="btn-white" style="padding:14px 20px;font-size:14px;">Annulla</button>
             </div>
         </div>
@@ -983,41 +1003,24 @@ function renderModalNote() {
                 </div>
                 <p style="color:rgba(255,255,255,0.7);font-size:13px;margin:0;">${p?.descrizione}</p>
             </div>
-            <button class="sls-modal-close" onclick="state.showNoteModal=false;render()">✕</button>
+            <button class="sls-modal-close" onclick="state.showNoteModal=false;render()">âœ•</button>
         </div>
         <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
-            ${isAdmin()||isResp()?`<div style="display:flex;justify-content:flex-end;"><button onclick="state.showNoteModal=false;openPraticaModal(state.viewingPratica)" class="btn-purple" style="padding:10px 18px;font-size:13px;">✏️ Modifica Pratica</button></div>`:''}
+            ${isAdmin()||isResp()?`<div style="display:flex;justify-content:flex-end;"><button onclick="state.showNoteModal=false;openPraticaModal(state.viewingPratica)" class="btn-purple" style="padding:10px 18px;font-size:13px;">âœï¸ Modifica Pratica</button></div>`:''}
             ${p?.stato!=='fatto'?`
             <div style="background:#f5f3ff;border-radius:16px;padding:18px;border:1px solid #ede9fe;">
-                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📝 Aggiungi Nota</label>
+                <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">ðŸ“ Aggiungi Nota</label>
                 <textarea oninput="state.noteForm.nota=this.value" rows="3" class="sls-input" style="background:#fff;margin-bottom:10px;" placeholder="Scrivi qui la nota...">${state.noteForm.nota||''}</textarea>
-                <button onclick="submitNota()" class="btn-purple" style="padding:10px 20px;font-size:14px;">➕ Aggiungi Nota</button>
+                <button onclick="submitNota()" class="btn-purple" style="padding:10px 20px;font-size:14px;">âž• Aggiungi Nota</button>
             </div>`:''}
-            <h3 style="font-size:16px;font-weight:700;color:#111;margin:0;">📜 Storico Note</h3>
+            <h3 style="font-size:16px;font-weight:700;color:#111;margin:0;">ðŸ“‹ Storico Note</h3>
             ${state.noteAggiornamento.length>0?`
             <div style="display:flex;flex-direction:column;gap:10px;">
                 ${state.noteAggiornamento.map(n=>`
                 <div style="padding:16px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:14px;border-left:4px solid #9333ea;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                         <div style="display:flex;align-items:center;gap:8px;">${avvAvatar(n.autore)}<strong style="font-size:13px;">${n.autore}</strong></div>
-                        <span style="font-size:12px;color:#9ca3af;">📅 ${fmtDate(n.data_nota)}</span>
-                    </div>
-                    <p style="color:#374151;font-size:14px;margin:0;">${n.nota}</p>
-                </div>`).join('')}
-            </div>`:`<p style="text-align:center;color:#9ca3af;padding:30px;">Nessuna nota ancora inserita</p>`}
-        </div>
-    </div>`);
-}
-</div>`:''}
-            </div>
-            <h3 style="font-size:16px;font-weight:700;color:#111;margin:0;">📜 Storico Note</h3>
-            ${state.noteAggiornamento.length>0?`
-            <div style="display:flex;flex-direction:column;gap:10px;">
-                ${state.noteAggiornamento.map(n=>`
-                <div style="padding:16px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border-radius:14px;border-left:4px solid #9333ea;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                        <div style="display:flex;align-items:center;gap:8px;">${avvAvatar(n.autore)}<strong style="font-size:13px;">${n.autore}</strong></div>
-                        <span style="font-size:12px;color:#9ca3af;">📅 ${fmtDate(n.data_nota)}</span>
+                        <span style="font-size:12px;color:#9ca3af;">ðŸ“… ${fmtDate(n.data_nota)}</span>
                     </div>
                     <p style="color:#374151;font-size:14px;margin:0;">${n.nota}</p>
                 </div>`).join('')}
@@ -1030,13 +1033,13 @@ function renderModalAlert() {
     return modalOverlay(`
     <div class="sls-modal animate-slidedown" style="margin:auto;max-height:85vh;display:flex;flex-direction:column;">
         <div style="background:linear-gradient(135deg,#f97316,#dc2626);border-radius:20px 20px 0 0;padding:24px 28px;display:flex;justify-content:space-between;align-items:center;">
-            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">🔔 Alert Scadenze</h2>
-            <button class="sls-modal-close" onclick="state.showAlertModal=false;render()">✕</button>
+            <h2 style="color:#fff;font-size:20px;font-weight:700;margin:0;">âš ï¸ Alert Scadenze</h2>
+            <button class="sls-modal-close" onclick="state.showAlertModal=false;render()">âœ•</button>
         </div>
         <div style="padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
             ${state.alertList.filter(a=>a.tipo==='scaduta').length>0?`
             <div>
-                <h3 style="font-size:15px;font-weight:700;color:#dc2626;margin:0 0 10px;">⚠️ Pratiche già scadute</h3>
+                <h3 style="font-size:15px;font-weight:700;color:#dc2626;margin:0 0 10px;">âš ï¸ Pratiche giÃ  scadute</h3>
                 ${state.alertList.filter(a=>a.tipo==='scaduta').map(({pratica:p,diff})=>`
                 <div style="padding:16px;background:#fef2f2;border:2px solid #fecaca;border-radius:14px;margin-bottom:8px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -1044,15 +1047,15 @@ function renderModalAlert() {
                         <span class="badge" style="background:#fecaca;color:#dc2626;">Scaduta da ${Math.abs(diff)}gg</span>
                     </div>
                     <div style="display:flex;gap:12px;font-size:12px;color:#9ca3af;flex-wrap:wrap;">
-                        ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
-                        <span>📅 <strong style="color:#dc2626;">${fmtDate(p.scadenza)}</strong></span>
-                        <span>👤 ${p.avvocato}</span>
+                        ${p.autorita?`<span>ðŸ›ï¸ ${p.autorita}</span>`:''}
+                        <span>ðŸ“… <strong style="color:#dc2626;">${fmtDate(p.scadenza)}</strong></span>
+                        <span>âš–ï¸ ${p.avvocato}</span>
                     </div>
                 </div>`).join('')}
             </div>`:''}
             ${state.alertList.filter(a=>a.tipo==='imminente').length>0?`
             <div>
-                <h3 style="font-size:15px;font-weight:700;color:#ea580c;margin:0 0 10px;">🔔 In scadenza</h3>
+                <h3 style="font-size:15px;font-weight:700;color:#ea580c;margin:0 0 10px;">ðŸ”” In scadenza</h3>
                 ${state.alertList.filter(a=>a.tipo==='imminente').map(({pratica:p,diff})=>`
                 <div style="padding:16px;background:#fff7ed;border:2px solid #fed7aa;border-radius:14px;margin-bottom:8px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -1060,13 +1063,13 @@ function renderModalAlert() {
                         <span class="badge" style="background:#fed7aa;color:#c2410c;">Scade tra ${diff}gg</span>
                     </div>
                     <div style="display:flex;gap:12px;font-size:12px;color:#9ca3af;flex-wrap:wrap;">
-                        ${p.autorita?`<span>🏛️ ${p.autorita}</span>`:''}
-                        <span>📅 <strong style="color:#ea580c;">${fmtDate(p.scadenza)}</strong></span>
-                        <span>👤 ${p.avvocato}</span>
+                        ${p.autorita?`<span>ðŸ›ï¸ ${p.autorita}</span>`:''}
+                        <span>ðŸ“… <strong style="color:#ea580c;">${fmtDate(p.scadenza)}</strong></span>
+                        <span>âš–ï¸ ${p.avvocato}</span>
                     </div>
                 </div>`).join('')}
             </div>`:''}
-            <button onclick="state.showAlertModal=false;render()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f97316,#dc2626);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;">✅ Ho capito</button>
+            <button onclick="state.showAlertModal=false;render()" style="width:100%;padding:14px;background:linear-gradient(135deg,#f97316,#dc2626);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;font-size:14px;">âœ” Ho capito</button>
         </div>
     </div>`);
 }
@@ -1158,8 +1161,8 @@ async function submitPratica() {
     const f=state.formData,orig=state.editingPratica,isNuova=!orig;
     if(!f.cliente||!f.descrizione||!f.avvocato){alert('Compila tutti i campi obbligatori (*)');return;}
     if(!isAdmin()&&!isResp()&&!isNuova){
-        if(f.scadenza&&orig.scadenza&&f.scadenza<orig.scadenza){alert('⚠️ Non puoi retrodatare la scadenza!');return;}
-        if(f.data_aggiornamento_attivita&&orig.data_aggiornamento_attivita&&f.data_aggiornamento_attivita<orig.data_aggiornamento_attivita){alert('⚠️ Non puoi retrodatare!');return;}
+        if(f.scadenza&&orig.scadenza&&f.scadenza<orig.scadenza){alert('âš ï¸ Non puoi retrodatare la scadenza!');return;}
+        if(f.data_aggiornamento_attivita&&orig.data_aggiornamento_attivita&&f.data_aggiornamento_attivita<orig.data_aggiornamento_attivita){alert('âš ï¸ Non puoi retrodatare!');return;}
         f.data_apertura=orig.data_apertura;
     }
     const p={...f};if(orig)p.id=orig.id;
@@ -1198,16 +1201,33 @@ function confirmDeleteAvvocato(id){if(isAdmin()&&confirm('Eliminare questo avvoc
 function confirmDeleteUtente(id){if(confirm('Eliminare questo utente?'))deleteUtente(id);}
 
 
-render();
+try { render(); } catch(e) {
+    var el = document.getElementById('app');
+    if (el) el.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif;max-width:500px;margin:80px auto;">'
+        + '<h2 style="color:#dc2626;">Errore avvio</h2>'
+        + '<p style="background:#fef2f2;border:1px solid #fecaca;padding:16px;border-radius:8px;font-family:monospace;color:#7f1d1d;">' + e.message + '</p>'
+        + '<p style="color:#9ca3af;font-size:12px;">Premi F12 &rarr; Console per i dettagli.</p>'
+        + '</div>';
+}
+</script>
+<script>
+setTimeout(function() {
+    var app = document.getElementById('app');
+    if (!app) return;
+    var html = app.innerHTML || '';
+    if (html.indexOf('Caricamento') === -1) return;
+    var msg = '';
+    if (typeof render !== 'function') {
+        msg = 'ERRORE DI PARSING: il blocco script principale non e\' stato eseguito (render non definita). Apri F12 &rarr; Console per vedere la riga esatta dell\'errore.';
+    } else {
+        try { render(); return; } catch(e) { msg = 'render() ha lanciato un errore: ' + e.message; }
+    }
+    app.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif;max-width:600px;margin:80px auto;">'
+        + '<h2 style="color:#dc2626;">Diagnostica SLS</h2>'
+        + '<p style="background:#fef2f2;border:1px solid #fecaca;padding:16px;border-radius:8px;color:#7f1d1d;text-align:left;">' + msg + '</p>'
+        + '<p style="color:#9ca3af;font-size:12px;margin-top:12px;">Premi F12 &rarr; Console &rarr; cerca "SyntaxError" per il dettaglio.</p>'
+        + '</div>';
+}, 3000);
 </script>
 </body>
 </html>
-
-
-                                                                                            
-
-
-
-
-
-
