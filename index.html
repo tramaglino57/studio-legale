@@ -36,7 +36,7 @@
         .badge { display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600; }
         .badge-svolgimento { background:#f3e8ff;color:#7c3aed; }
         .badge-fatto { background:#dcfce7;color:#16a34a; }
-        .badge-bloccato { background:#fee2e2;color:#dc2626; }
+        .badge-sospesa { background:#fee2e2;color:#dc2626; }
         .badge-bassa { background:#dbeafe;color:#1d4ed8; }
         .badge-media { background:#a855f7;color:#fff; }
         .badge-alta { background:#1e3a8a;color:#fff; }
@@ -244,17 +244,17 @@ function stampa(){window.print();}
 function showSuccess(msg){state.successMessage=msg;render();setTimeout(()=>{state.successMessage='';render();},3000);}
 function fmtDate(d){return d?new Date(d).toLocaleDateString('it-IT'):'';}
 function getRuoloBadge(r){ if(r==='amministratore'||r==='admin')return{label:'🔐 Admin',cls:'color:#9333ea'}; if(r==='responsabile_dipartimento')return{label:'🏢 Resp. Dipartimento',cls:'color:#7c3aed'}; return{label:'⚖️ Avvocato',cls:'color:#6b7280'}; }
-function getStatoBadge(s){return{svolgimento:'badge badge-svolgimento',fatto:'badge badge-fatto',bloccato:'badge badge-bloccato'}[s]||'badge badge-svolgimento';}
-function getStatoIcon(s){return s==='fatto'?'✅':s==='bloccato'?'🚫':'🔄';}
+function getStatoBadge(s){return{svolgimento:'badge badge-svolgimento',fatto:'badge badge-fatto',sospesa:'badge badge-sospesa'}[s]||'badge badge-svolgimento';}
+function getStatoIcon(s){return s==='fatto'?'✅':s==='sospesa'?'🚫':'🔄';}
 function getPrioritaBadge(p){return{bassa:'badge badge-bassa',media:'badge badge-media',alta:'badge badge-alta'}[p]||'badge badge-media';}
-function getAvvStats(nome){ const ps=state.pratiche.filter(p=>p.avvocato===nome); return{totali:ps.length,svolgimento:ps.filter(p=>p.stato==='svolgimento').length,fatto:ps.filter(p=>p.stato==='fatto').length,bloccato:ps.filter(p=>p.stato==='bloccato').length}; }
+function getAvvStats(nome){ const ps=state.pratiche.filter(p=>p.avvocato===nome); return{totali:ps.length,svolgimento:ps.filter(p=>p.stato==='svolgimento').length,fatto:ps.filter(p=>p.stato==='fatto').length,sospesa:ps.filter(p=>p.stato==='sospesa').length}; }
 function getFiltered(){ const visibili=getPraticheVisibili(); return visibili.filter(p=>{ const s=state.searchTerm.toLowerCase(); const match=p.cliente.toLowerCase().includes(s)||p.descrizione.toLowerCase().includes(s)||(p.rgnr||'').toLowerCase().includes(s); return match&&(state.filterStato==='tutti'||p.stato===state.filterStato)&&(state.filterTipo==='tutti'||p.tipo_pratica===state.filterTipo)&&(state.filterPriorita==='tutti'||p.priorita===state.filterPriorita)&&(state.filterAvvocato==='tutti'||p.avvocato===state.filterAvvocato); }); }
 
 // 🖥️ RENDER ????????????????????????????????????????????????
 function render() {
     if(!state.user){renderLogin();return;}
     const visibili=getPraticheVisibili();
-    const stats={totali:visibili.length,svolgimento:visibili.filter(p=>p.stato==='svolgimento').length,fatto:visibili.filter(p=>p.stato==='fatto').length,bloccato:visibili.filter(p=>p.stato==='bloccato').length,scadute:visibili.filter(p=>isPraticaScaduta(p)).length,inScadenza:visibili.filter(p=>isPraticaInScadenza(p)).length};
+    const stats={totali:visibili.length,svolgimento:visibili.filter(p=>p.stato==='svolgimento').length,fatto:visibili.filter(p=>p.stato==='fatto').length,sospesa:visibili.filter(p=>p.stato==='sospesa').length,scadute:visibili.filter(p=>isPraticaScaduta(p)).length,inScadenza:visibili.filter(p=>isPraticaInScadenza(p)).length};
     const filtered=getFiltered();
     const tabs=[{id:'dashboard',label:'Dashboard',icon:'📊',show:true},{id:'pratiche',label:'Pratiche',icon:'📁',show:true},{id:'avvocati',label:'Avvocati',icon:'👥',show:true},{id:'utenti',label:'Utenti',icon:'🔐',show:isAdmin()},{id:'dipartimenti',label:'Dipartimenti',icon:'🏢',show:isAdmin()},{id:'gestione',label:'Gestione Dati',icon:'🗄️',show:isAdmin()},{id:'notifiche',label:'Notifiche',icon:'🔔',show:true}].filter(t=>t.show);
 
@@ -338,7 +338,7 @@ function statIcon(icon) {
 }
 
 function renderDashboard(stats) {
-    const statItems=[{label:'Totale Pratiche',val:stats.totali,icon:'folder'},{label:'In Svolgimento',val:stats.svolgimento,icon:'refresh'},{label:'Completate',val:stats.fatto,icon:'check'},{label:'Bloccate',val:stats.bloccato,icon:'block'}];
+    const statItems=[{label:'Totale Pratiche',val:stats.totali,icon:'folder'},{label:'In Svolgimento',val:stats.svolgimento,icon:'refresh'},{label:'Completate',val:stats.fatto,icon:'check'},{label:'Sospese',val:stats.sospesa,icon:'block'}];
     return `
     <div style="display:flex;flex-direction:column;gap:24px;">
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
@@ -382,7 +382,7 @@ function renderAvvMiniDashboard(nome){
             <div><div style="font-size:22px;font-weight:700;color:#111;">${st.totali}</div><div style="font-size:11px;color:#9ca3af;">Totali</div></div>
             <div><div style="font-size:22px;font-weight:700;color:#d97706;">${st.svolgimento}</div><div style="font-size:11px;color:#9ca3af;">Svolgimento</div></div>
             <div><div style="font-size:22px;font-weight:700;color:#16a34a;">${st.fatto}</div><div style="font-size:11px;color:#9ca3af;">Fatto</div></div>
-            <div><div style="font-size:22px;font-weight:700;color:#dc2626;">${st.bloccato}</div><div style="font-size:11px;color:#9ca3af;">Bloccato</div></div>
+            <div><div style="font-size:22px;font-weight:700;color:#dc2626;">${st.sospesa}</div><div style="font-size:11px;color:#9ca3af;">Sospesa</div></div>
             <div><div style="font-size:22px;font-weight:700;color:#ea580c;">${scadenzaP}</div><div style="font-size:11px;color:#9ca3af;">In scadenza</div></div>
             <div><div style="font-size:22px;font-weight:700;color:#b91c1c;">${scaduteP}</div><div style="font-size:11px;color:#9ca3af;">Scadute</div></div>
         </div>
@@ -414,7 +414,7 @@ function renderPratiche(filtered) {
                     <option value="tutti">Tutti stati</option>
                     <option value="svolgimento" ${state.filterStato==='svolgimento'?'selected':''}>Svolgimento</option>
                     <option value="fatto" ${state.filterStato==='fatto'?'selected':''}>Fatto</option>
-                    <option value="bloccato" ${state.filterStato==='bloccato'?'selected':''}>Bloccato</option>
+                    <option value="sospesa" ${state.filterStato==='sospesa'?'selected':''}>Sospesa</option>
                 </select>
                 <select onchange="state.filterTipo=this.value;render()" class="sls-input" style="padding:10px 14px;">
                     <option value="tutti">Tutti i tipi</option>
@@ -560,7 +560,7 @@ async function renderAvvocati() {
                         <div><div style="font-size:18px;font-weight:700;color:#111;">${st.totali}</div><div style="font-size:11px;color:#9ca3af;">Totali</div></div>
                         <div><div style="font-size:18px;font-weight:700;color:#d97706;">${st.svolgimento}</div><div style="font-size:11px;color:#9ca3af;">Svolgimento</div></div>
                         <div><div style="font-size:18px;font-weight:700;color:#16a34a;">${st.fatto}</div><div style="font-size:11px;color:#9ca3af;">Fatto</div></div>
-                        <div><div style="font-size:18px;font-weight:700;color:#dc2626;">${st.bloccato}</div><div style="font-size:11px;color:#9ca3af;">Bloccato</div></div>
+                        <div><div style="font-size:18px;font-weight:700;color:#dc2626;">${st.sospesa}</div><div style="font-size:11px;color:#9ca3af;">Sospesa</div></div>
                     </div>
                     ${storico.length>0?`
                     <div style="margin-bottom:14px;">
@@ -903,7 +903,7 @@ function renderModalPratica() {
                 <div>
                     <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">Stato *</label>
                     <select onchange="state.formData.stato=this.value" class="sls-input">
-                        ${[['svolgimento','Svolgimento'],['fatto','Fatto'],['bloccato','Bloccato']].map(([v,l])=>`<option value="${v}" ${state.formData.stato===v?'selected':''}>${l}</option>`).join('')}
+                        ${[['svolgimento','Svolgimento'],['fatto','Fatto'],['sospesa','Sospesa']].map(([v,l])=>`<option value="${v}" ${state.formData.stato===v?'selected':''}>${l}</option>`).join('')}
                     </select>
                 </div>
                 <div>
