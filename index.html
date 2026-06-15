@@ -362,6 +362,32 @@ function renderDashboard(stats) {
         </div>`:''}
     </div>`;
 }
+function renderAvvMiniDashboard(nome){
+    const avv=state.avvocati.find(a=>a.nome_completo===nome);
+    const st=getAvvStats(nome);
+    const colore=avv?(avv.colore||getAvvColor(nome)):getAvvColor(nome);
+    const scadenzaP=state.pratiche.filter(p=>p.avvocato===nome&&isPraticaInScadenza(p)&&p.stato!=='fatto').length;
+    const scaduteP=state.pratiche.filter(p=>p.avvocato===nome&&isPraticaScaduta(p)&&p.stato!=='fatto').length;
+    return `<div class="sls-card" style="padding:20px;border-top:4px solid ${colore};">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+            ${avvAvatar(nome,true)}
+            <div>
+                <h3 style="font-size:17px;font-weight:700;color:#111;margin:0;">${nome}</h3>
+                ${avv&&avv.specializzazione?`<p style="font-size:12px;font-weight:600;color:${colore};margin:2px 0;">${avv.specializzazione}</p>`:''}
+                ${avv&&avv.email?`<p style="font-size:13px;color:#6b7280;margin:2px 0;">📧 ${avv.email}</p>`:''}
+                ${avv&&avv.telefono?`<p style="font-size:13px;color:#6b7280;margin:2px 0;">📞 ${avv.telefono}</p>`:''}
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;text-align:center;background:#f9fafb;border-radius:12px;padding:14px;">
+            <div><div style="font-size:22px;font-weight:700;color:#111;">${st.totali}</div><div style="font-size:11px;color:#9ca3af;">Totali</div></div>
+            <div><div style="font-size:22px;font-weight:700;color:#d97706;">${st.svolgimento}</div><div style="font-size:11px;color:#9ca3af;">Svolgimento</div></div>
+            <div><div style="font-size:22px;font-weight:700;color:#16a34a;">${st.fatto}</div><div style="font-size:11px;color:#9ca3af;">Fatto</div></div>
+            <div><div style="font-size:22px;font-weight:700;color:#dc2626;">${st.bloccato}</div><div style="font-size:11px;color:#9ca3af;">Bloccato</div></div>
+            <div><div style="font-size:22px;font-weight:700;color:#ea580c;">${scadenzaP}</div><div style="font-size:11px;color:#9ca3af;">In scadenza</div></div>
+            <div><div style="font-size:22px;font-weight:700;color:#b91c1c;">${scaduteP}</div><div style="font-size:11px;color:#9ca3af;">Scadute</div></div>
+        </div>
+    </div>`;
+}
 function renderPratiche(filtered) {
     const visibili=getPraticheVisibili();
     const avvocatiList=['tutti',...new Set(visibili.map(p=>p.avvocato).filter(Boolean))];
@@ -404,6 +430,7 @@ function renderPratiche(filtered) {
                 <button onclick="stampa()" class="btn-white" style="padding:10px 16px;font-size:13px;">🖨️ Stampa</button>
             </div>
         </div>
+        ${isAdmin()&&state.filterAvvocato!=='tutti'?renderAvvMiniDashboard(state.filterAvvocato):''}
         <div id="praticheResult">
             ${state.viewMode==='table'?renderPraticheTable(filtered):renderPraticheCards(filtered)}
         </div>
